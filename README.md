@@ -21,7 +21,7 @@ No game file modification or code injection. The tool only simulates keyboard an
 
 - Windows 10 / 11
 - Forza Horizon 6
-
+- v1.0.0's default templates are in Traditional Chinese only. Please use custom and capture your own templates if your game is in any other languages.
 ---
 
 ## Download
