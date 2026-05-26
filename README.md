@@ -1,6 +1,6 @@
 # Full Auto Forza Edition (FAFE)
 
-An automation tool for Forza Horizon 6. Automates two of the most repetitive tasks — race grinding for skill points and unlocking 22B-STi mastery wheels.
+An automation tool for Forza Horizon 6. Automates three of the most repetitive tasks — race grinding for skill points, unlocking 22B-STi mastery wheels, and bulk purchasing 22B-STi units.
 
 No game file modification or code injection. The tool only simulates keyboard and mouse input.
 
@@ -8,12 +8,14 @@ No game file modification or code injection. The tool only simulates keyboard an
 
 ## Features
 
-- 🏁 **Race Auto-Grind** — Detects race start, finish and restart screens automatically. Holds W throughout, restarts when the race ends.
-- ⭐ **Auto Unlock 22B Mastery Wheels** — Snake-navigates your garage, enters each car, opens mastery, clicks all nodes, moves to the next.
-- 📸 **Template Matching** — Uses your own in-game screenshots as detection templates. Built-in 1080p / 1440p / 4K sets included.
+- 🏁 **Race Auto-Grind** — Detects race start, finish and restart screens automatically. Holds W throughout, restarts when the race ends, loops indefinitely.
+- ⭐ **Auto Unlock 22B Mastery Wheels** — Snake-navigates your garage, enters each car, opens Car Mastery, clicks all nodes, and moves to the next.
+- 🛒 **Auto Buy 22B-STi** — Navigates to the 22B-STi in the Journal and automatically presses through the purchase sequence, looping until stopped.
+- 📸 **Template Matching** — Uses your own in-game screenshots as detection templates. Built-in 1080p / 1440p / 4K sets included. Custom capture supported.
 - 🌏 **Three-language UI** — Traditional Chinese, Simplified Chinese and English.
-- ⌨️ **Customizable Hotkeys** — Rebind start/stop and capture keys.
+- ⌨️ **Customizable Hotkeys** — Rebind start/stop and capture keys to anything.
 - 🖥️ **Multi-monitor Support** — Select which monitor your game is on.
+- 🎛️ **Per-template Thresholds** — Fine-tune detection sensitivity individually for each template.
 
 ---
 
@@ -21,12 +23,13 @@ No game file modification or code injection. The tool only simulates keyboard an
 
 - Windows 10 / 11
 - Forza Horizon 6
-- v1.0.0's default templates are in Traditional Chinese only. Please use custom and capture your own templates if your game is in any other languages.
+- Game language set to **Traditional Chinese** if using built-in templates
+
 ---
 
 ## Download
 
-See the [Releases](../../releases) page for the latest `FAFE.exe`.
+See the [Releases](../../releases) page for the latest `FAFE.zip`.
 
 ---
 
@@ -37,7 +40,7 @@ See the [Releases](../../releases) page for the latest `FAFE.exe`.
 3. Switch to Forza Horizon 6 and get to the correct starting screen
 4. Press **▶ Start** or hit **F9**
 
-Full setup guide: [leoncrispybacon.github.io/FAFE](https://leoncrispybacon.github.io/FAFE)
+Full setup guide and tutorial: [leoncrispybacon.github.io/FAFE](https://leoncrispybacon.github.io/FAFE)
 
 ---
 
