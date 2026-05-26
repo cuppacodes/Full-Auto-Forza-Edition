@@ -680,7 +680,8 @@ class MainWindow(ctk.CTk):
             _lang_row, variable=self._lang_var,
             values=list(_lang_map.values()),
             command=self._on_lang_change,
-            width=160).pack(side='left', padx=8)
+            width=160)
+        self._lang_menu.pack(side='left', padx=8)
 
         # ── Shortcuts ─────────────────────────────────────
         section('settings_shortcuts_section')
