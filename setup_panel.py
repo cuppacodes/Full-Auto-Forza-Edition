@@ -233,6 +233,14 @@ class SetupPanel(ctk.CTkFrame):
             self._node_dot.pack(side="left", padx=(0, 6))
             ctk.CTkLabel(nf, text=_at("label_nodes", self._lang),
                          anchor="w").pack(side="left")
+            self._node_recapture_btn = ctk.CTkButton(
+                nf, text='↺', width=28,
+                command=self._recapture_nodes,
+                fg_color='transparent',
+                hover_color=('gray80', 'gray30'),
+                text_color=('gray40', 'gray70'),
+                font=('Arial', 14))
+            self._node_recapture_btn.pack(side="right", padx=4)
             self._refresh_node_dot()
 
         # Capture controls
@@ -285,6 +293,11 @@ class SetupPanel(ctk.CTkFrame):
         state = 'normal' if self._is_custom() else 'disabled'
         if hasattr(self, '_cap_btn'):
             self._cap_btn.configure(state=state)
+        if hasattr(self, '_node_recapture_btn'):
+            if self._is_custom():
+                self._node_recapture_btn.pack(side="right", padx=4)
+            else:
+                self._node_recapture_btn.pack_forget()
         for row in self._rows.values():
             row.set_recapture_visible(self._is_custom())
 
@@ -308,6 +321,18 @@ class SetupPanel(ctk.CTkFrame):
         config.save(cfg)
 
     # ── Capture session ───────────────────────────────────────
+
+    def _recapture_nodes(self):
+        """Immediately start a node capture session."""
+        if self._collapsed:
+            self._toggle()
+        if self._session:
+            self._session.stop()
+            self._session = None
+        self._pending = ["__nodes__"]
+        self._cap_btn.configure(state="disabled")
+        self._stop_btn.configure(state="normal")
+        self._advance_session()
 
     def _recapture_one(self, key):
         """Immediately start a capture session for one specific template."""

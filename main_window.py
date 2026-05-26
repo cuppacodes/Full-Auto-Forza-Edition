@@ -138,9 +138,16 @@ class MainWindow(ctk.CTk):
             width=140)
         self._mastery_tab_btn.pack(side="left")
 
+        self._buy_tab_btn = ctk.CTkButton(
+            self._tab_frame, text=_at("tab_buy", self._lang),
+            command=lambda: self._switch_tab("buy"),
+            width=140)
+        self._buy_tab_btn.pack(side="left", padx=(6, 0))
+
         # Content frames
         self._race_frame    = self._build_race_tab()
         self._mastery_frame = self._build_mastery_tab()
+        self._buy_frame     = self._build_buy_tab()
 
         # Status bar
         self._status_var = ctk.StringVar(value=_at("status_ready", self._lang))
@@ -300,6 +307,24 @@ class MainWindow(ctk.CTk):
             slider.pack(side="left", fill="x", expand=True, padx=4)
             val_lbl.pack(side="right", padx=(4, 0))
 
+    def _build_buy_tab(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+
+        # Description
+        desc = ctk.CTkFrame(frame, fg_color="transparent")
+        desc.pack(fill="x", padx=12, pady=(12, 4))
+        ctk.CTkLabel(desc, text=_at("buy_description", self._lang),
+                     anchor="w", wraplength=480,
+                     font=("Arial", 12)).pack(fill="x")
+
+        # Run controls
+        self._build_run_controls(frame, mode="buy")
+
+        # Log
+        self._buy_log = LogWidget(frame)
+        self._buy_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
+        return frame
+
     def _build_run_controls(self, parent, mode: str):
         row = ctk.CTkFrame(parent, fg_color="transparent")
         row.pack(fill="x", padx=8, pady=(4, 0))
@@ -326,7 +351,7 @@ class MainWindow(ctk.CTk):
                 text_color=("gray50", "gray60"))
             self._race_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
-        else:
+        elif mode == "mastery":
             self._mastery_start_btn = ctk.CTkButton(
                 row, text=_at("btn_start", self._lang),
                 command=self._start_mastery,
@@ -348,6 +373,28 @@ class MainWindow(ctk.CTk):
                 text_color=("gray50", "gray60"))
             self._mastery_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
+        else:  # buy
+            self._buy_start_btn = ctk.CTkButton(
+                row, text=_at("btn_start", self._lang),
+                command=self._start_buy,
+                width=120, font=("Arial", 13, "bold"))
+            self._buy_start_btn.pack(side="left", padx=(0, 8))
+
+            self._buy_stop_btn = ctk.CTkButton(
+                row, text=_at("btn_stop", self._lang),
+                command=self._stop_auto,
+                fg_color="#dc2626", hover_color="#b91c1c",
+                width=100, state="disabled")
+            self._buy_stop_btn.pack(side="left")
+
+            self._buy_shortcut_lbl = ctk.CTkLabel(
+                parent,
+                text=_at("shortcut_toggle", self._lang,
+                         key=self._toggle_key.upper()),
+                font=("Arial", 11),
+                text_color=("gray50", "gray60"))
+            self._buy_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
+
     # ── Tab switching ─────────────────────────────────────────
 
     def _switch_tab(self, tab: str):
@@ -356,19 +403,23 @@ class MainWindow(ctk.CTk):
         self._current_tab = tab
         self._race_frame.pack_forget()
         self._mastery_frame.pack_forget()
+        self._buy_frame.pack_forget()
+
+        active   = ("gray75", "gray35")
+        inactive = ("gray85", "gray20")
+        self._race_tab_btn.configure(   fg_color=active if tab == "race"    else inactive)
+        self._mastery_tab_btn.configure(fg_color=active if tab == "mastery" else inactive)
+        self._buy_tab_btn.configure(    fg_color=active if tab == "buy"     else inactive)
 
         if tab == "race":
-            self._race_frame.pack(fill="both", expand=True,
-                                  padx=4, pady=4)
-            self._race_tab_btn.configure(fg_color=("gray75", "gray35"))
-            self._mastery_tab_btn.configure(fg_color=("gray85", "gray20"))
+            self._race_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._race_log
-        else:
-            self._mastery_frame.pack(fill="both", expand=True,
-                                     padx=4, pady=4)
-            self._mastery_tab_btn.configure(fg_color=("gray75", "gray35"))
-            self._race_tab_btn.configure(fg_color=("gray85", "gray20"))
+        elif tab == "mastery":
+            self._mastery_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._mastery_log
+        else:
+            self._buy_frame.pack(fill="both", expand=True, padx=4, pady=4)
+            self._active_log = self._buy_log
 
     # ── Automation control ────────────────────────────────────
 
@@ -456,6 +507,49 @@ class MainWindow(ctk.CTk):
         self._auto_thread.start()
         self._poll_thread()
 
+    def _start_buy(self):
+        if self._auto_thread and self._auto_thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._set_status(_at("status_starting_buy", self._lang))
+        self._buy_start_btn.configure(state="disabled")
+        self._buy_stop_btn.configure(state="normal")
+        self._buy_log.clear()
+
+        def _buy_safe():
+            log_cb = self._buy_log.log
+            lang = self._cfg.get('lang', 'en')
+            try:
+                import time as _t
+                import keyboard
+                log_cb(_at('startup_switch_to_game', lang))
+                for i in range(5, 0, -1):
+                    if self._stop_event.is_set(): return
+                    log_cb(_at('startup_countdown', lang, i=i))
+                    self._set_status(_at('startup_countdown', lang, i=i))
+                    _t.sleep(1)
+                if self._stop_event.is_set(): return
+                log_cb(_at('buy_running', lang))
+                loop = 0
+                while not self._stop_event.is_set():
+                    loop += 1
+                    log_cb(f"-- {_at('buy_loop', lang)} #{loop} --")
+                    for key in ['space', 'down', 'enter', 'enter', 'enter']:
+                        if self._stop_event.is_set(): break
+                        keyboard.press_and_release(key)
+                        log_cb(f"  [{key}]")
+                        _t.sleep(0.5)
+            except Exception as e:
+                import traceback
+                log_cb(f'ERROR: {e}')
+                log_cb(traceback.format_exc())
+                self._set_status(f'Error: {e}')
+
+        self._auto_thread = threading.Thread(
+            target=_buy_safe, daemon=True)
+        self._auto_thread.start()
+        self._poll_thread()
+
     def _poll_example_queue(self):
         """Poll capture.py example queue and manage CTkToplevel on main thread."""
         try:
@@ -526,8 +620,10 @@ class MainWindow(ctk.CTk):
         else:
             if self._current_tab == 'race':
                 self._start_race()
-            else:
+            elif self._current_tab == 'mastery':
                 self._start_mastery()
+            else:
+                self._start_buy()
 
     def _stop_auto(self):
         self._stop_event.set()
@@ -538,15 +634,24 @@ class MainWindow(ctk.CTk):
         if self._auto_thread and self._auto_thread.is_alive():
             self.after(300, self._poll_thread)
         else:
-            import keyboard
+            # Re-register the toggle hotkey (automation threads may have
+            # cleared keyboard hooks internally — always restore it here)
             try:
-                keyboard.unhook_all_hotkeys()
+                import keyboard
+                keyboard.remove_hotkey(self._toggle_key)
+            except Exception:
+                pass
+            try:
+                import keyboard
+                keyboard.add_hotkey(self._toggle_key, self._toggle_auto)
             except Exception:
                 pass
             self._race_start_btn.configure(state="normal")
             self._race_stop_btn.configure(state="disabled")
             self._mastery_start_btn.configure(state="normal")
             self._mastery_stop_btn.configure(state="disabled")
+            self._buy_start_btn.configure(state="normal")
+            self._buy_stop_btn.configure(state="disabled")
 
     # ── Helpers ───────────────────────────────────────────────
 

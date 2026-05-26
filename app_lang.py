@@ -24,6 +24,32 @@ STRINGS = {
         "zh-cn": "⭐  自动解锁22B转轮",
     },
 
+    "tab_buy": {
+        "en":    "🛒  Auto Buy 22B-STi",
+        "zh-tw": "🛒  自動購買22B-STi",
+        "zh-cn": "🛒  自动购买22B-STi",
+    },
+    "buy_description": {
+        "en":    "Before starting, navigate to: Menu → Journal → Master Explorer → Car Collection → find the 22B-STi and click on it. Leave the game on that screen, then press Start.",
+        "zh-tw": "開始前，請先在遊戲中依序進入：選單 → 收藏日記 → 探索大師 → 車輛收藏 → 找到 22B-STi 並點擊。停在該畫面後再按下開始。",
+        "zh-cn": "开始前，请先在游戏中依次进入：菜单 → 收藏日记 → 探索大师 → 车辆收藏 → 找到 22B-STi 并点击。停在该画面后再按下开始。",
+    },
+    "status_starting_buy": {
+        "en":    "Starting Auto Buy...",
+        "zh-tw": "正在啟動自動購買...",
+        "zh-cn": "正在启动自动购买...",
+    },
+    "buy_running": {
+        "en":    "Auto Buy started.",
+        "zh-tw": "自動購買已啟動。",
+        "zh-cn": "自动购买已启动。",
+    },
+    "buy_loop": {
+        "en":    "Loop",
+        "zh-tw": "循環",
+        "zh-cn": "循环",
+    },
+
     # ── Top bar ───────────────────────────────────────────────
     "settings_window_title": {
         "en":    "Settings",
@@ -146,6 +172,11 @@ STRINGS = {
         "en":    "Stop Session",
         "zh-tw": "停止作業",
         "zh-cn": "停止作业",
+    },
+    "btn_recapture": {
+        "en":    "Retake",
+        "zh-tw": "重新擷取",
+        "zh-cn": "重新截取",
     },
     "capture_instruction": {
         "en":    "Get game into position, press CAPS LOCK to capture",
