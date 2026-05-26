@@ -46,7 +46,7 @@ Full setup guide and tutorial: [leoncrispybacon.github.io/FAFE](https://leoncris
 
 ## Support
 If you find this useful, consider buying me a milk tea 
-[Donate via PayPal]([shu881772@gmail.com](https://paypal.me/Leonbacon))
+https://paypal.me/Leonbacon
 
 ---
 
