@@ -44,6 +44,12 @@ Full setup guide and tutorial: [leoncrispybacon.github.io/FAFE](https://leoncris
 
 ---
 
+## Support
+If you find this useful, consider buying me a milk tea 
+[Donate via PayPal]([shu881772@gmail.com](https://paypal.me/Leonbacon))
+
+---
+
 ## Disclaimer
 
 This tool is unofficial and not affiliated with Xbox Game Studios or Playground Games. Using automation tools carries a risk of account action — use at your own discretion.
