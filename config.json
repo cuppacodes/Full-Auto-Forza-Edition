@@ -1,0 +1,15 @@
+{
+  "lang": "zh-cn",
+  "theme": "system",
+  "toggle_key": "f9",
+  "capture_key": "caps lock",
+  "monitor_index": 2,
+  "race_resolution": "custom",
+  "mastery_resolution": "custom",
+  "race_threshold": 0.705,
+  "race_check_interval": 0.5,
+  "race_post_key_wait": 2.0,
+  "mastery_threshold": 0.85,
+  "mastery_post_click_wait": 0.8,
+  "mastery_post_key_wait": 1.2
+}

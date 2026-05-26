@@ -1,0 +1,30 @@
+{
+  "screen_width": 3440,
+  "screen_height": 1440,
+  "nodes": [
+    {
+      "x_ratio": 0.272965,
+      "y_ratio": 0.545833
+    },
+    {
+      "x_ratio": 0.274419,
+      "y_ratio": 0.435417
+    },
+    {
+      "x_ratio": 0.317733,
+      "y_ratio": 0.440278
+    },
+    {
+      "x_ratio": 0.318314,
+      "y_ratio": 0.334722
+    },
+    {
+      "x_ratio": 0.318314,
+      "y_ratio": 0.226389
+    },
+    {
+      "x_ratio": 0.274419,
+      "y_ratio": 0.225
+    }
+  ]
+}
