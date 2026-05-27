@@ -74,7 +74,22 @@
 
   .tag { display: inline-block; background: #0f2027; color: #38bdf8; border: 1px solid #0369a144; border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; font-weight: 600; margin-right: 6px; margin-bottom: 6px; }
 
-  .footer { background: #070a0f; padding: 40px 24px; text-align: center; color: #334155; font-size: 0.85rem; border-top: 1px solid #111; }
+  .footer-support {
+    display: inline-flex; align-items: center; gap: 6px;
+    position: absolute; right: 24px;
+    background: #0070ba; color: #fff !important;
+    padding: 7px 16px; border-radius: 999px;
+    text-decoration: none; font-size: 0.82rem; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .footer-support:hover { background: #005ea6; }
+
+  .footer { 
+    background: #070a0f; padding: 20px 160px 20px 24px;
+    text-align: center; color: #334155; font-size: 0.85rem;
+    border-top: 1px solid #111;
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
   .footer a { color: #475569; text-decoration: none; transition: color 0.15s; }
   .footer a:hover { color: #94a3b8; }
 
@@ -191,6 +206,7 @@
       <span class="badge">🏁 自動掛機刷技術點</span>
       <span class="badge">⭐ 自動解鎖22B轉輪</span>
       <span class="badge">🛒 自動購買22B-STi</span>
+      <span class="badge">🗑️ 刪除已使用車輛</span>
       <span class="badge">🌏 繁體中文 / 简体中文 / English</span>
       <span class="badge">🖥️ 支援多螢幕</span>
     </div>
@@ -201,6 +217,7 @@
       <span class="badge">🏁 自动挂机刷技术点</span>
       <span class="badge">⭐ 自动解锁22B转轮</span>
       <span class="badge">🛒 自动购买22B-STi</span>
+      <span class="badge">🗑️ 删除已使用车辆</span>
       <span class="badge">🌏 繁體中文 / 简体中文 / English</span>
       <span class="badge">🖥️ 支持多显示器</span>
     </div>
@@ -211,6 +228,7 @@
       <span class="badge">🏁 Race Auto-Grind</span>
       <span class="badge">⭐ Auto Unlock 22B Wheels</span>
       <span class="badge">🛒 Auto Buy 22B-STi</span>
+      <span class="badge">🗑️ Delete Used Cars</span>
       <span class="badge">🌏 Traditional Chinese / Simplified Chinese / English</span>
       <span class="badge">🖥️ Multi-monitor Support</span>
     </div>
@@ -218,11 +236,11 @@
 </div>
 
 <div class="download-wrap">
-<a class="download-btn" href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition/releases/download/v1.0.2/FAFE.v1.0.2.zip">
+<a class="download-btn" href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition/releases/download/v1.1.0/FAFE.v1.1.0.zip">
   ⬇️
-  <span data-lang="zh-tw" class="active">下載 FAFE<span class="download-version">v1.0.2 · Windows</span></span>
-  <span data-lang="zh-cn">下载 FAFE<span class="download-version">v1.0.2 · Windows</span></span>
-  <span data-lang="en">Download FAFE<span class="download-version">v1.0.2 · Windows</span></span>
+  <span data-lang="zh-tw" class="active">下載 FAFE<span class="download-version">v1.1.0 · Windows</span></span>
+  <span data-lang="zh-cn">下载 FAFE<span class="download-version">v1.1.0 · Windows</span></span>
+  <span data-lang="en">Download FAFE<span class="download-version">v1.1.0 · Windows</span></span>
 </a>
 </div>
 
@@ -299,6 +317,7 @@
       <div class="feature-card"><div class="icon">🏁</div><h3>自動掛機刷技術點</h3><p>自動偵測比賽開始、結束、重新開始，全程無需手動操作。W 鍵自動按住，比賽結束自動重啟。</p></div>
       <div class="feature-card"><div class="icon">⭐</div><h3>自動解鎖 22B 轉輪</h3><p>使用蛇形導航遍歷車庫，自動進入車輛、開啟熟練度、點選節點，每輛車完成後自動移往下一輛，無限循環。</p></div>
       <div class="feature-card"><div class="icon">🛒</div><h3>自動購買 22B-STi</h3><p>自動在收藏日記中找到 22B-STi 並依序按下購買按鍵，無限循環直到停止，快速批量入手。</p></div>
+      <div class="feature-card"><div class="icon">🗑️</div><h3>刪除已使用車輛</h3><p>自動逐一刪除車庫中的車輛。刪除後遊戲自動選取下一輛，無需導航，無限循環直到停止。</p></div>
       <div class="feature-card"><div class="icon">📸</div><h3>截圖樣本辨識</h3><p>使用你自己的遊戲截圖作為辨識樣本，內建 1080p / 1440p / 4K 預設樣本組，也支援自定義擷取。</p></div>
       <div class="feature-card"><div class="icon">🌏</div><h3>三語介面</h3><p>完整支援繁體中文、简体中文及 English 介面，切換語言後自動重啟套用，設定即時儲存。</p></div>
       <div class="feature-card"><div class="icon">⌨️</div><h3>可自訂快捷鍵</h3><p>啟動／停止鍵與截圖鍵均可自定義。預設 F9 啟停、CAPS LOCK 截圖，點選按鈕後直接按下新按鍵即可更換。</p></div>
@@ -308,6 +327,7 @@
       <div class="feature-card"><div class="icon">🏁</div><h3>自动挂机刷技术点</h3><p>自动检测比赛开始、结束、重新开始，全程无需手动操作。W 键自动按住，比赛结束自动重启。</p></div>
       <div class="feature-card"><div class="icon">⭐</div><h3>自动解锁 22B 转轮</h3><p>使用蛇形导航遍历车库，自动进入车辆、开启熟练度、点选节点，每辆车完成后自动移往下一辆，无限循环。</p></div>
       <div class="feature-card"><div class="icon">🛒</div><h3>自动购买 22B-STi</h3><p>自动在收藏日记中找到 22B-STi 并依次按下购买按键，无限循环直到停止，快速批量入手。</p></div>
+      <div class="feature-card"><div class="icon">🗑️</div><h3>删除已使用车辆</h3><p>自动逐一删除车库中的车辆。删除后游戏自动选取下一辆，无需导航，无限循环直到停止。</p></div>
       <div class="feature-card"><div class="icon">📸</div><h3>截图模板识别</h3><p>使用你自己的游戏截图作为识别模板，内置 1080p / 1440p / 4K 预设模板组，也支持自定义截取。</p></div>
       <div class="feature-card"><div class="icon">🌏</div><h3>三语界面</h3><p>完整支持繁體中文、简体中文及 English 界面，切换语言后自动重启应用，设置即时保存。</p></div>
       <div class="feature-card"><div class="icon">⌨️</div><h3>可自定义快捷键</h3><p>启动／停止键与截图键均可自定义。默认 F9 启停、CAPS LOCK 截图，点击按钮后直接按下新按键即可更换。</p></div>
@@ -317,6 +337,7 @@
       <div class="feature-card"><div class="icon">🏁</div><h3>Race Auto-Grind</h3><p>Automatically detects race start, finish and restart screens. Holds W throughout, restarts automatically when the race ends.</p></div>
       <div class="feature-card"><div class="icon">⭐</div><h3>Auto Unlock 22B Wheels</h3><p>Snake-navigates your garage, enters each car, opens mastery, clicks all nodes, then moves to the next — looping indefinitely.</p></div>
       <div class="feature-card"><div class="icon">🛒</div><h3>Auto Buy 22B-STi</h3><p>Navigates to the 22B-STi in the Journal and automatically presses through the purchase sequence, looping indefinitely until stopped.</p></div>
+      <div class="feature-card"><div class="icon">🗑️</div><h3>Delete Used Cars</h3><p>Automatically deletes cars one by one. After each deletion the game auto-selects the next car — no navigation needed. Loops until stopped.</p></div>
       <div class="feature-card"><div class="icon">📸</div><h3>Template Matching</h3><p>Uses your own in-game screenshots as detection templates. Built-in 1080p / 1440p / 4K sets included, or capture your own.</p></div>
       <div class="feature-card"><div class="icon">🌏</div><h3>Three-language UI</h3><p>Full Traditional Chinese, Simplified Chinese and English support. Language switch auto-restarts the app. All settings save instantly.</p></div>
       <div class="feature-card"><div class="icon">⌨️</div><h3>Customizable Hotkeys</h3><p>Toggle and capture keys are fully remappable. Default F9 to start/stop, CAPS LOCK to capture. Click a button and press any key to rebind.</p></div>
@@ -648,6 +669,38 @@
     </div>
   </div>
 
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+      <span data-lang="zh-tw" class="active" style="pointer-events:none;">第六部分 — 刪除已使用車輛</span>
+      <span data-lang="zh-cn" style="pointer-events:none;">第六部分 — 删除已使用车辆</span>
+      <span data-lang="en" style="pointer-events:none;">Part 6 — Delete Used Cars</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+      <div class="steps active" data-lang="zh-tw"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>整理車庫</h3><p>確認車庫中<strong>只有你想刪除的車輛</strong>。工具會從當前選取的車輛開始，逐一刪除，無法跳過特定車輛。</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>依「最舊」排序</h3><p>在車庫中將排序設為最舊優先，讓工具從第一輛開始。每輛刪除後遊戲會自動跳到下一輛。</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>切換到「刪除已使用車輛」分頁</h3><p>點選頂部「🗑️ 刪除已使用車輛」分頁。</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>按下開始</h3><p>回到 FAFE，點選「▶ 開始」或按 <strong>F9</strong>。倒數 5 秒，期間切換回遊戲。</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>全自動刪除</h3><p>工具依序按下：<strong>Enter → 下鍵 ×4 → Enter → 下鍵 ×1 → Enter</strong>，完成一輛後遊戲自動選取下一輛，無限循環。</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>停止</h3><p>隨時按 <strong>F9</strong> 或點「■ 停止」即可立即中止。</p></div></div>
+</div>
+      <div class="steps" data-lang="zh-cn"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>整理车库</h3><p>确认车库中<strong>只有你想删除的车辆</strong>。工具会从当前选取的车辆开始，逐一删除，无法跳过特定车辆。</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>按「最旧」排序</h3><p>在车库中将排序设为最旧优先，让工具从第一辆开始。每辆删除后游戏会自动跳到下一辆。</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>切换到「删除已使用车辆」标签</h3><p>点击顶部「🗑️ 删除已使用车辆」标签。</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>按下开始</h3><p>回到 FAFE，点击「▶ 开始」或按 <strong>F9</strong>。倒数 5 秒，期间切换回游戏。</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>全自动删除</h3><p>工具依次按下：<strong>Enter → 下键 ×4 → Enter → 下键 ×1 → Enter</strong>，完成一辆后游戏自动选取下一辆，无限循环。</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>停止</h3><p>随时按 <strong>F9</strong> 或点「■ 停止」即可立即中止。</p></div></div>
+</div>
+      <div class="steps" data-lang="en"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Prepare your garage</h3><p>Make sure your garage contains <strong>only the cars you want to delete</strong>. The tool deletes from the currently selected car onward and can't skip specific ones.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Sort by oldest first</h3><p>Set your garage sort to oldest first so the tool starts from car 1. After each deletion the game automatically moves to the next car.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Switch to the Delete Used Cars tab</h3><p>Click the 🗑️ Delete Used Cars tab at the top.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Press Start</h3><p>Click ▶ Start or press <strong>F9</strong> and switch back to Forza during the 5-second countdown.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Fully automatic</h3><p>The tool presses: <strong>Enter → Down ×4 → Enter → Down ×1 → Enter</strong>. After each deletion the game selects the next car automatically — loops indefinitely.</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>Stop</h3><p>Press <strong>F9</strong> or click ■ Stop at any time.</p></div></div>
+</div>
+    </div>
+  </div>
+
   </div>
 
   <!-- Disclaimer -->
@@ -666,6 +719,10 @@
 </div>
 
 <div class="footer">
+  <a class="footer-support" href="https://paypal.me/Leonbacon" target="_blank">
+    ☕
+    <span data-lang="zh-tw" class="active">支持我</span><span data-lang="zh-cn">支持我</span><span data-lang="en">Support Me</span>
+  </a>
   <span data-lang="zh-tw" class="active">Full Auto Forza Edition &nbsp;·&nbsp; 適用於 Forza Horizon 6 &nbsp;·&nbsp; 非官方工具，與 Xbox Game Studios 無關 &nbsp;·&nbsp; <a href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition" target="_blank">GitHub</a></span>
   <span data-lang="zh-cn">Full Auto Forza Edition &nbsp;·&nbsp; 适用于 Forza Horizon 6 &nbsp;·&nbsp; 非官方工具，与 Xbox Game Studios 无关 &nbsp;·&nbsp; <a href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition" target="_blank">GitHub</a></span>
   <span data-lang="en">Full Auto Forza Edition &nbsp;·&nbsp; For Forza Horizon 6 &nbsp;·&nbsp; Unofficial tool, not affiliated with Xbox Game Studios &nbsp;·&nbsp; <a href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition" target="_blank">GitHub</a></span>
@@ -721,5 +778,6 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 </script>
+
 </body>
 </html>

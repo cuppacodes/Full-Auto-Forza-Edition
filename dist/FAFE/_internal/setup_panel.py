@@ -1,0 +1,495 @@
+# ============================================================
+#  ui/setup_panel.py — Collapsible setup panel with
+#  per-template capture buttons and status dots
+# ============================================================
+
+import customtkinter as ctk
+import threading
+from app_lang import t as _at
+from capture import (CaptureSession, NodeSession,
+                      save_template, save_nodes,
+                      template_exists, nodes_exist,
+                      list_monitors, show_example, close_example)
+from config import (EXAMPLES_DIR, RESOLUTION_SETS,
+                    get_race_templates, get_mastery_templates,
+                    get_nodes_file)
+import config
+
+
+class TemplateRow(ctk.CTkFrame):
+    """One row in the setup panel: label + status dot."""
+
+    DOT_OK  = "#22c55e"   # green
+    DOT_MISSING = "#ef4444"  # red
+
+    def __init__(self, parent, label: str, folder_fn, key: str,
+                 on_recapture=None, main_cfg=None, lang='en', **kwargs):
+        super().__init__(parent, fg_color="transparent", **kwargs)
+        self.folder_fn = folder_fn
+        self.key       = key
+        self._main_cfg = main_cfg
+        self._cfg_key  = f'thresh_{key}'
+
+        # ── Top row: dot + label + recapture btn ──────────
+        top = ctk.CTkFrame(self, fg_color='transparent')
+        top.pack(fill='x')
+
+        self._dot = ctk.CTkLabel(top, text='●', width=20,
+                                  font=('Arial', 14))
+        self._dot.pack(side='left', padx=(0, 6))
+
+        ctk.CTkLabel(top, text=label, anchor='w').pack(
+            side='left', fill='x', expand=True)
+
+        if on_recapture:
+            self._recapture_btn = ctk.CTkButton(
+                top, text='↺', width=28,
+                command=on_recapture,
+                fg_color='transparent',
+                hover_color=('gray80', 'gray30'),
+                text_color=('gray40', 'gray70'),
+                font=('Arial', 14))
+            self._recapture_btn.pack(side='right', padx=4)
+
+        # ── Bottom row: threshold slider ───────────────────
+        thresh_row = ctk.CTkFrame(self, fg_color='transparent')
+        thresh_row.pack(fill='x', padx=(26, 4), pady=(2, 6))
+        ctk.CTkLabel(thresh_row, text=_at('label_threshold', lang),
+                     font=('Segoe UI', 10),
+                     text_color=('gray50', 'gray55')).pack(side='left')
+        init_val = 0.80
+        if main_cfg:
+            init_val = main_cfg.get(self._cfg_key, 0.80)
+        self._thresh_var = ctk.DoubleVar(value=init_val)
+        _thresh_slider = ctk.CTkSlider(
+            thresh_row,
+            variable=self._thresh_var,
+            from_=0.50, to=0.90,
+            command=self._on_thresh_move,
+            height=14,
+        )
+        _thresh_slider.pack(side='left', fill='x', expand=True, padx=6)
+        _thresh_slider.bind('<ButtonRelease-1>', self._on_thresh_release)
+        self._thresh_lbl = ctk.CTkLabel(
+            thresh_row, text=f'{init_val:.2f}',
+            width=36, font=('Segoe UI', 10),
+            text_color=('gray50', 'gray55'))
+        self._thresh_lbl.pack(side='left')
+
+        self.refresh()
+
+    def _on_thresh_move(self, val):
+        """Update label while dragging — no save."""
+        if hasattr(self, '_thresh_lbl'):
+            self._thresh_lbl.configure(text=f'{float(val):.2f}')
+
+    def _on_thresh_release(self, event=None):
+        """Save on mouse release."""
+        if self._main_cfg is not None:
+            self._main_cfg[self._cfg_key] = round(float(self._thresh_var.get()), 2)
+            config.save(self._main_cfg)
+
+    def get_threshold(self) -> float:
+        return round(self._thresh_var.get(), 2)
+
+    def refresh(self):
+        ok = template_exists(self.folder_fn(), self.key)
+        self._dot.configure(
+            text_color=self.DOT_OK if ok else self.DOT_MISSING)
+
+    def set_recapture_visible(self, visible: bool):
+        if hasattr(self, '_recapture_btn'):
+            self._recapture_btn.pack(side='right', padx=4) if visible \
+                else self._recapture_btn.pack_forget()
+
+    def set_capturing(self, active: bool):
+        self._dot.configure(
+            text_color="#f59e0b" if active else (
+                self.DOT_OK if template_exists(self.folder_fn(), self.key)
+                else self.DOT_MISSING))
+
+
+class SetupPanel(ctk.CTkFrame):
+    """
+    Collapsible setup panel.
+
+    template_defs: list of (key, label) tuples
+    folder: path where templates are stored
+    nodes_file: path to nodes JSON (None if not applicable)
+    log_cb: function(msg) for log output
+    status_cb: function(msg) for status bar
+    """
+
+    def __init__(self, parent, template_defs: list, folder: str,
+                 nodes_file=None, log_cb=None, status_cb=None,
+                 lang='en', capture_key='caps lock',
+                 res_cfg_key='race_resolution', mode='race',
+                 main_cfg=None,
+                 **kwargs):
+        super().__init__(parent, **kwargs)
+        self._res_cfg_key = res_cfg_key
+        self._mode        = mode
+        self._main_cfg    = main_cfg   # reference to main window cfg dict
+        # Load saved resolution
+        _saved_cfg = config.load()
+        self._resolution  = _saved_cfg.get(res_cfg_key, 'custom')
+        # Set folder based on resolution
+        self.folder      = self._get_folder()
+        self.nodes_file  = self._get_nodes_file()
+        self.log_cb      = log_cb or (lambda m: None)
+        self.status_cb   = status_cb or (lambda m: None)
+        self._session    = None
+        self._lang        = lang
+        self._capture_key = capture_key
+        self._tpl_defs    = template_defs
+        # Load saved monitor index from config
+        _saved_cfg = config.load()
+        self._monitor_index = _saved_cfg.get('monitor_index', 1)
+        self._rows       = {}
+        self._collapsed  = True
+
+        self._build_header()
+        self._content = ctk.CTkFrame(self, fg_color="transparent")
+        self._build_content(template_defs, nodes_file)
+        # Start collapsed
+        self._content.pack_forget()
+
+    def _get_folder(self) -> str:
+        if self._mode == 'race':
+            return get_race_templates(self._resolution)
+        return get_mastery_templates(self._resolution)
+
+    def _get_nodes_file(self):
+        if self._mode != 'mastery': return None
+        return get_nodes_file(self._resolution)
+
+    def _is_custom(self) -> bool:
+        return self._resolution == 'custom'
+
+    def _build_header(self):
+        hdr = ctk.CTkFrame(self, fg_color="transparent")
+        hdr.pack(fill="x", padx=8, pady=(8, 0))
+
+        self._toggle_btn = ctk.CTkButton(
+            hdr, text=_at("setup_header", self._lang),
+            command=self._toggle,
+            fg_color="transparent",
+            text_color=("gray20", "gray80"),
+            hover_color=("gray85", "gray25"),
+            anchor="w",
+            font=("Arial", 13, "bold"),
+        )
+        self._toggle_btn.pack(side="left", fill="x", expand=True)
+
+        # Overall status dot
+        self._overall_dot = ctk.CTkLabel(hdr, text="●", width=20,
+                                          font=("Arial", 14))
+        self._overall_dot.pack(side="right", padx=8)
+        self.refresh_all()
+
+    def _build_content(self, template_defs, nodes_file):
+        c = self._content
+        c.pack(fill="x", padx=16, pady=4)
+
+        # Resolution selector
+        res_frame = ctk.CTkFrame(c, fg_color='transparent')
+        res_frame.pack(fill='x', pady=(4, 8))
+        ctk.CTkLabel(res_frame,
+                     text=_at('label_resolution', self._lang)).pack(side='left')
+        _res_options = {
+            '1080p':  _at('res_1080p',  self._lang),
+            '1440p':  _at('res_1440p',  self._lang),
+            '2160p':  _at('res_2160p', self._lang),
+            'custom': _at('res_custom', self._lang),
+        }
+        self._res_var = ctk.StringVar(
+            value=_res_options.get(self._resolution, _res_options['custom']))
+        ctk.CTkOptionMenu(
+            res_frame,
+            variable=self._res_var,
+            values=list(_res_options.values()),
+            command=lambda v, opts=_res_options: self._on_resolution_change(v, opts),
+            width=240).pack(side='left', padx=8)
+
+        # Template rows
+        ctk.CTkLabel(c, text=_at("label_templates", self._lang),
+                     anchor="w",
+                     font=("Arial", 11)).pack(fill="x", pady=(4, 2))
+
+        for key, label in template_defs:
+            row = TemplateRow(c, label, lambda: self.folder, key,
+                              on_recapture=lambda k=key: self._recapture_one(k),
+                              main_cfg=self._main_cfg,
+                              lang=self._lang)
+            row.pack(fill="x", pady=1)
+            self._rows[key] = row
+
+        # Nodes row
+        if nodes_file:
+            nf = ctk.CTkFrame(c, fg_color="transparent")
+            nf.pack(fill="x", pady=(8, 2))
+            self._node_dot = ctk.CTkLabel(nf, text="●", width=20,
+                                           font=("Arial", 14))
+            self._node_dot.pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(nf, text=_at("label_nodes", self._lang),
+                         anchor="w").pack(side="left")
+            self._node_recapture_btn = ctk.CTkButton(
+                nf, text='↺', width=28,
+                command=self._recapture_nodes,
+                fg_color='transparent',
+                hover_color=('gray80', 'gray30'),
+                text_color=('gray40', 'gray70'),
+                font=('Arial', 14))
+            self._node_recapture_btn.pack(side="right", padx=4)
+            self._refresh_node_dot()
+
+        # Capture controls
+        self.after(100, self._update_capture_visibility)
+        # (placeholder, actual build below)
+        # (placeholder end)
+        ctrl = ctk.CTkFrame(c, fg_color="transparent")
+        ctrl.pack(fill="x", pady=(12, 4))
+
+        self._cap_btn = ctk.CTkButton(
+            ctrl, text=_at("btn_start_capture", self._lang),
+            command=self._start_session, width=180)
+        self._cap_btn.pack(side="left", padx=(0, 8))
+
+        self._stop_btn = ctk.CTkButton(
+            ctrl, text=_at("btn_stop_capture", self._lang),
+            command=self._stop_session,
+            fg_color="#dc2626", hover_color="#b91c1c",
+            width=120, state="disabled")
+        self._stop_btn.pack(side="left")
+
+        self._cap_label = ctk.CTkLabel(
+            c, text="", anchor="w",
+            font=("Arial", 11), text_color="gray")
+        self._cap_label.pack(fill="x", pady=(2, 4))
+
+    def _on_resolution_change(self, val: str, opts: dict):
+        # Map display value back to key
+        rev = {v: k for k, v in opts.items()}
+        self._resolution = rev.get(val, 'custom')
+        # Update main window cfg dict (single source of truth)
+        if self._main_cfg is not None:
+            self._main_cfg[self._res_cfg_key] = self._resolution
+            config.save(self._main_cfg)
+        else:
+            # Fallback: save directly
+            cfg = config.load()
+            cfg[self._res_cfg_key] = self._resolution
+            config.save(cfg)
+        # Update folder and nodes file
+        self.folder     = self._get_folder()
+        self.nodes_file = self._get_nodes_file()
+        # Show/hide capture controls based on mode
+        self._update_capture_visibility()
+        # Refresh dots
+        self.refresh_all()
+
+    def _update_capture_visibility(self):
+        """Show capture controls only in custom mode."""
+        state = 'normal' if self._is_custom() else 'disabled'
+        if hasattr(self, '_cap_btn'):
+            self._cap_btn.configure(state=state)
+        if hasattr(self, '_node_recapture_btn'):
+            if self._is_custom():
+                self._node_recapture_btn.pack(side="right", padx=4)
+            else:
+                self._node_recapture_btn.pack_forget()
+        for row in self._rows.values():
+            row.set_recapture_visible(self._is_custom())
+
+    def _toggle(self):
+        self._collapsed = not self._collapsed
+        if self._collapsed:
+            self._content.pack_forget()
+            self._toggle_btn.configure(text=_at("setup_header", self._lang))
+        else:
+            self._content.pack(fill="x", padx=16, pady=4)
+            self._toggle_btn.configure(text=_at("setup_header_open", self._lang))
+
+    def _on_monitor_change(self, val):
+        try:
+            self._monitor_index = int(val.split("—")[0].strip())
+        except Exception:
+            self._monitor_index = 1
+        # Persist to config immediately
+        cfg = config.load()
+        cfg["monitor_index"] = self._monitor_index
+        config.save(cfg)
+
+    # ── Capture session ───────────────────────────────────────
+
+    def _recapture_nodes(self):
+        """Immediately start a node capture session."""
+        if self._collapsed:
+            self._toggle()
+        if self._session:
+            self._session.stop()
+            self._session = None
+        self._pending = ["__nodes__"]
+        self._cap_btn.configure(state="disabled")
+        self._stop_btn.configure(state="normal")
+        self._advance_session()
+
+    def _recapture_one(self, key):
+        """Immediately start a capture session for one specific template."""
+        # Expand panel if collapsed so user can see the capture label
+        if self._collapsed:
+            self._toggle()
+        if self._session:
+            self._session.stop()
+            self._session = None
+        self._pending = [key]
+        self._cap_btn.configure(state="disabled")
+        self._stop_btn.configure(state="normal")
+        self._advance_session()
+
+    def _start_session(self):
+        """Start listening for Caps Lock captures, cycling through templates."""
+        self._pending = [k for k, _ in self._tpl_defs
+                         if not template_exists(self.folder, k)]
+        # Also add nodes if missing
+        if self.nodes_file and not nodes_exist(self.nodes_file):
+            self._pending.append("__nodes__")
+
+        if not self._pending:
+            self.status_cb(_at("all_templates_done", self._lang))
+            return
+
+        self._cap_btn.configure(state="disabled")
+        self._stop_btn.configure(state="normal")
+        self._advance_session()
+
+    def _advance_session(self):
+        if not self._pending:
+            self._end_session()
+            return
+
+        next_key = self._pending[0]
+
+        # Stop any existing session cleanly before starting new one
+        if self._session is not None:
+            self._session.stop()
+            self._session = None
+            import time as _t; _t.sleep(0.15)  # let thread exit
+
+        if next_key == "__nodes__":
+            self._cap_label.configure(
+                text=_at("capture_nodes_instruction", self._lang))
+            self.status_cb(f"Waiting for {self._capture_key.upper()} — node capture")
+            show_example('nodes', EXAMPLES_DIR)
+            sess = NodeSession(
+                monitor_index=self._monitor_index,
+                callback=self._on_nodes_captured,
+                on_cancel=self._on_capture_cancel,
+                capture_key=self._capture_key,
+            )
+            self._session = sess
+            sess.start()
+        else:
+            label = next((lb for k, lb in self._tpl_defs if k == next_key), next_key)
+            if next_key in self._rows:
+                self._rows[next_key].set_capturing(True)
+            self._cap_label.configure(
+                text=_at("capturing_label", self._lang, label=label) + " — " +
+                     _at("shortcut_capture", self._lang, key=self._capture_key.upper()))
+            self.status_cb(f"Waiting for {self._capture_key.upper()} — {label}")
+
+            from capture import get_monitor_dims
+            try:
+                sw, sh, _, _ = get_monitor_dims(self._monitor_index)
+            except Exception:
+                sw, sh = 1920, 1080
+
+            sess = CaptureSession(
+                monitor_index=self._monitor_index,
+                window_title=f"Select region — {label}",
+                callback=lambda crop, w, h, k=next_key: self._on_captured(k, crop, w, h),
+                on_cancel=self._on_capture_cancel,
+                capture_key=self._capture_key,
+                template_key=next_key,
+                examples_dir=EXAMPLES_DIR,
+            )
+            self._session = sess
+            sess.start()
+
+    def _on_captured(self, key, crop, screen_w, screen_h):
+        save_template(self.folder, key, crop, screen_w, screen_h)
+        self.after(0, lambda: self._post_capture(key))
+
+    def _post_capture(self, key):
+        if key in self._rows:
+            self._rows[key].set_capturing(False)
+            self._rows[key].refresh()
+        self.log_cb(_at("template_saved", self._lang, key=key))
+        if key in self._pending:
+            self._pending.remove(key)
+        self.refresh_all()
+        self._advance_session()
+
+    def _on_nodes_captured(self, nodes, screen_w, screen_h):
+        save_nodes(self.nodes_file, nodes, screen_w, screen_h)
+        self.after(0, lambda: self._post_nodes())
+
+    def _post_nodes(self):
+        self.log_cb(_at("nodes_saved", self._lang))
+        close_example()
+        if "__nodes__" in self._pending:
+            self._pending.remove("__nodes__")
+        # Stop the NodeSession before advancing
+        if self._session is not None:
+            self._session.stop()
+            self._session = None
+        if hasattr(self, '_node_dot'):
+            self._refresh_node_dot()
+        self.refresh_all()
+        self._advance_session()
+
+    def _on_capture_cancel(self, reason="cancelled"):
+        self.after(0, lambda r=reason: self._cap_label.configure(
+            text=_at("capture_cancelled", self._lang, reason=r)))
+
+    def _stop_session(self):
+        if self._session:
+            self._session.stop()
+            self._session = None
+        self._end_session()
+
+    def _end_session(self):
+        if self._session is not None:
+            self._session.stop()
+            self._session = None
+        for row in self._rows.values():
+            row.set_capturing(False)
+            row.refresh()
+        self._cap_btn.configure(state="normal")
+        self._stop_btn.configure(state="disabled")
+        self._cap_label.configure(text="")
+        self.refresh_all()
+        self.status_cb(_at("setup_complete", self._lang) if self.is_complete() else _at("setup_in_progress", self._lang))
+
+    # ── Status helpers ────────────────────────────────────────
+
+    def refresh_all(self):
+        for row in self._rows.values():
+            row.refresh()
+        if hasattr(self, '_node_dot'):
+            self._refresh_node_dot()
+        ok = self.is_complete()
+        self._overall_dot.configure(
+            text_color=TemplateRow.DOT_OK if ok else TemplateRow.DOT_MISSING)
+
+    def _refresh_node_dot(self):
+        ok = nodes_exist(self.nodes_file) if self.nodes_file else True
+        self._node_dot.configure(
+            text_color=TemplateRow.DOT_OK if ok else TemplateRow.DOT_MISSING)
+
+    def is_complete(self) -> bool:
+        templates_ok = all(template_exists(self.folder, k)
+                           for k, _ in self._tpl_defs)
+        nodes_ok     = (not self.nodes_file or
+                        nodes_exist(self.nodes_file))
+        return templates_ok and nodes_ok

@@ -1,30 +1,30 @@
 {
-  "screen_width": 5120,
-  "screen_height": 2160,
+  "screen_width": 1920,
+  "screen_height": 1080,
   "nodes": [
     {
-      "x_ratio": 0.270703,
-      "y_ratio": 0.55
+      "x_ratio": 0.19375,
+      "y_ratio": 0.544444
     },
     {
-      "x_ratio": 0.320312,
-      "y_ratio": 0.550926
+      "x_ratio": 0.256771,
+      "y_ratio": 0.544444
     },
     {
-      "x_ratio": 0.317383,
-      "y_ratio": 0.443981
+      "x_ratio": 0.258333,
+      "y_ratio": 0.443519
     },
     {
-      "x_ratio": 0.316797,
-      "y_ratio": 0.333333
+      "x_ratio": 0.255729,
+      "y_ratio": 0.330556
     },
     {
-      "x_ratio": 0.31582,
-      "y_ratio": 0.224074
+      "x_ratio": 0.254167,
+      "y_ratio": 0.215741
     },
     {
-      "x_ratio": 0.272656,
-      "y_ratio": 0.226389
+      "x_ratio": 0.190625,
+      "y_ratio": 0.223148
     }
   ]
 }

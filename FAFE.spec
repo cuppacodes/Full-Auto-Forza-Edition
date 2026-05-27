@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('C:\\Users\\The white wolf\\Downloads\\New APP\\app_lang.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\config.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\capture.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\race.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\mastery.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\main_window.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\setup_panel.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\log_widget.py', '.')]
+datas = [('C:\\Users\\The white wolf\\Downloads\\New APP\\app_lang.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\config.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\capture.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\race.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\mastery.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\main_window.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\setup_panel.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\log_widget.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\version.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\updater.py', '.'), ('C:\\Users\\The white wolf\\Downloads\\New APP\\delete_cars.py', '.')]
 binaries = []
-hiddenimports = ['customtkinter', 'PIL', 'PIL.Image', 'asyncio', 'asyncio.base_events', 'asyncio.events', 'asyncio.futures', 'asyncio.tasks']
+hiddenimports = ['customtkinter', 'PIL', 'PIL.Image', 'asyncio', 'asyncio.base_events', 'asyncio.events', 'asyncio.futures', 'asyncio.tasks', 'urllib.request', 'zipfile']
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

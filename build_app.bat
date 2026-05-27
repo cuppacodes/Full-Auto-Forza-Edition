@@ -25,7 +25,7 @@ echo  [1/2]  Installing dependencies...
 echo  -----------------------------------------------------
 pip install --upgrade pyinstaller customtkinter Pillow ^
     pydirectinput opencv-python ^
-    mss numpy keyboard
+    mss numpy keyboard requests
 if errorlevel 1 (
     echo.
     echo  ERROR: pip failed. Check Python installation.
@@ -47,6 +47,9 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\main_window.py;." ^
     --add-data "%CD%\setup_panel.py;." ^
     --add-data "%CD%\log_widget.py;." ^
+    --add-data "%CD%\version.py;." ^
+    --add-data "%CD%\updater.py;." ^
+    --add-data "%CD%\delete_cars.py;." ^
     --hidden-import customtkinter ^
     --hidden-import PIL ^
     --hidden-import PIL.Image ^
@@ -55,6 +58,8 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --hidden-import asyncio.events ^
     --hidden-import asyncio.futures ^
     --hidden-import asyncio.tasks ^
+    --hidden-import urllib.request ^
+    --hidden-import zipfile ^
     --collect-all customtkinter ^
     forza_app.py
 if errorlevel 1 (
@@ -104,7 +109,7 @@ echo  =====================================================
 echo   BUILD COMPLETE
 echo  =====================================================
 echo.
-echo  FAFE.exe is ready.
+echo  FAFE.exe is ready in FAFE_dist\.
 echo.
 echo  Templates will be saved to a 'templates' subfolder
 echo  next to the exe automatically.
