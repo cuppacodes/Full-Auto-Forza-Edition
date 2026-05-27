@@ -1,6 +1,6 @@
 # Full Auto Forza Edition (FAFE)
 
-An automation tool for Forza Horizon 6. Automates three of the most repetitive tasks — race grinding for skill points, unlocking 22B-STi mastery wheels, and bulk purchasing 22B-STi units.
+An automation tool for Forza Horizon 6. Automates the most repetitive tasks — race grinding, unlocking 22B-STi mastery wheels, bulk purchasing 22B-STi units, and deleting used cars.
 
 No game file modification or code injection. The tool only simulates keyboard and mouse input.
 
@@ -11,11 +11,13 @@ No game file modification or code injection. The tool only simulates keyboard an
 - 🏁 **Race Auto-Grind** — Detects race start, finish and restart screens automatically. Holds W throughout, restarts when the race ends, loops indefinitely.
 - ⭐ **Auto Unlock 22B Mastery Wheels** — Snake-navigates your garage, enters each car, opens Car Mastery, clicks all nodes, and moves to the next.
 - 🛒 **Auto Buy 22B-STi** — Navigates to the 22B-STi in the Journal and automatically presses through the purchase sequence, looping until stopped.
+- 🗑️ **Delete Used Cars** — Automatically deletes cars one by one. After each deletion the game auto-selects the next car — no navigation needed.
 - 📸 **Template Matching** — Uses your own in-game screenshots as detection templates. Built-in 1080p / 1440p / 4K sets included. Custom capture supported.
 - 🌏 **Three-language UI** — Traditional Chinese, Simplified Chinese and English.
 - ⌨️ **Customizable Hotkeys** — Rebind start/stop and capture keys to anything.
 - 🖥️ **Multi-monitor Support** — Select which monitor your game is on.
 - 🎛️ **Per-template Thresholds** — Fine-tune detection sensitivity individually for each template.
+- 🔄 **Auto-updater** — Checks for new versions on startup and updates itself automatically.
 
 ---
 
@@ -45,8 +47,9 @@ Full setup guide and tutorial: [leoncrispybacon.github.io/FAFE](https://leoncris
 ---
 
 ## Support
-If you find this useful, consider buying me a milk tea 
-https://paypal.me/Leonbacon
+
+If you find this useful, consider buying me a coffee ☕
+[paypal.me/Leonbacon](https://paypal.me/Leonbacon)
 
 ---
 
