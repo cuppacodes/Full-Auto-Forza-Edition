@@ -198,6 +198,8 @@ def run(cfg: dict, stop_event: threading.Event,
         def _warn(best):
             msg = _at("log_warn_not_detected", lang, label=label)
             msg += f" (best {best.source}: {best.score:.0%})"
+            if best.ocr_text:
+                msg += f" OCR: {best.ocr_text!r}"
             (warn_cb or log_cb)(msg)
 
         result = detector.wait_for(

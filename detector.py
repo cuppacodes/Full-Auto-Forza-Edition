@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
 import os
 import re
+import threading
 import time
 
 import cv2
@@ -49,15 +50,18 @@ DEFAULT_ROIS: dict[str, Rect] = {
 
 
 OCR_HINTS: dict[str, tuple[str, ...]] = {
+    # Hints are substring-matched against OCR output (case-insensitive).
+    # Avoid hints that are too short or too generic — they false-positive on
+    # unrelated UI text when OCR is the primary detection signal.
     "start_menu": ("start", "race", "開始", "開始賽事", "开始"),
     "racing": ("anna", "ANNA"),
-    "restart_menu": ("restart", "重新開始", "重新开始", "重新"),
-    "confirm": ("confirm", "yes", "確認", "确认", "是"),
+    "restart_menu": ("restart", "重新開始", "重新开始"),
+    "confirm": ("confirm", "確認", "确认"),
     "mastery_ride_car": ("ride", "car", "駕駛", "驾驶"),
     "mastery_esc_hint": ("esc", "Esc", "ESC"),
     "mastery_upgrade_item": ("upgrade", "tuning", "升級", "升级"),
     "mastery_mastery_item": ("mastery", "熟練", "熟练"),
-    "mastery_anchor": ("車輛熟練度", "车辆熟练度", "mastery", "熟練", "熟练"),
+    "mastery_anchor": ("車輛熟練度", "车辆熟练度"),
     "mastery_my_cars": ("my cars", "車庫", "车库"),
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
 }
@@ -214,43 +218,58 @@ class ScreenDetector:
             [0.95, 1.00, 1.05],
         )
         self.stable_frames = int(self.cfg.get("detector_stable_frames", 2))
-        # Multi-resolution pyramid: combine a full-res and half-res match score
-        # to improve robustness across different GPUs/drivers/game settings.
-        # Pixel-level rendering differences (AA, font hinting) vanish at 50%
-        # resolution while UI layout remains clearly recognisable.
-        # Disable via "detector_enable_pyramid": false in config.json to revert
-        # to the original single-resolution behaviour.
-        self._pyramid_enabled: bool = bool(
-            self.cfg.get("detector_enable_pyramid", True))
-        self._pyramid_full_weight: float = float(
-            self.cfg.get("detector_pyramid_full_weight", 0.6))
-        # OCR cooldown: minimum seconds between OCR calls for the same key.
-        # Without this, a score stuck in the borderline zone triggers rapidocr
-        # on every check interval (every 0.5 s), causing sustained CPU spikes.
-        # Set to 0 in config to restore the original per-frame OCR behaviour.
+        # OCR cooldown: minimum seconds between actual OCR calls for the same
+        # key.  Without this, a score stuck in the borderline zone triggers
+        # rapidocr on every check interval (~0.5 s), causing CPU spikes.
+        # Under OCR-primary mode, a confirmation is also cached for this
+        # duration so the stability filter doesn't break during cooldown.
+        # Set to 0 to restore the original per-frame OCR behaviour.
         self._ocr_cooldown: float = float(
-            self.cfg.get("detector_ocr_cooldown", 3.0))
+            self.cfg.get("detector_ocr_cooldown", 1.0))
         self._ocr_last_run: dict[str, float] = {}
-        # Cache prepared (gray, edge) versions of each template numpy array —
-        # full-res and half-res — so we don't redo equalizeHist + Canny +
-        # resize on every frame. Keyed by id(template).
-        self._template_cache: dict[
-            int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+        # OCR-first mode (beta — the real cross-hardware fix):
+        # When pixel-matching scores poorly (e.g. templates captured on a
+        # different machine than the one running detection), text content is
+        # what's actually invariant across hardware.  In OCR-primary mode,
+        # OCR is a first-class confirmation signal rather than a +0.10
+        # bonus — finding the hint text promotes the score to
+        # _ocr_confirm_score regardless of how low the pixel match was.
+        #   _ocr_primary:         master switch (default OFF — beta opt-in)
+        #   _ocr_skip_above:      pixel score that's high enough to skip OCR
+        #   _ocr_confirm_score:   score floor when OCR confirms a match
+        #   _ocr_cache_pixel_min: minimum pixel score for a cached OCR
+        #                         confirmation to still apply (safeguards
+        #                         against the screen having changed during
+        #                         the cooldown window)
+        # Set "detector_ocr_primary": true in config.json to enable.
+        self._ocr_primary: bool = bool(
+            self.cfg.get("detector_ocr_primary", False))
+        self._ocr_skip_above: float = float(
+            self.cfg.get("detector_ocr_skip_above", 0.75))
+        self._ocr_confirm_score: float = float(
+            self.cfg.get("detector_ocr_confirm_score", 0.85))
+        self._ocr_cache_pixel_min: float = float(
+            self.cfg.get("detector_ocr_cache_pixel_min", 0.15))
+        # Cache of recent OCR confirmations per key — (timestamp, text).
+        # Lets us bridge the cooldown gap so the stability filter still
+        # passes on the frame(s) where OCR is cooling down.
+        self._ocr_confirmed: dict[str, tuple[float, str]] = {}
+        # Cache prepared (gray, edge) versions of each template — keyed by
+        # id(template) — to skip equalizeHist + Canny on every frame.
+        self._template_cache: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+        # Pre-warm OCR in the background so the first detection call doesn't
+        # eat the 1–2 s onnxruntime model-load cost.
+        threading.Thread(
+            target=self._ocr._ensure_loaded, daemon=True).start()
 
     def _prepared_template(
             self, template: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Returns (gray, edges, gray_half, edge_half), all cached."""
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Returns (gray, edges), cached per id(template)."""
         cache_key = id(template)
         cached = self._template_cache.get(cache_key)
         if cached is None:
-            gray = _prepare_gray(template)
-            edges = _prepare_edges(template)
-            gray_half = cv2.resize(gray,  None, fx=0.5, fy=0.5,
-                                   interpolation=cv2.INTER_AREA)
-            edge_half = cv2.resize(edges, None, fx=0.5, fy=0.5,
-                                   interpolation=cv2.INTER_AREA)
-            cached = (gray, edges, gray_half, edge_half)
+            cached = (_prepare_gray(template), _prepare_edges(template))
             self._template_cache[cache_key] = cached
         return cached
 
@@ -303,8 +322,7 @@ class ScreenDetector:
         soft_threshold = max(0.45, threshold * 0.92)
 
         gray_area = _prepare_gray(area)
-        gray_tpl, edge_tpl, gray_tpl_half, edge_tpl_half = \
-            self._prepared_template(template)
+        gray_tpl, edge_tpl = self._prepared_template(template)
 
         # Text-heavy templates (those with OCR hints) don't benefit from edge
         # matching — anti-aliasing makes text edges noisy — and the game UI is
@@ -316,47 +334,65 @@ class ScreenDetector:
             scales = self._text_scales
             gray_conf, gray_loc, gray_scale = _best_template_match(
                 gray_area, gray_tpl, scales)
-            full_score = gray_conf  # edge channel skipped for text
+            image_score = gray_conf  # edge channel skipped for text
         else:
             gray_conf, gray_loc, gray_scale = _best_template_match(
                 gray_area, gray_tpl, self.scales)
             edge_area = _prepare_edges(area)
             edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, self.scales)
-            full_score = (gray_conf * 0.62) + (edge_conf * 0.28)
+            image_score = (gray_conf * 0.62) + (edge_conf * 0.28)
 
-        # ── Half-resolution pass ──────────────────────────────────────────────
-        # Downscale both frame area and template to 50 % before matching.
-        # Pixel-level rendering differences (GPU AA, font hinting, driver
-        # variations) that cause cross-hardware score drops are averaged out
-        # by the downscale while the UI layout remains clearly recognisable.
-        # A single scale (1.0) is sufficient — both sides are halved equally.
-        # Disable with "detector_enable_pyramid": false in config.json.
-        if self._pyramid_enabled:
-            gray_half = cv2.resize(gray_area, None, fx=0.5, fy=0.5,
-                                   interpolation=cv2.INTER_AREA)
-            if is_text_template:
-                half_conf, _, _ = _best_template_match(
-                    gray_half, gray_tpl_half, [1.0])
-                half_score = half_conf
-            else:
-                edge_half = cv2.resize(edge_area, None, fx=0.5, fy=0.5,
-                                       interpolation=cv2.INTER_AREA)
-                hg, _, _ = _best_template_match(gray_half, gray_tpl_half, [1.0])
-                he, _, _ = _best_template_match(edge_half, edge_tpl_half, [1.0])
-                half_score = (hg * 0.62) + (he * 0.28)
-            w = self._pyramid_full_weight
-            image_score = full_score * w + half_score * (1.0 - w)
-        else:
-            image_score = full_score
+        # OCR gate.  Two modes:
+        #
+        # OCR-primary (beta — set "detector_ocr_primary": true to enable):
+        #   For text templates with hints, OCR is a first-class confirmation
+        #   signal — not a bonus.  Pixel matching gives location and a quick
+        #   fast-path, but text content is what's actually invariant across
+        #   different hardware/settings.
+        #     - image_score >= skip_above  → trust the pixel match, skip OCR
+        #     - else                       → run OCR (or use cached confirm)
+        #     - hint matched               → promote score to confirm_score
+        #     - hint not matched           → keep image_score as-is
+        #
+        #   The OCR result is cached for _ocr_cooldown seconds so subsequent
+        #   frames within the cooldown window (where OCR can't re-run) still
+        #   benefit from the confirmation.  This prevents the cooldown from
+        #   breaking the stability filter under OCR-primary mode.  Cached
+        #   confirmations only apply if image_score >= _ocr_cache_pixel_min
+        #   (default 0.15) — a safeguard against the screen having changed
+        #   completely during the cooldown.
+        #
+        # Legacy mode (default):
+        #   OCR only runs in the narrow [soft-0.10, soft] borderline zone
+        #   and adds a +0.10 bonus when it matches a hint.
+        ocr_bonus = 0.0
+        ocr_text = ""
+        has_hints = key in OCR_HINTS
 
-        # OCR is the expensive step (~100-300ms per call). Only run it when
-        # the image-only score is in the borderline zone where the OCR bonus
-        # could actually change the match decision. Skip when we're already
-        # clearly above, or clearly too far below to be saved by OCR.
-        if image_score >= soft_threshold or image_score + self.OCR_MAX_BONUS < soft_threshold:
-            ocr_bonus, ocr_text = 0.0, ""
+        if self._ocr_primary and is_text_template and has_hints:
+            if image_score < self._ocr_skip_above:
+                now = time.time()
+                cached = self._ocr_confirmed.get(key)
+                cache_valid = (
+                    cached is not None
+                    and (now - cached[0]) < self._ocr_cooldown
+                    and image_score >= self._ocr_cache_pixel_min
+                )
+                if cache_valid:
+                    # Recent OCR confirmation still applies — skip the OCR call
+                    image_score = max(image_score, self._ocr_confirm_score)
+                    ocr_text = cached[1] + " [cached]"
+                else:
+                    bonus, ocr_text = self._ocr_bonus(area, key)
+                    if bonus > 0:
+                        # OCR hint found — confirmed match regardless of pixels
+                        image_score = max(image_score, self._ocr_confirm_score)
+                        self._ocr_confirmed[key] = (now, ocr_text)
         else:
-            ocr_bonus, ocr_text = self._ocr_bonus(area, key)
+            # Legacy borderline-only behaviour
+            if (image_score < soft_threshold and
+                    image_score + self.OCR_MAX_BONUS >= soft_threshold):
+                ocr_bonus, ocr_text = self._ocr_bonus(area, key)
 
         score = image_score + ocr_bonus
         loc = (gray_loc[0] + off_x, gray_loc[1] + off_y)
