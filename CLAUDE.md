@@ -42,6 +42,7 @@ New APP/
 - Full pipeline scales: `[0.86, 0.92, 0.97, 1.00, 1.03, 1.08, 1.14]`
 - Hybrid score (non-text): `0.62 × grayscale(equalizeHist) + 0.28 × Canny edges + up to 0.10 OCR bonus`
 - Text score: `grayscale(equalizeHist)` only (edge channel skipped)
+- **Multi-resolution pyramid** (default on): `image_score = full_score × 0.6 + half_score × 0.4`. Half-res pass downscales both area and template to 50% before matching (single scale `[1.0]`). Smooths cross-hardware rendering differences. Half-res templates are cached alongside full-res in `_template_cache`. Disable via `detector_enable_pyramid: false`; weight tunable via `detector_pyramid_full_weight`.
 - Soft threshold: actual cutoff is `max(0.45, threshold * 0.92)` — user's slider is a target, not a hard wall
 - Stability filter: requires N consecutive frames (default 2) above the soft threshold; `stable=False` flag bypasses this for single-shot click ops
 - Optional OCR: lazy-loads `rapidocr_onnxruntime` → `rapidocr` → `pytesseract`. Hint words in `OCR_HINTS` are multilingual (en/zh-tw/zh-cn). If no OCR backend is installed, detection still works
@@ -75,7 +76,7 @@ New APP/
 - Keys include: lang, theme, toggle_key, capture_key, monitor_index, race_resolution, mastery_resolution, all thresh_* values, all *_wait values
 - Mastery-specific timing keys: `mastery_check_interval` (min 0.3), `mastery_post_click_wait` (min 0.5), `mastery_post_key_wait` (min 0.8), `mastery_node_click_wait` (min 0.7)
 - `mastery_start_loop` (int 1–3): which row the first car is on for Auto Unlock 22B
-- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool)
+- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool), `detector_enable_pyramid` (bool, default true), `detector_pyramid_full_weight` (float, default 0.6)
 
 ### Log widget (log_widget.py)
 - Thread-safe via queue

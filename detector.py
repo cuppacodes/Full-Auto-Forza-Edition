@@ -214,17 +214,36 @@ class ScreenDetector:
             [0.95, 1.00, 1.05],
         )
         self.stable_frames = int(self.cfg.get("detector_stable_frames", 2))
-        # Cache prepared (gray, edge) versions of each template numpy array
-        # so we don't redo equalizeHist + Canny on every frame. Keyed by
-        # id(template) — templates are loaded once at run start and the
-        # same array is passed in for every detect() call.
-        self._template_cache: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+        # Multi-resolution pyramid: combine a full-res and half-res match score
+        # to improve robustness across different GPUs/drivers/game settings.
+        # Pixel-level rendering differences (AA, font hinting) vanish at 50%
+        # resolution while UI layout remains clearly recognisable.
+        # Disable via "detector_enable_pyramid": false in config.json to revert
+        # to the original single-resolution behaviour.
+        self._pyramid_enabled: bool = bool(
+            self.cfg.get("detector_enable_pyramid", True))
+        self._pyramid_full_weight: float = float(
+            self.cfg.get("detector_pyramid_full_weight", 0.6))
+        # Cache prepared (gray, edge) versions of each template numpy array —
+        # full-res and half-res — so we don't redo equalizeHist + Canny +
+        # resize on every frame. Keyed by id(template).
+        self._template_cache: dict[
+            int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 
-    def _prepared_template(self, template: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _prepared_template(
+            self, template: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Returns (gray, edges, gray_half, edge_half), all cached."""
         cache_key = id(template)
         cached = self._template_cache.get(cache_key)
         if cached is None:
-            cached = (_prepare_gray(template), _prepare_edges(template))
+            gray = _prepare_gray(template)
+            edges = _prepare_edges(template)
+            gray_half = cv2.resize(gray,  None, fx=0.5, fy=0.5,
+                                   interpolation=cv2.INTER_AREA)
+            edge_half = cv2.resize(edges, None, fx=0.5, fy=0.5,
+                                   interpolation=cv2.INTER_AREA)
+            cached = (gray, edges, gray_half, edge_half)
             self._template_cache[cache_key] = cached
         return cached
 
@@ -277,7 +296,8 @@ class ScreenDetector:
         soft_threshold = max(0.45, threshold * 0.92)
 
         gray_area = _prepare_gray(area)
-        gray_tpl, edge_tpl = self._prepared_template(template)
+        gray_tpl, edge_tpl, gray_tpl_half, edge_tpl_half = \
+            self._prepared_template(template)
 
         # Text-heavy templates (those with OCR hints) don't benefit from edge
         # matching — anti-aliasing makes text edges noisy — and the game UI is
@@ -289,13 +309,38 @@ class ScreenDetector:
             scales = self._text_scales
             gray_conf, gray_loc, gray_scale = _best_template_match(
                 gray_area, gray_tpl, scales)
-            image_score = gray_conf  # edge channel skipped for text
+            full_score = gray_conf  # edge channel skipped for text
         else:
             gray_conf, gray_loc, gray_scale = _best_template_match(
                 gray_area, gray_tpl, self.scales)
             edge_area = _prepare_edges(area)
             edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, self.scales)
-            image_score = (gray_conf * 0.62) + (edge_conf * 0.28)
+            full_score = (gray_conf * 0.62) + (edge_conf * 0.28)
+
+        # ── Half-resolution pass ──────────────────────────────────────────────
+        # Downscale both frame area and template to 50 % before matching.
+        # Pixel-level rendering differences (GPU AA, font hinting, driver
+        # variations) that cause cross-hardware score drops are averaged out
+        # by the downscale while the UI layout remains clearly recognisable.
+        # A single scale (1.0) is sufficient — both sides are halved equally.
+        # Disable with "detector_enable_pyramid": false in config.json.
+        if self._pyramid_enabled:
+            gray_half = cv2.resize(gray_area, None, fx=0.5, fy=0.5,
+                                   interpolation=cv2.INTER_AREA)
+            if is_text_template:
+                half_conf, _, _ = _best_template_match(
+                    gray_half, gray_tpl_half, [1.0])
+                half_score = half_conf
+            else:
+                edge_half = cv2.resize(edge_area, None, fx=0.5, fy=0.5,
+                                       interpolation=cv2.INTER_AREA)
+                hg, _, _ = _best_template_match(gray_half, gray_tpl_half, [1.0])
+                he, _, _ = _best_template_match(edge_half, edge_tpl_half, [1.0])
+                half_score = (hg * 0.62) + (he * 0.28)
+            w = self._pyramid_full_weight
+            image_score = full_score * w + half_score * (1.0 - w)
+        else:
+            image_score = full_score
 
         # OCR is the expensive step (~100-300ms per call). Only run it when
         # the image-only score is in the borderline zone where the OCR bonus
