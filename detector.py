@@ -33,19 +33,22 @@ class MatchResult:
 
 
 DEFAULT_ROIS: dict[str, Rect] = {
-    # x, y, width, height ratios. These are intentionally generous; the
-    # detector falls back to full-screen search with a small score penalty.
-    "start_menu": (0.20, 0.15, 0.60, 0.70),
-    "racing": (0.00, 0.55, 0.50, 0.45),   # ANNA prompt — bottom-left corner
-    "restart_menu": (0.25, 0.20, 0.55, 0.65),
-    "confirm": (0.20, 0.20, 0.65, 0.65),
-    "mastery_ride_car": (0.00, 0.10, 0.55, 0.80),
-    "mastery_esc_hint": (0.00, 0.00, 1.00, 0.35),
-    "mastery_upgrade_item": (0.00, 0.10, 0.65, 0.80),
-    "mastery_mastery_item": (0.00, 0.10, 0.65, 0.80),
-    "mastery_anchor": (0.00, 0.00, 1.00, 0.45),
-    "mastery_my_cars": (0.00, 0.10, 0.65, 0.80),
-    "mastery_sort_recent": (0.00, 0.10, 0.80, 0.80),
+    # x, y, width, height ratios. Tuned to where the UI element actually
+    # appears on screen, with a small margin for layout variation. Full-screen
+    # fallback (with a 0.94 score penalty) catches anything that drifts
+    # outside.  Important under OCR-primary mode: a wrong ROI makes OCR read
+    # the wrong region of the screen and produces false positives.
+    "start_menu":           (0.00, 0.40, 0.30, 0.50),  # menu on left side
+    "racing":               (0.00, 0.55, 0.50, 0.45),  # ANNA prompt — bottom-left
+    "restart_menu":         (0.00, 0.80, 0.35, 0.20),  # [X] 重新開始 — bottom-left
+    "confirm":              (0.20, 0.20, 0.65, 0.65),  # centre dialog
+    "mastery_ride_car":     (0.30, 0.30, 0.40, 0.40),  # centre context menu
+    "mastery_esc_hint":     (0.00, 0.90, 0.30, 0.10),  # bottom-left hint bar
+    "mastery_upgrade_item": (0.00, 0.20, 0.30, 0.60),  # left side menu
+    "mastery_mastery_item": (0.00, 0.20, 0.30, 0.75),  # left submenu, full height
+    "mastery_anchor":       (0.00, 0.00, 0.25, 0.15),  # top-left title
+    "mastery_my_cars":      (0.00, 0.10, 0.30, 0.50),  # top of left menu
+    "mastery_sort_recent":  (0.30, 0.20, 0.40, 0.70),  # centre sort menu
 }
 
 
@@ -56,7 +59,7 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     "start_menu": ("start", "race", "開始", "開始賽事", "开始"),
     "racing": ("anna", "ANNA"),
     "restart_menu": ("restart", "重新開始", "重新开始"),
-    "confirm": ("confirm", "確認", "确认"),
+    "confirm": ("確定", "确定", "重新開始賽事", "重新开始赛事", "confirm"),
     "mastery_ride_car": ("ride", "car", "駕駛", "驾驶"),
     "mastery_esc_hint": ("esc", "Esc", "ESC"),
     "mastery_upgrade_item": ("upgrade", "tuning", "升級", "升级"),
