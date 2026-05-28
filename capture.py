@@ -243,7 +243,7 @@ class CaptureSession:
         triggered  = threading.Event()
         _in_capture = threading.Lock()
 
-        def _on_caps(e):
+        def _caps_pressed():
             # Only set if not already processing a capture
             if not self._stop.is_set() and not _in_capture.locked():
                 triggered.set()
@@ -252,7 +252,10 @@ class CaptureSession:
         if self.template_key and self.examples_dir:
             show_example(self.template_key, self.examples_dir)
 
-        cap_hook = keyboard.on_press_key(self.capture_key, _on_caps, suppress=False)
+        # Use add_hotkey (same mechanism as the F9 global toggle) so the key
+        # fires system-wide even when the game window has focus.
+        # on_press_key can be focus-dependent in some Windows configurations.
+        cap_hook = keyboard.add_hotkey(self.capture_key, _caps_pressed, suppress=False)
 
         # ESC cancels at any point during waiting.
         # If we're mid-capture (_in_capture held), the selectROI / waitKey
@@ -315,7 +318,10 @@ class CaptureSession:
                     _in_capture.release()
 
         try:
-            keyboard.unhook(cap_hook)
+            keyboard.remove_hotkey(cap_hook)
+        except Exception:
+            pass
+        try:
             keyboard.unhook(esc_hook)
         except Exception:
             pass
@@ -353,13 +359,15 @@ class NodeSession:
         triggered  = threading.Event()
         cancelled  = threading.Event()
 
-        def _on_cap(e):
+        def _cap_pressed():
             triggered.set()
         def _on_esc(e):
             cancelled.set()
             triggered.set()
 
-        cap_hook = keyboard.on_press_key(self.capture_key, _on_cap, suppress=False)
+        # Use add_hotkey for the same reason as CaptureSession — ensures the
+        # key fires system-wide regardless of which window has focus.
+        cap_hook = keyboard.add_hotkey(self.capture_key, _cap_pressed, suppress=False)
         esc_hook = keyboard.on_press_key('esc', _on_esc, suppress=False)
 
         # Poll so stop() can also interrupt the wait
@@ -367,7 +375,10 @@ class NodeSession:
             triggered.wait(timeout=0.1)
 
         try:
-            keyboard.unhook(cap_hook)
+            keyboard.remove_hotkey(cap_hook)
+        except Exception:
+            pass
+        try:
             keyboard.unhook(esc_hook)
         except Exception:
             pass
