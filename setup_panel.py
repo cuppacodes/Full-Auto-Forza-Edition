@@ -289,17 +289,14 @@ class SetupPanel(ctk.CTkFrame):
         self.refresh_all()
 
     def _update_capture_visibility(self):
-        """Show capture controls only in custom mode."""
-        state = 'normal' if self._is_custom() else 'disabled'
+        """Bulk capture only in custom mode; individual ↺ buttons always visible."""
         if hasattr(self, '_cap_btn'):
-            self._cap_btn.configure(state=state)
+            self._cap_btn.configure(
+                state='normal' if self._is_custom() else 'disabled')
         if hasattr(self, '_node_recapture_btn'):
-            if self._is_custom():
-                self._node_recapture_btn.pack(side="right", padx=4)
-            else:
-                self._node_recapture_btn.pack_forget()
+            self._node_recapture_btn.pack(side="right", padx=4)
         for row in self._rows.values():
-            row.set_recapture_visible(self._is_custom())
+            row.set_recapture_visible(True)
 
     def _toggle(self):
         self._collapsed = not self._collapsed
@@ -472,7 +469,8 @@ class SetupPanel(ctk.CTkFrame):
         for row in self._rows.values():
             row.set_capturing(False)
             row.refresh()
-        self._cap_btn.configure(state="normal")
+        self._cap_btn.configure(
+            state="normal" if self._is_custom() else "disabled")
         self._stop_btn.configure(state="disabled")
         self._cap_label.configure(text="")
         self.refresh_all()

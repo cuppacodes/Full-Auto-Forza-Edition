@@ -35,7 +35,7 @@ DEFAULT_ROIS: dict[str, Rect] = {
     # x, y, width, height ratios. These are intentionally generous; the
     # detector falls back to full-screen search with a small score penalty.
     "start_menu": (0.20, 0.15, 0.60, 0.70),
-    "racing": (0.00, 0.00, 1.00, 1.00),
+    "racing": (0.00, 0.55, 0.50, 0.45),   # ANNA prompt — bottom-left corner
     "restart_menu": (0.25, 0.20, 0.55, 0.65),
     "confirm": (0.20, 0.20, 0.65, 0.65),
     "mastery_ride_car": (0.00, 0.10, 0.55, 0.80),
@@ -50,11 +50,14 @@ DEFAULT_ROIS: dict[str, Rect] = {
 
 OCR_HINTS: dict[str, tuple[str, ...]] = {
     "start_menu": ("start", "race", "開始", "開始賽事", "开始"),
-    "restart_menu": ("restart", "重新", "重啟", "重启"),
+    "racing": ("anna", "ANNA"),
+    "restart_menu": ("restart", "重新開始", "重新开始", "重新"),
     "confirm": ("confirm", "yes", "確認", "确认", "是"),
     "mastery_ride_car": ("ride", "car", "駕駛", "驾驶"),
+    "mastery_esc_hint": ("esc", "Esc", "ESC"),
     "mastery_upgrade_item": ("upgrade", "tuning", "升級", "升级"),
     "mastery_mastery_item": ("mastery", "熟練", "熟练"),
+    "mastery_anchor": ("車輛熟練度", "车辆熟练度", "mastery", "熟練", "熟练"),
     "mastery_my_cars": ("my cars", "車庫", "车库"),
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
 }
