@@ -80,14 +80,23 @@ def _clip_roi(frame: np.ndarray, roi: Optional[Rect]) -> tuple[np.ndarray, int, 
     return frame[y:y + rh, x:x + rw], x, y
 
 
-def _prepare_gray(img: np.ndarray) -> np.ndarray:
+def _prepare_gray(img: np.ndarray, blur_sigma: float = 1.0) -> np.ndarray:
     if len(img.shape) == 3:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return cv2.equalizeHist(img)
+    equalized = cv2.equalizeHist(img)
+    # A light blur is applied to both template and frame equally.
+    # This smooths subpixel anti-aliasing and font-rendering differences
+    # between GPU vendors/drivers so the overall text shape is matched
+    # rather than exact per-pixel values.  sigma=1.0 is enough to absorb
+    # ClearType / MSAA artefacts without losing letter-shape information.
+    if blur_sigma > 0:
+        ksize = 3  # smallest effective kernel
+        equalized = cv2.GaussianBlur(equalized, (ksize, ksize), blur_sigma)
+    return equalized
 
 
-def _prepare_edges(img: np.ndarray) -> np.ndarray:
-    gray = _prepare_gray(img)
+def _prepare_edges(img: np.ndarray, blur_sigma: float = 1.0) -> np.ndarray:
+    gray = _prepare_gray(img, blur_sigma)
     return cv2.Canny(gray, 60, 160)
 
 
@@ -214,6 +223,10 @@ class ScreenDetector:
             [0.95, 1.00, 1.05],
         )
         self.stable_frames = int(self.cfg.get("detector_stable_frames", 2))
+        # Blur sigma for _prepare_gray.  1.0 is the default — absorbs GPU/driver
+        # anti-aliasing differences so templates captured on one machine match
+        # frames captured on another.  Set to 0 in config to disable blurring.
+        self._blur_sigma: float = float(self.cfg.get("detector_blur_sigma", 1.0))
         # Cache prepared (gray, edge) versions of each template numpy array
         # so we don't redo equalizeHist + Canny on every frame. Keyed by
         # id(template) — templates are loaded once at run start and the
@@ -224,7 +237,8 @@ class ScreenDetector:
         cache_key = id(template)
         cached = self._template_cache.get(cache_key)
         if cached is None:
-            cached = (_prepare_gray(template), _prepare_edges(template))
+            cached = (_prepare_gray(template, self._blur_sigma),
+                      _prepare_edges(template, self._blur_sigma))
             self._template_cache[cache_key] = cached
         return cached
 
@@ -276,7 +290,7 @@ class ScreenDetector:
         area, off_x, off_y = _clip_roi(frame, roi)
         soft_threshold = max(0.45, threshold * 0.92)
 
-        gray_area = _prepare_gray(area)
+        gray_area = _prepare_gray(area, self._blur_sigma)
         gray_tpl, edge_tpl = self._prepared_template(template)
 
         # Text-heavy templates (those with OCR hints) don't benefit from edge
@@ -293,7 +307,7 @@ class ScreenDetector:
         else:
             gray_conf, gray_loc, gray_scale = _best_template_match(
                 gray_area, gray_tpl, self.scales)
-            edge_area = _prepare_edges(area)
+            edge_area = _prepare_edges(area, self._blur_sigma)
             edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, self.scales)
             image_score = (gray_conf * 0.62) + (edge_conf * 0.28)
 
