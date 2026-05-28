@@ -303,6 +303,20 @@ class MainWindow(ctk.CTk):
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.pack(side="right")
 
+        # ── DEV: Detection mode toggle (Stable / Beta) ─────────────────────
+        # Beta = OCR-primary detection (detector_ocr_primary in config.json).
+        # Temporary developer tool for testing — remove before public release.
+        self._det_mode_var = ctk.StringVar(
+            value="Beta" if self._cfg.get("detector_ocr_primary", False)
+            else "Stable")
+        ctk.CTkSegmentedButton(
+            right,
+            values=["Stable", "Beta"],
+            variable=self._det_mode_var,
+            command=self._on_detection_mode_change,
+            width=140, height=28,
+        ).pack(side="left", padx=(0, 8))
+
         ctk.CTkButton(
             right, text="⚙", width=36,
             font=("Segoe UI", 16),
@@ -311,6 +325,11 @@ class MainWindow(ctk.CTk):
             hover_color=("gray80", "gray30"),
             text_color=("gray20", "gray90")
         ).pack(side="left", padx=(8, 0))
+
+    def _on_detection_mode_change(self, val: str):
+        """DEV: Toggle detector_ocr_primary in config.json. Removes for release."""
+        self._cfg["detector_ocr_primary"] = (val == "Beta")
+        save(self._cfg)
 
     def _build_race_tab(self) -> ctk.CTkFrame:
         frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
