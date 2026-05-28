@@ -47,7 +47,7 @@ def _key_press(key, post_wait=0.5):
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb):
+        log_cb, status_cb, max_cars: int = 0):
 
     lang    = cfg.get('lang', 'en')
     post_kw = cfg.get('delete_post_key_wait', 0.5)
@@ -60,12 +60,16 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(f'  [{key.upper()}] {label}')
         _key_press(key, post_wait=w)
 
-    log_cb(_at('log_delete_started', lang))
+    if max_cars > 0:
+        log_cb(_at('log_delete_started_count', lang, n=max_cars))
+    else:
+        log_cb(_at('log_delete_started', lang))
     loop_count = 0
 
     while not stop():
         loop_count += 1
-        log_cb(f"-- {_at('delete_loop', lang)} #{loop_count} --")
+        log_cb(f"-- {_at('delete_loop', lang)} #{loop_count}" +
+               (f" / {max_cars}" if max_cars > 0 else "") + " --")
 
         if stop(): break
 
@@ -89,5 +93,10 @@ def run(cfg: dict, stop_event: threading.Event,
 
         press('enter', 'Confirm delete', wait=1.5)
         if stop(): break
+
+        # ── Check if we've hit the limit ─────────────────────
+        if max_cars > 0 and loop_count >= max_cars:
+            log_cb(_at('log_delete_limit_reached', lang, n=max_cars))
+            break
 
     log_cb(_at('log_delete_stopped', lang))

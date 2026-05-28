@@ -88,30 +88,56 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
             if progress_cb:
                 progress_cb(100)
 
-            # ── Extract FAFE.exe from zip ─────────────────────
-            tmp_new_exe = os.path.join(tempfile.gettempdir(), "FAFE_new.exe")
+            # ── Extract full zip to temp folder ──────────────
+            import shutil
+            tmp_extract = os.path.join(tempfile.gettempdir(), "FAFE_update_extract")
+            if os.path.exists(tmp_extract):
+                shutil.rmtree(tmp_extract)
+            os.makedirs(tmp_extract)
+
             with zipfile.ZipFile(tmp_zip, "r") as zf:
-                # Find the exe inside the zip (may be in a subfolder)
-                exe_entry = next(
-                    (n for n in zf.namelist()
-                     if n.lower().endswith("fafe.exe")),
-                    None
-                )
-                if not exe_entry:
-                    raise FileNotFoundError("FAFE.exe not found in zip")
-                with zf.open(exe_entry) as src, open(tmp_new_exe, "wb") as dst:
-                    dst.write(src.read())
+                zf.extractall(tmp_extract)
 
             os.remove(tmp_zip)
 
-            # ── Write updater.bat ─────────────────────────────
+            # Find the root folder inside the zip
+            entries = os.listdir(tmp_extract)
+            if len(entries) == 1 and os.path.isdir(os.path.join(tmp_extract, entries[0])):
+                src_dir = os.path.join(tmp_extract, entries[0])
+            else:
+                src_dir = tmp_extract
+
+            # ── Write updater.bat — only replace FAFE.exe and _internal/ ──
+            # Copy is retried while FAFE.exe is still locked; if it ultimately
+            # fails, skip the destructive /PURGE on _internal and relaunch the
+            # existing exe so the user isn't left with a broken install.
+            src_exe      = os.path.join(src_dir, "FAFE.exe")
+            src_internal = os.path.join(src_dir, "_internal")
             bat_path = os.path.join(tempfile.gettempdir(), "fafe_update.bat")
             bat = (
                 "@echo off\n"
+                "setlocal enabledelayedexpansion\n"
                 "timeout /t 2 /nobreak >nul\n"
-                f'move /y "{tmp_new_exe}" "{exe_path}"\n'
+                "set /a TRIES=10\n"
+                ":try_copy\n"
+                f'copy /y "{src_exe}" "{exe_path}" >nul 2>&1\n'
+                "if not errorlevel 1 goto copy_ok\n"
+                "set /a TRIES-=1\n"
+                "if !TRIES! LEQ 0 goto fail\n"
+                "timeout /t 1 /nobreak >nul\n"
+                "goto try_copy\n"
+                ":copy_ok\n"
+                f'robocopy "{src_internal}" "{exe_dir}\\_internal" /E /IS /IT /IM /PURGE >nul\n'
+                "if errorlevel 8 goto fail\n"
                 f'start "" "{exe_path}"\n'
-                "del \"%~f0\"\n"
+                f'rmdir /s /q "{tmp_extract}" >nul 2>&1\n'
+                'del "%~f0"\n'
+                "exit /b 0\n"
+                ":fail\n"
+                f'start "" "{exe_path}"\n'
+                f'rmdir /s /q "{tmp_extract}" >nul 2>&1\n'
+                'del "%~f0"\n'
+                "exit /b 1\n"
             )
             with open(bat_path, "w") as f:
                 f.write(bat)

@@ -89,8 +89,12 @@ def load_template(folder: str, key: str,
     with open(meta_path, encoding="utf-8") as f:
         meta = json.load(f)
 
-    scale = ((current_w / meta["screen_width"]) +
-             (current_h / meta["screen_height"])) / 2
+    # Scale by height only: game UIs are laid out relative to vertical
+    # resolution, not an average of width and height.  Averaging breaks
+    # on mixed aspect ratios (e.g. a 16:9 template used on a 21:9 screen):
+    # the width ratio inflates the scale and the template ends up the wrong
+    # size even though the actual UI element is pixel-identical in height.
+    scale = current_h / meta["screen_height"]
     if abs(scale - 1.0) > 0.02:
         nw = max(1, int(img.shape[1] * scale))
         nh = max(1, int(img.shape[0] * scale))
@@ -171,7 +175,22 @@ def select_region(frame: np.ndarray, window_title: str):
     else:
         display = frame.copy()
 
+    dh, dw = display.shape[:2]
+
     cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_title, dw, dh)
+    cv2.setWindowProperty(window_title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    # Bring to foreground
+    try:
+        import ctypes
+        hwnd = ctypes.windll.user32.FindWindowW(None, window_title)
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 3)   # SW_MAXIMIZE
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+    except Exception:
+        pass
+
     roi = cv2.selectROI(window_title, display,
                         showCrosshair=True, fromCenter=False)
     cv2.destroyAllWindows()
@@ -215,9 +234,7 @@ class CaptureSession:
     def stop(self):
         self._stop.set()
         try:
-            import keyboard
             close_example()
-            keyboard.unhook_all()
         except Exception:
             pass
 
@@ -235,7 +252,16 @@ class CaptureSession:
         if self.template_key and self.examples_dir:
             show_example(self.template_key, self.examples_dir)
 
-        keyboard.on_press_key(self.capture_key, _on_caps, suppress=False)
+        cap_hook = keyboard.on_press_key(self.capture_key, _on_caps, suppress=False)
+
+        # ESC cancels at any point during waiting.
+        # If we're mid-capture (_in_capture held), the selectROI / waitKey
+        # paths already handle cancellation — don't double-fire on_cancel.
+        def _on_esc(e):
+            self._stop.set()
+            if not _in_capture.locked() and self.on_cancel:
+                self.on_cancel()
+        esc_hook = keyboard.on_press_key('esc', _on_esc, suppress=False)
 
         while not self._stop.is_set():
             if triggered.wait(timeout=0.1):
@@ -243,36 +269,56 @@ class CaptureSession:
                 if self._stop.is_set():
                     break
                 if not _in_capture.acquire(blocking=False):
-                    continue   # already in a capture, skip
+                    continue
                 try:
-                    time.sleep(0.15)   # debounce
-                    triggered.clear()  # discard any bounces during debounce
+                    time.sleep(0.15)
+                    triggered.clear()
 
                     frame = grab_frame(self.monitor_index)
                     h, w  = frame.shape[:2]
 
                     roi = select_region(frame, self.window_title)
                     if roi is None:
+                        self._stop.set()
                         if self.on_cancel:
                             self.on_cancel()
                     else:
                         x, y, rw, rh = roi
                         crop = frame[y:y+rh, x:x+rw]
 
-                        cv2.imshow("Preview — Y to save | N to redo", crop)
+                        cv2.imshow("Preview — ENTER to save | ESC to cancel", crop)
+                        # Bring preview to foreground
+                        try:
+                            import ctypes as _ct
+                            _hw = _ct.windll.user32.FindWindowW(None, "Preview — ENTER to save | ESC to cancel")
+                            if _hw:
+                                _ct.windll.user32.ShowWindow(_hw, 9)
+                                _ct.windll.user32.SetForegroundWindow(_hw)
+                        except Exception:
+                            pass
                         key = cv2.waitKey(0) & 0xFF
                         cv2.destroyAllWindows()
 
                         if key in (ord('y'), ord('Y'), 13):
+                            # Stop listening before handing off — prevents the
+                            # loop from picking up the next CAPS LOCK press
+                            # while _advance_session() is still spinning up
+                            # the new session, which broke multi-capture.
+                            self._stop.set()
                             self.callback(crop, w, h)
                         else:
+                            self._stop.set()
                             if self.on_cancel:
-                                self.on_cancel("redo")
+                                self.on_cancel()
                 finally:
-                    triggered.clear()  # clear any caps lock presses during capture
+                    triggered.clear()
                     _in_capture.release()
 
-        keyboard.unhook_all()
+        try:
+            keyboard.unhook(cap_hook)
+            keyboard.unhook(esc_hook)
+        except Exception:
+            pass
 
 
 # ── Node click session ────────────────────────────────────────
@@ -291,16 +337,45 @@ class NodeSession:
         self.capture_key   = capture_key
 
     def start(self):
+        self._stop = threading.Event()
         threading.Thread(target=self._run, daemon=True).start()
+
+    def stop(self):
+        self._stop.set()
+        try:
+            close_example()
+        except Exception:
+            pass
 
     def _run(self):
         import keyboard
-        # Wait for Caps Lock via event hook
-        triggered = threading.Event()
-        keyboard.on_press_key(self.capture_key,
-                              lambda e: triggered.set(), suppress=False)
-        triggered.wait()
-        keyboard.unhook_all()
+        # Wait for Caps Lock (or ESC/stop to cancel)
+        triggered  = threading.Event()
+        cancelled  = threading.Event()
+
+        def _on_cap(e):
+            triggered.set()
+        def _on_esc(e):
+            cancelled.set()
+            triggered.set()
+
+        cap_hook = keyboard.on_press_key(self.capture_key, _on_cap, suppress=False)
+        esc_hook = keyboard.on_press_key('esc', _on_esc, suppress=False)
+
+        # Poll so stop() can also interrupt the wait
+        while not triggered.is_set() and not self._stop.is_set():
+            triggered.wait(timeout=0.1)
+
+        try:
+            keyboard.unhook(cap_hook)
+            keyboard.unhook(esc_hook)
+        except Exception:
+            pass
+
+        if cancelled.is_set() or self._stop.is_set():
+            if self.on_cancel:
+                self.on_cancel()
+            return
         time.sleep(0.1)
 
         frame = grab_frame(self.monitor_index)
@@ -321,6 +396,18 @@ class NodeSession:
 
         win = "Click 6 nodes in order | ESC to cancel"
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(win, display.shape[1], display.shape[0])
+
+        # Bring to foreground
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.FindWindowW(None, win)
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 9)
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+
         cv2.setMouseCallback(win, on_mouse)
 
         while len(clicks) < 6:
@@ -356,6 +443,6 @@ class NodeSession:
 
         if key in (ord('y'), ord('Y'), 13):
             self.callback(clicks, w, h)
-        else:
+        else:  # ESC or anything else cancels
             if self.on_cancel:
-                self.on_cancel("redo")
+                self.on_cancel()

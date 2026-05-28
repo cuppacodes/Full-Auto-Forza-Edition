@@ -34,9 +34,9 @@ STRINGS = {
         "zh-cn": "⭐  自动解锁22B转轮",
     },
     "mastery_description": {
-        "en":    "Before starting, make sure you are in the garage and the newest 22B in the top-left is brand new. The tool will snake downward and process each car one by one.",
-        "zh-tw": "開始前請確保在車庫中並且左上角最新的是全新的22B，程式會用蛇行的方式往下開始一台一台處理。",
-        "zh-cn": "开始前请确保在车库中并且左上角最新的是全新的22B，程序会用蛇行的方式往下开始一台一台处理。",
+        "en":    "Before starting, make sure you are in your My Home garage (not the Horizon Festival map menu) and the newest 22B in the top-left is brand new. The tool will snake downward and process each car one by one.",
+        "zh-tw": "開始前請確保在我的住所裡的車庫（非大世界選單），並且左上角最新的是全新的22B，程式會用蛇行的方式往下開始一台一台處理。",
+        "zh-cn": "开始前请确保在我的住所里的车库（非大世界选单），并且左上角最新的是全新的22B，程序会用蛇行的方式往下开始一台一台处理。",
     },
 
     "tab_buy": {
@@ -86,6 +86,51 @@ STRINGS = {
         "zh-tw": "自動刪除已啟動。",
         "zh-cn": "自动删除已启动。",
     },
+    "log_delete_started_count": {
+        "en":    "Auto Delete started — will delete {n} cars.",
+        "zh-tw": "自動刪除已啟動 — 將刪除 {n} 輛車。",
+        "zh-cn": "自动删除已启动 — 将删除 {n} 辆车。",
+    },
+    "log_delete_limit_reached": {
+        "en":    "Reached target of {n} cars deleted. Stopping.",
+        "zh-tw": "已完成目標 {n} 輛，自動停止。",
+        "zh-cn": "已完成目标 {n} 辆，自动停止。",
+    },
+    "delete_count_label": {
+        "en":    "Number of cars to delete:",
+        "zh-tw": "要刪除的車輛數量：",
+        "zh-cn": "要删除的车辆数量：",
+    },
+    "delete_count_hint": {
+        "en":    "(0 = unlimited)",
+        "zh-tw": "（0 = 無限循環）",
+        "zh-cn": "（0 = 无限循环）",
+    },
+    "buy_count_label": {
+        "en":    "Number of cars to buy:",
+        "zh-tw": "要購買的車輛數量：",
+        "zh-cn": "要购买的车辆数量：",
+    },
+    "log_buy_limit_reached": {
+        "en":    "Reached target of {n} purchases. Stopping.",
+        "zh-tw": "已完成目標 {n} 次購買，自動停止。",
+        "zh-cn": "已完成目标 {n} 次购买，自动停止。",
+    },
+    "mastery_count_label": {
+        "en":    "Number of cars to process:",
+        "zh-tw": "要處理的車輛數量：",
+        "zh-cn": "要处理的车辆数量：",
+    },
+    "log_mastery_started_count": {
+        "en":    "Auto Mastery started — will process {n} cars.",
+        "zh-tw": "自動熟練度已啟動 — 將處理 {n} 輛車。",
+        "zh-cn": "自动熟练度已启动 — 将处理 {n} 辆车。",
+    },
+    "log_mastery_limit_reached": {
+        "en":    "Reached target of {n} cars. Stopping.",
+        "zh-tw": "已完成目標 {n} 輛，自動停止。",
+        "zh-cn": "已完成目标 {n} 辆，自动停止。",
+    },
     "log_delete_stopped": {
         "en":    "Auto Delete stopped.",
         "zh-tw": "自動刪除已停止。",
@@ -130,6 +175,11 @@ STRINGS = {
         "zh-tw": "設定",
         "zh-cn": "设置",
     },
+    "settings_back": {
+        "en":    "Back",
+        "zh-tw": "返回",
+        "zh-cn": "返回",
+    },
     "settings_race_section": {
         "en":    "Race Auto",
         "zh-tw": "自動掛機刷技術點",
@@ -139,6 +189,16 @@ STRINGS = {
         "en":    "Auto Unlock 22B",
         "zh-tw": "自動解鎖22B轉輪",
         "zh-cn": "自动解锁22B转轮",
+    },
+    "settings_buy_section": {
+        "en":    "Auto Buy 22B-STi",
+        "zh-tw": "自動購買22B-STi",
+        "zh-cn": "自动购买22B-STi",
+    },
+    "settings_delete_section": {
+        "en":    "Delete Used Cars",
+        "zh-tw": "刪除已使用車輛",
+        "zh-cn": "删除已使用车辆",
     },
     "settings_appearance_section": {
         "en":    "Appearance",
@@ -253,9 +313,9 @@ STRINGS = {
         "zh-cn": "重新截取",
     },
     "capture_instruction": {
-        "en":    "Navigate your game to the same screen, then press CAPS LOCK to capture. A selection window will pop up — drag to select the area. If it doesn't appear, Alt-Tab to find it.",
-        "zh-tw": "請將遊戲切換至相同畫面，然後按 CAPS LOCK 擷取。接著會彈出選取視窗讓你框選擷取範圍。若視窗未出現，請按 Alt-Tab 查看是否在背景。",
-        "zh-cn": "请将游戏切换至相同画面，然后按 CAPS LOCK 截取。接着会弹出选取窗口让你框选截取范围。若窗口未出现，请按 Alt-Tab 查看是否在后台。",
+        "en":    "Navigate your game to the same screen, then press CAPS LOCK to capture. Drag to select the area, then press ENTER to confirm. Press ESC at any time to cancel. If the selection window doesn't appear, Alt-Tab to find it.",
+        "zh-tw": "請將遊戲切換至相同畫面，然後按 CAPS LOCK 擷取。拖曳框選範圍後按 ENTER 確認。隨時按 ESC 可取消。若視窗未出現，請按 Alt-Tab 查看是否在背景。",
+        "zh-cn": "请将游戏切换至相同画面，然后按 CAPS LOCK 截取。拖曳框选范围后按 ENTER 确认。随时按 ESC 可取消。若窗口未出现，请按 Alt-Tab 查看是否在后台。",
     },
     "capture_nodes_instruction": {
         "en":    "Get to the Mastery screen, press CAPS LOCK to screenshot then click 6 nodes.",
@@ -320,9 +380,9 @@ STRINGS = {
         "zh-cn": "检测间隔（秒）",
     },
     "setting_race_post_key_wait": {
-        "en":    "Key wait (s)",
-        "zh-tw": "按鍵等待（秒）",
-        "zh-cn": "按键等待（秒）",
+        "en":    "Trigger to input delay (s)",
+        "zh-tw": "觸發與開始輸入之間的間隔（秒）",
+        "zh-cn": "触发与开始输入之间的间隔（秒）",
     },
     "setting_mastery_threshold": {
         "en":    "Detection threshold",
@@ -334,10 +394,25 @@ STRINGS = {
         "zh-tw": "點擊等待（秒）",
         "zh-cn": "点击等待（秒）",
     },
+    "setting_mastery_node_click_wait": {
+        "en":    "Mastery node click interval (s)",
+        "zh-tw": "點擊熟練度間隔（秒）",
+        "zh-cn": "点击熟练度间隔（秒）",
+    },
     "setting_mastery_post_key_wait": {
-        "en":    "Key wait (s)",
-        "zh-tw": "按鍵等待（秒）",
-        "zh-cn": "按键等待（秒）",
+        "en":    "Trigger to input delay (s)",
+        "zh-tw": "觸發與開始輸入之間的間隔（秒）",
+        "zh-cn": "触发与开始输入之间的间隔（秒）",
+    },
+    "setting_buy_post_key_wait": {
+        "en":    "Key interval (s)",
+        "zh-tw": "按鍵間隔（秒）",
+        "zh-cn": "按键间隔（秒）",
+    },
+    "setting_delete_post_key_wait": {
+        "en":    "Key interval (s)",
+        "zh-tw": "按鍵間隔（秒）",
+        "zh-cn": "按键间隔（秒）",
     },
 
     # ── Run controls ──────────────────────────────────────────
@@ -501,9 +576,9 @@ STRINGS = {
 
     # ── Automation log messages ───────────────────────────────
     "log_template_loaded": {
-        "en":    "  Template '{key}' loaded (scale {scale}x)",
-        "zh-tw": "  樣本 '{key}' 已載入（縮放 {scale}x）",
-        "zh-cn": "  模板 '{key}' 已加载（缩放 {scale}x）",
+        "en":    "  Template '{key}' loaded.",
+        "zh-tw": "  樣本 '{key}' 已載入。",
+        "zh-cn": "  模板 '{key}' 已加载。",
     },
     "log_nodes_loaded": {
         "en":    "  {n} node positions loaded.",
@@ -559,6 +634,11 @@ STRINGS = {
         "en":    "  {label} timed out after {t}s",
         "zh-tw": "  {label} 於 {t} 秒後逾時",
         "zh-cn": "  {label} 于 {t} 秒后超时",
+    },
+    "log_warn_not_detected": {
+        "en":    "⚠ WARNING: '{label}' not detected after 3s. If not detecting, try dragging the threshold slider to the left. You may also need to recapture this template.",
+        "zh-tw": "⚠ 警告：'{label}' 超過 3 秒未偵測到。若持續無法偵測，請將閾值滑桿向左拖動。也可以嘗試重新擷取此樣本。",
+        "zh-cn": "⚠ 警告：'{label}' 超过 3 秒未检测到。若持续无法检测，请将阈值滑块向左拖动。也可以尝试重新截取此模板。",
     },
     "log_timed_out_retry": {
         "en":    "  Timed out — retrying.",
@@ -646,9 +726,9 @@ STRINGS = {
         "zh-cn": "  导航中：{keys}",
     },
     "log_loop1_start": {
-        "en":    "  Loop 1 — starting at row 1 col 1.",
-        "zh-tw": "  第 1 循環 — 從第 1 列第 1 行開始。",
-        "zh-cn": "  第 1 循环 — 从第 1 列第 1 行开始。",
+        "en":    "  Starting at row {row} — no navigation needed.",
+        "zh-tw": "  從第 {row} 排開始 — 無需移動。",
+        "zh-cn": "  从第 {row} 排开始 — 无需移动。",
     },
     "log_open_action_menu": {
         "en":    "  Pressing Enter to open action menu...",
@@ -716,10 +796,46 @@ STRINGS = {
         "zh-tw": "每次滑鼠點擊後的等待時間（秒）。\n若遊戲漏接點擊或選單開啟太慢，請增加此數值。",
         "zh-cn": "每次鼠标点击后的等待时间（秒）。\n若游戏漏接点击或菜单打开太慢，请增加此数值。",
     },
+    "tip_mastery_node_click_wait": {
+        "en":    "How long to wait after each mastery node click (in seconds).\nIncrease if the game misses node clicks.",
+        "zh-tw": "每次點擊熟練度節點後的等待時間（秒）。\n若遊戲漏接節點點擊，請增加此數值。",
+        "zh-cn": "每次点击熟练度节点后的等待时间（秒）。\n若游戏漏接节点点击，请增加此数值。",
+    },
+    "tip_buy_post_key_wait": {
+        "en":    "How long to wait between each key press during purchase (in seconds).",
+        "zh-tw": "每次購買按鍵之間的等待時間（秒）。",
+        "zh-cn": "每次购买按键之间的等待时间（秒）。",
+    },
+    "tip_delete_post_key_wait": {
+        "en":    "How long to wait between each key press during deletion (in seconds).",
+        "zh-tw": "每次刪除按鍵之間的等待時間（秒）。",
+        "zh-cn": "每次删除按键之间的等待时间（秒）。",
+    },
     "tip_mastery_post_key_wait": {
         "en":    "How long to wait after pressing a key before the next action (in seconds).\nIncrease if the game misses key presses.",
         "zh-tw": "按下按鍵後，等待下一個動作的時間（秒）。\n若遊戲漏接按鍵，請增加此數值。",
         "zh-cn": "按下按键后，等待下一个动作的时间（秒）。\n若游戏漏接按键，请增加此数值。",
+    },
+    "setting_mastery_check_interval": {
+        "en":    "Detection scan interval (s)",
+        "zh-tw": "偵測掃描間隔（秒）",
+        "zh-cn": "检测扫描间隔（秒）",
+    },
+    "tip_mastery_check_interval": {
+        "en":    "How often the screen is checked for each state (in seconds).\nLower = faster response but uses more CPU.",
+        "zh-tw": "每次偵測畫面狀態的間隔時間（秒）。\n數值越低反應越快，但 CPU 使用率越高。",
+        "zh-cn": "每次检测画面状态的间隔时间（秒）。\n数值越低响应越快，但 CPU 占用越高。",
+    },
+
+    "mastery_start_row_label": {
+        "en":    "Start from row",
+        "zh-tw": "從第幾排開始",
+        "zh-cn": "从第几排开始",
+    },
+    "mastery_start_row_hint": {
+        "en":    "(which row is your first car on?)",
+        "zh-tw": "（你的第一台車在哪一排？）",
+        "zh-cn": "（你的第一台车在哪一排？）",
     },
 }
 

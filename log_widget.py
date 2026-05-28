@@ -38,7 +38,14 @@ class LogWidget(ctk.CTkFrame):
             # Clear placeholder on first real message
             self._queue.put(None)   # clear
             self._placeholder = ""  # don't restore
-        self._queue.put(message)
+        self._queue.put(("normal", message))
+
+    def log_warning(self, message: str):
+        """Thread-safe: append a red warning message."""
+        if self._placeholder and not self._lines:
+            self._queue.put(None)
+            self._placeholder = ""
+        self._queue.put(("warning", message))
 
     def clear(self):
         self._queue.put(None)   # sentinel for clear
@@ -54,7 +61,8 @@ class LogWidget(ctk.CTkFrame):
                     self._text.delete("1.0", "end")
                     self._text.configure(state="disabled")
                 else:
-                    self._lines.append(msg)
+                    style, text = msg
+                    self._lines.append(text)
                     if len(self._lines) > self.MAX_LINES:
                         self._lines.pop(0)
                         self._text.configure(state="normal")
@@ -63,9 +71,15 @@ class LogWidget(ctk.CTkFrame):
 
                     self._text.configure(state="normal")
                     try:
-                        self._text.insert("end", msg + "\n")
+                        if style == "warning":
+                            # Use underlying tk Text widget for colored tag
+                            tk_text = self._text._textbox
+                            tk_text.tag_configure("warning", foreground="#ff4444")
+                            tk_text.insert("end", text + "\n", "warning")
+                        else:
+                            self._text.insert("end", text + "\n")
                     except Exception:
-                        self._text.insert("end", repr(msg) + "\n")
+                        self._text.insert("end", repr(text) + "\n")
                     self._text.configure(state="disabled")
                     self._text.see("end")
         except queue.Empty:

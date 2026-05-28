@@ -374,7 +374,6 @@ class SetupPanel(ctk.CTkFrame):
         if self._session is not None:
             self._session.stop()
             self._session = None
-            import time as _t; _t.sleep(0.15)  # let thread exit
 
         if next_key == "__nodes__":
             self._cap_label.configure(
@@ -449,8 +448,16 @@ class SetupPanel(ctk.CTkFrame):
         self._advance_session()
 
     def _on_capture_cancel(self, reason="cancelled"):
-        self.after(0, lambda r=reason: self._cap_label.configure(
-            text=_at("capture_cancelled", self._lang, reason=r)))
+        self.after(0, lambda r=reason: self._do_cancel(r))
+
+    def _do_cancel(self, reason):
+        self._pending = []
+        if self._session is not None:
+            self._session.stop()
+            self._session = None
+        self._cap_label.configure(
+            text=_at("capture_cancelled", self._lang, reason=reason))
+        self._end_session()
 
     def _stop_session(self):
         if self._session:

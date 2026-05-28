@@ -15,9 +15,10 @@ import config
 from config import get_race_templates, get_nodes_file
 from app_lang import t as _at
 from capture import grab_frame, load_template, get_monitor_dims
+from detector import ScreenDetector
 
 
-SCALE_RANGE = [0.92, 1.00, 1.08]
+
 
 # Keys
 _VK_MAP = {
@@ -62,28 +63,15 @@ def key_press(key, post_wait=1.5):
 # ── Template matching ─────────────────────────────────────────
 
 def _screen_matches(screen, template, threshold):
-    best_conf = 0.0
-    for scale in SCALE_RANGE:
-        if scale != 1.0:
-            tw = max(1, int(template.shape[1] * scale))
-            th = max(1, int(template.shape[0] * scale))
-            t_ = cv2.resize(template, (tw, th), interpolation=cv2.INTER_AREA)
-        else:
-            t_ = template
-        if t_.shape[0] > screen.shape[0] or t_.shape[1] > screen.shape[1]:
-            continue
-        result = cv2.matchTemplate(screen, t_, cv2.TM_CCOEFF_NORMED)
-        _, mv, _, _ = cv2.minMaxLoc(result)
-        if mv > best_conf:
-            best_conf = mv
-        if best_conf >= threshold:
-            return True, best_conf
+    if template.shape[0] > screen.shape[0] or template.shape[1] > screen.shape[1]:
+        return False, 0.0
+    result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+    _, best_conf, _, _ = cv2.minMaxLoc(result)
     return best_conf >= threshold, best_conf
 
 
-def _capture_gray(monitor_index):
-    frame = grab_frame(monitor_index)
-    return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def _capture_frame(monitor_index):
+    return grab_frame(monitor_index)
 
 
 # ── Main runner ───────────────────────────────────────────────
@@ -92,7 +80,7 @@ TEMPLATE_KEYS = ["start_menu", "racing", "restart_menu", "confirm"]
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb):
+        log_cb, status_cb, warn_cb=None):
     """
     Main race automation loop.
     cfg: config dict
@@ -122,6 +110,7 @@ def run(cfg: dict, stop_event: threading.Event,
     _fresh = _cfg_mod.load()
     res    = _fresh.get('race_resolution', 'custom')
     folder = get_race_templates(res)
+    detector = ScreenDetector(_fresh)
     for key in TEMPLATE_KEYS:
         try:
             img, scale = load_template(folder, key,
@@ -136,19 +125,27 @@ def run(cfg: dict, stop_event: threading.Event,
     def stop():
         return stop_event.is_set()
 
-    def wait_for(label, template, key, timeout=180):
+    def wait_for(label, template, key, timeout=float('inf')):
         status_cb(_at("status_waiting_for", lang, label=label))
-        elapsed = 0.0
-        while elapsed < timeout:
-            if stop(): return False
-            screen = _capture_gray(monitor_index)
-            matched, conf = _screen_matches(screen, template, _thresh(key))
-            if matched:
-                log_cb(_at("log_detected", lang, label=label, conf=f"{conf:.0%}"))
-                return True
-            time.sleep(check_iv)
-            elapsed += check_iv
-        log_cb(_at("log_timed_out", lang, label=label, t=int(timeout)))
+        def _warn(best):
+            msg = _at("log_warn_not_detected", lang, label=label)
+            msg += f" (best {best.source}: {best.score:.0%})"
+            (warn_cb or log_cb)(msg)
+
+        result = detector.wait_for(
+            frame_cb=lambda: _capture_frame(monitor_index),
+            key=key,
+            template=template,
+            threshold=_thresh(key),
+            stop_cb=stop,
+            interval=check_iv,
+            timeout=timeout,
+            on_warn=_warn,
+        )
+        if result.matched:
+            log_cb(_at("log_detected", lang, label=label,
+                       conf=f"{result.score:.0%}"))
+            return True
         return False
 
     def press(key, label):
@@ -162,37 +159,26 @@ def run(cfg: dict, stop_event: threading.Event,
         loop_count += 1
         log_cb(f"\n-- {_at('log_loop', lang)} #{loop_count} --")
 
-        if not wait_for("Start Race menu", templates["start_menu"], "start_menu"):
-            if stop(): break
-            log_cb(_at("log_timed_out_retry", lang))
-            continue
+        wait_for("Start Race menu", templates["start_menu"], "start_menu")
+        if stop(): break
         press(START_RACE_KEY, "Start Race")
 
-        if not wait_for("Race HUD", templates["racing"], "racing"):
-            if stop(): break
-            log_cb(_at("log_timed_out_retry", lang))
-            continue
+        wait_for("Race HUD", templates["racing"], "racing")
+        if stop(): break
 
         log_cb(_at("log_holding_w", lang))
         status_cb(_at("status_racing", lang))
         key_down('w')
 
-        if not wait_for("Restart menu", templates["restart_menu"], "restart_menu",
-                        timeout=3600):
-            key_up('w')
-            if stop(): break
-            log_cb(_at("log_race_end_timeout", lang))
-            continue
-
+        wait_for("Restart menu", templates["restart_menu"], "restart_menu")
         key_up('w')
+        if stop(): break
         log_cb(_at("log_released_w", lang))
 
         press(RESTART_KEY, "Restart Race")
 
-        if not wait_for("Confirmation", templates["confirm"], "confirm"):
-            if stop(): break
-            log_cb(_at("log_timed_out_retry", lang))
-            continue
+        wait_for("Confirmation", templates["confirm"], "confirm")
+        if stop(): break
         press(CONFIRM_KEY, "Confirm")
 
     key_up('w')   # safety release

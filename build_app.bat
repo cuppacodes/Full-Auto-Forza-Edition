@@ -25,7 +25,8 @@ echo  [1/2]  Installing dependencies...
 echo  -----------------------------------------------------
 pip install --upgrade pyinstaller customtkinter Pillow ^
     pydirectinput opencv-python ^
-    mss numpy keyboard requests
+    mss numpy keyboard requests ^
+    rapidocr-onnxruntime
 if errorlevel 1 (
     echo.
     echo  ERROR: pip failed. Check Python installation.
@@ -42,6 +43,7 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\app_lang.py;." ^
     --add-data "%CD%\config.py;." ^
     --add-data "%CD%\capture.py;." ^
+    --add-data "%CD%\detector.py;." ^
     --add-data "%CD%\race.py;." ^
     --add-data "%CD%\mastery.py;." ^
     --add-data "%CD%\main_window.py;." ^
@@ -53,6 +55,8 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --hidden-import customtkinter ^
     --hidden-import PIL ^
     --hidden-import PIL.Image ^
+    --hidden-import detector ^
+    --hidden-import rapidocr_onnxruntime ^
     --hidden-import asyncio ^
     --hidden-import asyncio.base_events ^
     --hidden-import asyncio.events ^
@@ -61,6 +65,7 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --hidden-import urllib.request ^
     --hidden-import zipfile ^
     --collect-all customtkinter ^
+    --collect-all rapidocr_onnxruntime ^
     forza_app.py
 if errorlevel 1 (
     echo.
@@ -85,13 +90,13 @@ echo  [+]    Writing default config.json...
   echo   "race_resolution": "1080p",
   echo   "mastery_resolution": "1080p",
   echo   "race_threshold": 0.6,
-  echo   "thresh_start_menu": 0.6,
-  echo   "thresh_racing": 0.6,
-  echo   "thresh_restart_menu": 0.6,
-  echo   "thresh_confirm": 0.6,
+  echo   "thresh_start_menu": 0.5,
+  echo   "thresh_racing": 0.5,
+  echo   "thresh_restart_menu": 0.5,
+  echo   "thresh_confirm": 0.5,
   echo   "thresh_mastery_ride_car": 0.6,
   echo   "thresh_mastery_esc_hint": 0.6,
-  echo   "thresh_mastery_upgrade_item": 0.6,
+  echo   "thresh_mastery_upgrade_item": 0.5,
   echo   "thresh_mastery_mastery_item": 0.6,
   echo   "thresh_mastery_anchor": 0.6,
   echo   "thresh_mastery_my_cars": 0.6,
@@ -99,8 +104,13 @@ echo  [+]    Writing default config.json...
   echo   "race_check_interval": 0.5,
   echo   "race_post_key_wait": 1.5,
   echo   "mastery_threshold": 0.85,
+  echo   "mastery_check_interval": 0.5,
+  echo   "mastery_start_loop": 1,
   echo   "mastery_post_click_wait": 0.8,
-  echo   "mastery_post_key_wait": 1.2
+  echo   "mastery_post_key_wait": 1.2,
+  echo   "mastery_node_click_wait": 0.8,
+  echo   "buy_post_key_wait": 0.5,
+  echo   "delete_post_key_wait": 0.5
   echo }
 ) > FAFE_dist\config.json
 

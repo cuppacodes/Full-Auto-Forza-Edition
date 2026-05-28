@@ -16,9 +16,10 @@ from app_lang import t as _at
 import config
 from config import get_mastery_templates, get_nodes_file
 from capture import grab_frame, load_template, load_nodes, get_monitor_dims
+from detector import ScreenDetector
 
 
-SCALE_RANGE = [0.92, 1.00, 1.08]
+
 
 _VK_MAP = {
     'enter':  0x0D, 'return': 0x0D,
@@ -79,30 +80,15 @@ def _mouse_click(x, y, mon_left=0, mon_top=0, post_wait=0.8):
     time.sleep(post_wait)
 
 
-def _capture_gray(monitor_index):
-    frame = grab_frame(monitor_index)
-    return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def _capture_frame(monitor_index):
+    return grab_frame(monitor_index)
 
 
 def _screen_matches(screen, template, threshold):
-    best_conf = 0.0
-    best_loc  = (0, 0)
-    for scale in SCALE_RANGE:
-        if scale != 1.0:
-            tw = max(1, int(template.shape[1] * scale))
-            th = max(1, int(template.shape[0] * scale))
-            t_ = cv2.resize(template, (tw, th), interpolation=cv2.INTER_AREA)
-        else:
-            t_ = template
-        if t_.shape[0] > screen.shape[0] or t_.shape[1] > screen.shape[1]:
-            continue
-        result = cv2.matchTemplate(screen, t_, cv2.TM_CCOEFF_NORMED)
-        _, mv, _, ml = cv2.minMaxLoc(result)
-        if mv > best_conf:
-            best_conf = mv
-            best_loc  = ml
-        if best_conf >= threshold:
-            return True, best_conf, best_loc
+    if template.shape[0] > screen.shape[0] or template.shape[1] > screen.shape[1]:
+        return False, 0.0, (0, 0)
+    result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+    _, best_conf, _, best_loc = cv2.minMaxLoc(result)
     return best_conf >= threshold, best_conf, best_loc
 
 
@@ -152,7 +138,7 @@ def _nav_keys_for_loop(loop: int) -> list:
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb):
+        log_cb, status_cb, max_cars: int = 0, warn_cb=None):
     lang          = cfg.get("lang", "en")
     monitor_index = cfg.get("monitor_index", 1)
     # Per-template thresholds
@@ -161,7 +147,9 @@ def run(cfg: dict, stop_event: threading.Event,
 
     post_kw       = cfg.get("mastery_post_key_wait", 1.2)
     post_cw       = cfg.get("mastery_post_click_wait", 0.8)
-    check_iv      = 0.5
+    post_ncw      = cfg.get("mastery_node_click_wait", post_cw)
+    check_iv      = cfg.get("mastery_check_interval", 0.5)
+    start_loop    = max(1, min(3, int(cfg.get("mastery_start_loop", 1))))
 
     current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
 
@@ -172,6 +160,7 @@ def run(cfg: dict, stop_event: threading.Event,
     _fresh = _cfg_mod.load()
     res    = _fresh.get('mastery_resolution', 'custom')
     folder = get_mastery_templates(res)
+    detector = ScreenDetector(_fresh)
     log_cb(_at('log_template_set', lang, res=res, folder=folder))
     for key in TEMPLATE_KEYS:
         try:
@@ -197,39 +186,58 @@ def run(cfg: dict, stop_event: threading.Event,
     def stop():
         return stop_event.is_set()
 
-    def wait_for(label, template, key, timeout=180):
+    def wait_for(label, template, key, timeout=float('inf')):
         status_cb(_at("status_waiting_for", lang, label=label))
-        elapsed = 0.0
-        while elapsed < timeout:
-            if stop(): return False
-            screen = _capture_gray(monitor_index)
-            matched, conf, _ = _screen_matches(screen, template, _thresh(key))
-            if matched:
-                log_cb(_at("log_detected", lang, label=label, conf=f"{conf:.0%}"))
-                return True
-            time.sleep(check_iv)
-            elapsed += check_iv
-        log_cb(_at("log_timed_out", lang, label=label, t=int(timeout)))
-        return False
+        def _warn(best):
+            msg = _at("log_warn_not_detected", lang, label=label)
+            msg += f" (best {best.source}: {best.score:.0%})"
+            (warn_cb or log_cb)(msg)
 
-    def click_template(label, template, key):
-        screen = _capture_gray(monitor_index)
-        matched, conf, loc = _find_on_screen(screen, template, _thresh(key))
-        if matched:
-            log_cb(_at("log_clicking", lang, label=label, conf=f"{conf:.0%}"))
-            _mouse_click(loc[0], loc[1], mon_left, mon_top, post_cw)
+        result = detector.wait_for(
+            frame_cb=lambda: _capture_frame(monitor_index),
+            key=key,
+            template=template,
+            threshold=_thresh(key),
+            stop_cb=stop,
+            interval=check_iv,
+            timeout=timeout,
+            on_warn=_warn,
+        )
+        if result.matched:
+            log_cb(_at("log_detected", lang, label=label,
+                       conf=f"{result.score:.0%}"))
             return True
         return False
 
-    log_cb(_at("log_mastery_started", lang))
-    loop_count = 0
+    def click_template(label, template, key):
+        result = detector.detect(
+            _capture_frame(monitor_index), key, template, _thresh(key),
+            stable=False)
+        if result.matched:
+            log_cb(_at("log_clicking", lang, label=label,
+                       conf=f"{result.score:.0%}"))
+            _mouse_click(result.location[0], result.location[1],
+                         mon_left, mon_top, post_cw)
+            return True
+        return False
+
+    if max_cars > 0:
+        log_cb(_at("log_mastery_started_count", lang, n=max_cars))
+    else:
+        log_cb(_at("log_mastery_started", lang))
+    loop_count = start_loop - 1
+    car_num    = 0
 
     while not stop():
         loop_count += 1
+        car_num    += 1
+        is_first   = (car_num == 1)
 
         # ── Navigate to next car ──────────────────────────────
-        nav_keys = _nav_keys_for_loop(loop_count)
-        log_cb(_at("log_car", lang, n=loop_count))
+        # Skip navigation on the first car — the user is already positioned there.
+        nav_keys = [] if is_first else _nav_keys_for_loop(loop_count)
+        log_cb(_at("log_car", lang, n=car_num) +
+               (f" / {max_cars}" if max_cars > 0 else ""))
 
         if nav_keys:
             log_cb(_at("log_navigating", lang, keys=' '.join(k.upper() for k in nav_keys)))
@@ -238,7 +246,7 @@ def run(cfg: dict, stop_event: threading.Event,
                 time.sleep(0.4)
             time.sleep(0.3)
         else:
-            log_cb(_at("log_loop1_start", lang))
+            log_cb(_at("log_loop1_start", lang, row=start_loop))
 
         # ── Open action menu ──────────────────────────────────
         log_cb(_at("log_open_action_menu", lang))
@@ -251,9 +259,15 @@ def run(cfg: dict, stop_event: threading.Event,
         matched, conf, loc = False, 0.0, (0, 0)
         for _ in range(10):
             if stop(): break
-            screen = _capture_gray(monitor_index)
-            matched, conf, loc = _find_on_screen(
-                screen, templates["mastery_ride_car"], _thresh("mastery_ride_car"))
+            result = detector.detect(
+                _capture_frame(monitor_index),
+                "mastery_ride_car",
+                templates["mastery_ride_car"],
+                _thresh("mastery_ride_car"),
+                stable=False)
+            matched = result.matched
+            conf = result.score
+            loc = result.location
             if matched: break
             time.sleep(0.5)
 
@@ -265,7 +279,7 @@ def run(cfg: dict, stop_event: threading.Event,
         _mouse_click(loc[0], loc[1], mon_left, mon_top, post_cw)
 
         # ── Cutscene ──────────────────────────────────────────
-        ok = wait_for("ESC hint", templates["mastery_esc_hint"], "mastery_esc_hint", timeout=60)
+        ok = wait_for("ESC hint", templates["mastery_esc_hint"], "mastery_esc_hint")
         if stop(): break
         if not ok:
             log_cb(_at("log_cutscene_continuing", lang))
@@ -274,22 +288,18 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_pressing_esc", lang))
         _key_press('esc', post_wait=post_kw)
 
-        wait_for("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item", timeout=10)
+        wait_for("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item")
         if stop(): break
-        if not click_template("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item"):
-            log_cb(_at("log_not_found_retry", lang, label="Upgrade & Tuning"))
-            continue
+        click_template("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item")
 
         time.sleep(0.8)
 
         # ── Car Mastery ───────────────────────────────────────
-        wait_for("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item", timeout=10)
+        wait_for("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item")
         if stop(): break
-        if not click_template("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item"):
-            log_cb(_at("log_not_found_retry", lang, label="Car Mastery"))
-            continue
+        click_template("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item")
 
-        wait_for("Mastery screen", templates["mastery_anchor"], "mastery_anchor", timeout=15)
+        wait_for("Mastery screen", templates["mastery_anchor"], "mastery_anchor")
         if stop(): break
 
         # ── Click 6 nodes ─────────────────────────────────────
@@ -297,7 +307,7 @@ def run(cfg: dict, stop_event: threading.Event,
         for i, (nx, ny) in enumerate(nodes, start=1):
             if stop(): break
             log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
-            _mouse_click(nx, ny, mon_left, mon_top, post_cw)
+            _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
             time.sleep(0.3)
 
         if stop(): break
@@ -307,7 +317,7 @@ def run(cfg: dict, stop_event: threading.Event,
         _key_press('esc', post_wait=1.0)
         _key_press('esc', post_wait=1.0)
 
-        wait_for("My Cars", templates["mastery_my_cars"], "mastery_my_cars", timeout=10)
+        wait_for("My Cars", templates["mastery_my_cars"], "mastery_my_cars")
         if stop(): break
         click_template("My Cars", templates["mastery_my_cars"], "mastery_my_cars")
         time.sleep(0.8)
@@ -319,9 +329,15 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_sort_pressing_x", lang, n=attempt))
             pydirectinput.press('x')
             time.sleep(1.2)
-            screen = _capture_gray(monitor_index)
-            matched_sort, conf, loc = _find_on_screen(
-                screen, templates["mastery_sort_recent"], _thresh("mastery_sort_recent"))
+            result = detector.detect(
+                _capture_frame(monitor_index),
+                "mastery_sort_recent",
+                templates["mastery_sort_recent"],
+                _thresh("mastery_sort_recent"),
+                stable=False)
+            matched_sort = result.matched
+            conf = result.score
+            loc = result.location
             if matched_sort:
                 break
             log_cb(_at("log_sort_not_detected", lang))
@@ -336,6 +352,10 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_sort_not_found", lang))
 
         time.sleep(0.8)
+
+        if max_cars > 0 and car_num >= max_cars:
+            log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
+            break
 
     log_cb(_at("log_mastery_stopped", lang))
     status_cb(_at("status_stopped", lang))

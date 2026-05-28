@@ -90,6 +90,7 @@ class MainWindow(ctk.CTk):
         self._binding_key  = None   # which key is being rebound
         self._stop_event  = threading.Event()
         self._auto_thread = None
+        self._in_settings = False
 
         self._apply_theme()
         self._setup_window()
@@ -262,6 +263,7 @@ class MainWindow(ctk.CTk):
     def _build_topbar(self):
         bar = ctk.CTkFrame(self, fg_color="transparent")
         bar.pack(fill="x", padx=12, pady=(10, 4))
+        self._topbar = bar
 
         # App title
         ctk.CTkLabel(
@@ -369,6 +371,39 @@ class MainWindow(ctk.CTk):
         )
         self._mastery_setup.pack(fill="x", padx=8, pady=(4, 8))
 
+        # Car count row
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(4, 0))
+        ctk.CTkLabel(count_row, text=_at("mastery_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._mastery_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._mastery_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+        ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
+
+        # Start row selector
+        start_row_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        start_row_frame.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(start_row_frame,
+                     text=_at("mastery_start_row_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        saved_start_row = str(self._cfg.get("mastery_start_loop", 1))
+        self._mastery_start_row_var = ctk.StringVar(value=saved_start_row)
+        ctk.CTkSegmentedButton(
+            start_row_frame,
+            values=["1", "2", "3"],
+            variable=self._mastery_start_row_var,
+            command=self._on_mastery_start_row_change,
+            width=120,
+            height=32,
+        ).pack(side="left", padx=8)
+        ctk.CTkLabel(start_row_frame,
+                     text=_at("mastery_start_row_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
+
         # Run controls
         self._build_run_controls(frame, mode="mastery")
 
@@ -395,10 +430,13 @@ class MainWindow(ctk.CTk):
                                  cursor="question_arrow")
             q_lbl.pack(side="left", padx=(0, 6))
             Tooltip(q_lbl, _at(tip_key, self._lang))
-            var = ctk.DoubleVar(value=self._cfg.get(key, 0))
+            raw = self._cfg.get(key, lo)
+            clamped = max(lo, min(hi, float(raw)))
+            var = ctk.DoubleVar(value=clamped)
             val_lbl = ctk.CTkLabel(row, text=f"{var.get():.2f}",
-                                   width=46, anchor="e",
+                                   width=52, anchor="e",
                                    font=("Segoe UI", 12))
+            val_lbl.pack(side="right", padx=(4, 0))
             # Update label while dragging
             var.trace_add("write",
                           lambda *a, vl=val_lbl, va=var:
@@ -410,7 +448,6 @@ class MainWindow(ctk.CTk):
             slider.bind('<ButtonRelease-1>',
                         lambda e, k=key, va=var: self._on_setting_change(k, va))
             slider.pack(side="left", fill="x", expand=True, padx=4)
-            val_lbl.pack(side="right", padx=(4, 0))
 
     def _build_buy_tab(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -421,6 +458,18 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(desc, text=_at("buy_description", self._lang),
                      anchor="w", wraplength=480,
                      font=("Arial", 12)).pack(fill="x")
+
+        # Count row
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(count_row, text=_at("buy_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._buy_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._buy_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+        ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
 
         # Run controls
         self._build_run_controls(frame, mode="buy")
@@ -438,6 +487,18 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(desc, text=_at("delete_description", self._lang),
                      anchor="w", wraplength=480,
                      font=("Arial", 12), justify="left").pack(fill="x")
+
+        # Car count row
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(count_row, text=_at("delete_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._delete_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._delete_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+        ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
 
         self._build_run_controls(frame, mode="delete")
 
@@ -558,15 +619,19 @@ class MainWindow(ctk.CTk):
         if tab == "race":
             self._race_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._race_log
+            self._active_setup_panel = self._race_setup
         elif tab == "mastery":
             self._mastery_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._mastery_log
+            self._active_setup_panel = self._mastery_setup
         elif tab == "buy":
             self._buy_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._buy_log
+            self._active_setup_panel = None
         else:
             self._delete_frame.pack(fill="both", expand=True, padx=4, pady=4)
             self._active_log = self._delete_log
+            self._active_setup_panel = None
 
     # ── Automation control ────────────────────────────────────
 
@@ -600,7 +665,8 @@ class MainWindow(ctk.CTk):
                 if self._stop_event.is_set(): return
                 log_cb(_at('startup_running', lang))
                 race_run(cfg, self._stop_event,
-                         self._race_log.log, self._set_status)
+                         self._race_log.log, self._set_status,
+                         warn_cb=self._race_log.log_warning)
             except Exception as e:
                 import traceback
                 self._race_log.log(f'ERROR: {e}')
@@ -641,8 +707,14 @@ class MainWindow(ctk.CTk):
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
                 log_cb(_at('startup_running', lang))
+                try:
+                    max_cars = int(self._mastery_count_var.get())
+                except ValueError:
+                    max_cars = 0
                 mastery_run(cfg, self._stop_event,
-                            self._mastery_log.log, self._set_status)
+                            self._mastery_log.log, self._set_status,
+                            max_cars=max_cars,
+                            warn_cb=self._mastery_log.log_warning)
             except Exception as e:
                 import traceback
                 self._mastery_log.log(f'ERROR: {e}')
@@ -677,15 +749,24 @@ class MainWindow(ctk.CTk):
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
                 log_cb(_at('buy_running', lang))
+                try:
+                    max_buy = int(self._buy_count_var.get())
+                except ValueError:
+                    max_buy = 0
+                buy_kw = self._cfg.get('buy_post_key_wait', 0.5)
                 loop = 0
                 while not self._stop_event.is_set():
                     loop += 1
-                    log_cb(f"-- {_at('buy_loop', lang)} #{loop} --")
+                    log_cb(f"-- {_at('buy_loop', lang)} #{loop}" +
+                           (f" / {max_buy}" if max_buy > 0 else "") + " --")
                     for key in ['space', 'down', 'enter', 'enter', 'enter']:
                         if self._stop_event.is_set(): break
                         keyboard.press_and_release(key)
                         log_cb(_at('log_buy_key', lang, key=key.upper()))
-                        _t.sleep(0.5)
+                        _t.sleep(buy_kw)
+                    if max_buy > 0 and loop >= max_buy:
+                        log_cb(_at('log_buy_limit_reached', lang, n=max_buy))
+                        break
             except Exception as e:
                 import traceback
                 log_cb(f'ERROR: {e}')
@@ -720,11 +801,16 @@ class MainWindow(ctk.CTk):
                 if self._stop_event.is_set(): return
                 import config as _cfg_mod
                 from delete_cars import run as delete_run
+                try:
+                    max_cars = int(self._delete_count_var.get())
+                except ValueError:
+                    max_cars = 0
                 delete_run(
                     cfg=_cfg_mod.load(),
                     stop_event=self._stop_event,
                     log_cb=log_cb,
                     status_cb=self._set_status,
+                    max_cars=max_cars,
                 )
             except Exception as e:
                 import traceback
@@ -763,18 +849,28 @@ class MainWindow(ctk.CTk):
             win.title(f'Example: {key}')
             win.geometry(f'{w}x{h+80}')
             win.resizable(False, False)
-            win.attributes('-topmost', True)
+            win.after(200, lambda: win.attributes('-topmost', False))
+
+            # Closing the example window cancels the capture session
+            def _on_example_close():
+                self._close_example_win()
+                active = getattr(self, '_active_setup_panel', None)
+                if active and hasattr(active, '_stop_session'):
+                    active._stop_session()
+
+            win.protocol('WM_DELETE_WINDOW', _on_example_close)
+
             ctk_img = _ctk.CTkImage(light_image=img, dark_image=img,
                                     size=(w, h))
             _ctk.CTkLabel(win, image=ctk_img, text='').pack()
             _ctk.CTkLabel(
                 win,
                 text=_at('capture_instruction', self._lang),
-                font=('Segoe UI', 11),
-                text_color=('gray40', 'gray70'),
+                font=('Segoe UI', 16, 'bold'),
+                text_color='#ff3333',
                 wraplength=w - 20,
                 justify='center'
-            ).pack(pady=6)
+            ).pack(pady=10)
             self._example_win = win
         except Exception as e:
             print(f'Example window error: {e}')
@@ -925,21 +1021,55 @@ class MainWindow(ctk.CTk):
                 self.after(0, lambda l=lbl, t=txt: l.configure(text=t))
 
     def _open_settings(self):
-        """Open settings in a popup window."""
-        if hasattr(self, '_settings_win') and self._settings_win.winfo_exists():
-            self._settings_win.focus()
-            return
+        """Show settings as an inline panel inside the main window."""
+        if not hasattr(self, '_settings_frame'):
+            self._build_settings_panel()
+        # Hide topbar, tab bar and current tab content
+        self._topbar.pack_forget()
+        self._tab_frame.pack_forget()
+        self._race_frame.pack_forget()
+        self._mastery_frame.pack_forget()
+        self._buy_frame.pack_forget()
+        self._delete_frame.pack_forget()
+        self._settings_frame.pack(fill='both', expand=True)
+        self._in_settings = True
 
-        win = ctk.CTkToplevel(self)
-        win.title(_at('settings_window_title', self._lang))
-        win.geometry('480x520')
-        win.resizable(False, False)
-        win.attributes('-topmost', True)
-        win.after(100, lambda: win.attributes('-topmost', False))
-        self._settings_win = win
+    def _close_settings(self):
+        """Hide settings and restore current tab."""
+        if hasattr(self, '_settings_frame'):
+            self._settings_frame.pack_forget()
+        self._in_settings = False
+        # Restore topbar and tab bar
+        self._topbar.pack(fill='x', padx=12, pady=(10, 4))
+        self._tab_frame.pack(fill='x', padx=12, pady=(0, 4))
+        # Re-show whatever tab was active
+        saved = self._current_tab
+        self._current_tab = None
+        self._switch_tab(saved)
 
-        scroll = ctk.CTkScrollableFrame(win, fg_color='transparent')
-        scroll.pack(fill='both', expand=True, padx=12, pady=12)
+    def _build_settings_panel(self):
+        """Build the inline settings panel once."""
+        self._settings_frame = ctk.CTkFrame(self, fg_color='transparent')
+
+        # Header with back button
+        header = ctk.CTkFrame(self._settings_frame, fg_color='transparent')
+        header.pack(fill='x', padx=8, pady=(6, 0))
+        ctk.CTkButton(
+            header, text='← ' + _at('settings_back', self._lang),
+            width=90, height=28,
+            fg_color='transparent',
+            border_width=1,
+            font=('Segoe UI', 12),
+            command=self._close_settings
+        ).pack(side='left')
+        ctk.CTkLabel(
+            header,
+            text=_at('settings_window_title', self._lang),
+            font=('Segoe UI', 14, 'bold')
+        ).pack(side='left', padx=12)
+
+        scroll = ctk.CTkScrollableFrame(self._settings_frame, fg_color='transparent')
+        scroll.pack(fill='both', expand=True, padx=12, pady=8)
 
         def section(label_key):
             ctk.CTkLabel(scroll,
@@ -951,7 +1081,6 @@ class MainWindow(ctk.CTk):
 
         # ── Appearance ────────────────────────────────────
         section('settings_appearance_section')
-        # Theme
         _app_row = ctk.CTkFrame(scroll, fg_color='transparent')
         _app_row.pack(fill='x', padx=12, pady=4)
         ctk.CTkLabel(_app_row, text=_at('label_theme', self._lang),
@@ -964,7 +1093,7 @@ class MainWindow(ctk.CTk):
                     _at('theme_dark',   self._lang)],
             command=self._on_theme_change,
             width=160).pack(side='left', padx=8)
-        # Language
+
         _lang_row = ctk.CTkFrame(scroll, fg_color='transparent')
         _lang_row.pack(fill='x', padx=12, pady=4)
         ctk.CTkLabel(_lang_row, text=_at('label_language', self._lang),
@@ -997,8 +1126,24 @@ class MainWindow(ctk.CTk):
         self._build_settings_fields(
             scroll,
             fields=[
-                (_at('setting_mastery_post_click_wait', self._lang), 'mastery_post_click_wait', 0.1, 2.0, 0.1, 'tip_mastery_post_click_wait'),
-                (_at('setting_mastery_post_key_wait',   self._lang), 'mastery_post_key_wait',   0.5, 3.0, 0.1, 'tip_mastery_post_key_wait'),
+                (_at('setting_mastery_check_interval',  self._lang), 'mastery_check_interval',  0.3, 2.0, 0.1, 'tip_mastery_check_interval'),
+                (_at('setting_mastery_post_click_wait', self._lang), 'mastery_post_click_wait', 0.5, 2.0, 0.1, 'tip_mastery_post_click_wait'),
+                (_at('setting_mastery_post_key_wait',   self._lang), 'mastery_post_key_wait',   0.8, 3.0, 0.1, 'tip_mastery_post_key_wait'),
+                (_at('setting_mastery_node_click_wait', self._lang), 'mastery_node_click_wait', 0.7, 2.0, 0.1, 'tip_mastery_node_click_wait'),
+            ])
+
+        section('settings_buy_section')
+        self._build_settings_fields(
+            scroll,
+            fields=[
+                (_at('setting_buy_post_key_wait', self._lang), 'buy_post_key_wait', 0.4, 3.0, 0.1, 'tip_buy_post_key_wait'),
+            ])
+
+        section('settings_delete_section')
+        self._build_settings_fields(
+            scroll,
+            fields=[
+                (_at('setting_delete_post_key_wait', self._lang), 'delete_post_key_wait', 0.2, 3.0, 0.1, 'tip_delete_post_key_wait'),
             ])
 
     def _on_monitor_change(self, val: str):
@@ -1014,6 +1159,13 @@ class MainWindow(ctk.CTk):
 
     def _on_setting_change(self, key: str, var):
         self._cfg[key] = round(var.get(), 4)
+        save(self._cfg)
+
+    def _on_mastery_start_row_change(self, val: str):
+        try:
+            self._cfg["mastery_start_loop"] = int(val)
+        except ValueError:
+            self._cfg["mastery_start_loop"] = 1
         save(self._cfg)
 
     def _on_theme_change(self, val: str):
