@@ -40,9 +40,8 @@ New APP/
 - ROI-first: each template key has a configured search region (see `DEFAULT_ROIS`); full-screen fallback applies a 0.94 score penalty
 - **Text template fast path**: `TEXT_TEMPLATES = frozenset(DEFAULT_ROIS.keys())` — all 11 keys. Text templates skip the Canny edge channel and use only 3 scales (`detector_text_scales`, default `[0.95, 1.00, 1.05]`), reducing matchTemplate calls from 14 to 3 (~4–5× faster). Non-text templates keep the full 7-scale + edge pipeline.
 - Full pipeline scales: `[0.86, 0.92, 0.97, 1.00, 1.03, 1.08, 1.14]`
-- Preprocessing: `_prepare_gray` converts to grayscale → `equalizeHist` → `GaussianBlur(sigma=1.0)`. The blur is applied to both template and frame equally, smoothing GPU/driver anti-aliasing differences for cross-hardware robustness. Configurable via `detector_blur_sigma` (0 = disabled).
-- Hybrid score (non-text): `0.62 × grayscale + 0.28 × Canny edges + up to 0.10 OCR bonus`
-- Text score: grayscale only (edge channel skipped)
+- Hybrid score (non-text): `0.62 × grayscale(equalizeHist) + 0.28 × Canny edges + up to 0.10 OCR bonus`
+- Text score: `grayscale(equalizeHist)` only (edge channel skipped)
 - Soft threshold: actual cutoff is `max(0.45, threshold * 0.92)` — user's slider is a target, not a hard wall
 - Stability filter: requires N consecutive frames (default 2) above the soft threshold; `stable=False` flag bypasses this for single-shot click ops
 - Optional OCR: lazy-loads `rapidocr_onnxruntime` → `rapidocr` → `pytesseract`. Hint words in `OCR_HINTS` are multilingual (en/zh-tw/zh-cn). If no OCR backend is installed, detection still works
@@ -76,7 +75,7 @@ New APP/
 - Keys include: lang, theme, toggle_key, capture_key, monitor_index, race_resolution, mastery_resolution, all thresh_* values, all *_wait values
 - Mastery-specific timing keys: `mastery_check_interval` (min 0.3), `mastery_post_click_wait` (min 0.5), `mastery_post_key_wait` (min 0.8), `mastery_node_click_wait` (min 0.7)
 - `mastery_start_loop` (int 1–3): which row the first car is on for Auto Unlock 22B
-- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool), `detector_blur_sigma` (float, default 1.0 — Gaussian blur applied to both template and frame before matching; smooths GPU/driver anti-aliasing differences for cross-hardware robustness; set to 0 to disable)
+- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool)
 
 ### Log widget (log_widget.py)
 - Thread-safe via queue
