@@ -102,6 +102,13 @@ def run(cfg: dict, stop_event: threading.Event,
     RESTART_KEY    = 'x'
     CONFIRM_KEY    = 'enter'
 
+    # Log actual captured frame size — useful for diagnosing DPI scaling issues
+    # (if size doesn't match the selected resolution, Windows display scaling
+    # is likely causing mss to capture at a lower effective resolution)
+    _probe = grab_frame(monitor_index)
+    log_cb(f"[DEBUG] Captured frame: {_probe.shape[1]}×{_probe.shape[0]}")
+    del _probe
+
     # Load templates
     current_w, current_h, _, _ = get_monitor_dims(monitor_index)
     templates = {}
