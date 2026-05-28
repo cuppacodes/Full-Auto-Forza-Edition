@@ -224,6 +224,13 @@ class ScreenDetector:
             self.cfg.get("detector_enable_pyramid", True))
         self._pyramid_full_weight: float = float(
             self.cfg.get("detector_pyramid_full_weight", 0.6))
+        # OCR cooldown: minimum seconds between OCR calls for the same key.
+        # Without this, a score stuck in the borderline zone triggers rapidocr
+        # on every check interval (every 0.5 s), causing sustained CPU spikes.
+        # Set to 0 in config to restore the original per-frame OCR behaviour.
+        self._ocr_cooldown: float = float(
+            self.cfg.get("detector_ocr_cooldown", 3.0))
+        self._ocr_last_run: dict[str, float] = {}
         # Cache prepared (gray, edge) versions of each template numpy array —
         # full-res and half-res — so we don't redo equalizeHist + Canny +
         # resize on every frame. Keyed by id(template).
@@ -362,6 +369,14 @@ class ScreenDetector:
         hints = OCR_HINTS.get(key)
         if not hints or not self.cfg.get("detector_enable_ocr", True):
             return 0.0, ""
+        # Cooldown gate: skip OCR if it ran too recently for this key.
+        # Prevents repeated 100–300 ms rapidocr calls when the score is stuck
+        # in the borderline zone during a long failed-detection streak.
+        if self._ocr_cooldown > 0:
+            now = time.time()
+            if now - self._ocr_last_run.get(key, 0.0) < self._ocr_cooldown:
+                return 0.0, ""
+            self._ocr_last_run[key] = now
         text = self._ocr.read(area)
         if not text:
             return 0.0, ""

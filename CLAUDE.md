@@ -76,7 +76,7 @@ New APP/
 - Keys include: lang, theme, toggle_key, capture_key, monitor_index, race_resolution, mastery_resolution, all thresh_* values, all *_wait values
 - Mastery-specific timing keys: `mastery_check_interval` (min 0.3), `mastery_post_click_wait` (min 0.5), `mastery_post_key_wait` (min 0.8), `mastery_node_click_wait` (min 0.7)
 - `mastery_start_loop` (int 1–3): which row the first car is on for Auto Unlock 22B
-- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool), `detector_enable_pyramid` (bool, default true), `detector_pyramid_full_weight` (float, default 0.6)
+- Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool), `detector_enable_pyramid` (bool, default true), `detector_pyramid_full_weight` (float, default 0.6), `detector_ocr_cooldown` (float seconds, default 3.0 — minimum gap between OCR calls per key; set to 0 to disable cooldown)
 
 ### Log widget (log_widget.py)
 - Thread-safe via queue
