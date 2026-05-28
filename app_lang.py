@@ -636,9 +636,9 @@ STRINGS = {
         "zh-cn": "  {label} 于 {t} 秒后超时",
     },
     "log_warn_not_detected": {
-        "en":    "⚠ WARNING: '{label}' not detected after 3s. If not detecting, try dragging the threshold slider to the left. You may also need to recapture this template.",
-        "zh-tw": "⚠ 警告：'{label}' 超過 3 秒未偵測到。若持續無法偵測，請將閾值滑桿向左拖動。也可以嘗試重新擷取此樣本。",
-        "zh-cn": "⚠ 警告：'{label}' 超过 3 秒未检测到。若持续无法检测，请将阈值滑块向左拖动。也可以尝试重新截取此模板。",
+        "en":    "⚠ WARNING: '{label}' not detected after 10s. If not detecting, try dragging the threshold slider to the left. You may also need to recapture this template.",
+        "zh-tw": "⚠ 警告：'{label}' 超過 10 秒未偵測到。若持續無法偵測，請將閾值滑桿向左拖動。也可以嘗試重新擷取此樣本。",
+        "zh-cn": "⚠ 警告：'{label}' 超过 10 秒未检测到。若持续无法检测,请将阈值滑块向左拖动。也可以尝试重新截取此模板。",
     },
     "log_timed_out_retry": {
         "en":    "  Timed out — retrying.",

@@ -151,13 +151,6 @@ def run(cfg: dict, stop_event: threading.Event,
     check_iv      = cfg.get("mastery_check_interval", 0.5)
     start_loop    = max(1, min(3, int(cfg.get("mastery_start_loop", 1))))
 
-    # Log actual captured frame size — useful for diagnosing DPI scaling issues
-    # (if size doesn't match the selected resolution, Windows display scaling
-    # is likely causing mss to capture at a lower effective resolution)
-    _probe = grab_frame(monitor_index)
-    log_cb(f"[DEBUG] Captured frame: {_probe.shape[1]}×{_probe.shape[0]}")
-    del _probe
-
     current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
 
     # Load templates
@@ -198,8 +191,6 @@ def run(cfg: dict, stop_event: threading.Event,
         def _warn(best):
             msg = _at("log_warn_not_detected", lang, label=label)
             msg += f" (best {best.source}: {best.score:.0%})"
-            if best.ocr_text:
-                msg += f" OCR: {best.ocr_text!r}"
             (warn_cb or log_cb)(msg)
 
         result = detector.wait_for(

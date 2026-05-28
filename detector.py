@@ -308,7 +308,7 @@ class ScreenDetector:
                 best = result
             if result.matched:
                 return result
-            if not warned and time.time() - start >= 3.0:
+            if not warned and time.time() - start >= 10.0:
                 warned = True
                 if on_warn:
                     on_warn(best)
