@@ -437,14 +437,14 @@ STRINGS = {
 
     # ── Run controls ──────────────────────────────────────────
     "btn_start": {
-        "en":    "▶  Start",
-        "zh-tw": "▶  開始",
-        "zh-cn": "▶  开始",
+        "en":    "Start",
+        "zh-tw": "開始",
+        "zh-cn": "开始",
     },
     "btn_stop": {
-        "en":    "■  Stop",
-        "zh-tw": "■  停止",
-        "zh-cn": "■  停止",
+        "en":    "Stop",
+        "zh-tw": "停止",
+        "zh-cn": "停止",
     },
 
     # ── Status messages ───────────────────────────────────────

@@ -1274,7 +1274,7 @@ class MainWindow(ctk.CTk):
     def _toggle_accent_picker(self):
         OPEN_H = 100
         if self._accent_open:
-            self._animate_height(self._accent_expand, OPEN_H, 0, 160,
+            self._animate_height(self._accent_expand, OPEN_H, 0, 140,
                                  done=self._accent_expand.pack_forget)
             self._accent_open = False
             name, _, _ = theme.get_accent(self._cfg)
@@ -1283,7 +1283,7 @@ class MainWindow(ctk.CTk):
             self._accent_expand.pack(fill='x', padx=12, pady=(2, 0),
                                      after=self._accent_anchor)
             self._accent_expand.configure(height=0)
-            self._animate_height(self._accent_expand, 0, OPEN_H, 200)
+            self._animate_height(self._accent_expand, 0, OPEN_H, 160)
             self._accent_open = True
             name, _, _ = theme.get_accent(self._cfg)
             self._accent_swatch_btn.configure(text=f'  {name}  ▴')
@@ -1296,11 +1296,14 @@ class MainWindow(ctk.CTk):
             text=f'  {name}  ▴', fg_color=fg, hover_color=hover)
 
     @staticmethod
-    def _animate_height(widget, start: int, end: int, duration_ms: int = 200,
+    def _animate_height(widget, start: int, end: int, duration_ms: int = 160,
                         done=None):
-        """Simple after()-based height animator, ~60 fps."""
-        steps = max(1, duration_ms // 16)
-        delta = (end - start) / steps
+        """Eased height animator at ~120 fps.  Ease-out gives motion that
+        starts fast and decelerates — feels natural on UI panels and helps
+        mask the per-frame reflow tkinter does on sibling widgets."""
+        FRAME_MS = 8  # ~120 fps — smoother than the 16 ms default
+        steps = max(1, duration_ms // FRAME_MS)
+        span = end - start
 
         def step(i: int):
             if i >= steps:
@@ -1308,8 +1311,11 @@ class MainWindow(ctk.CTk):
                 if done:
                     done()
                 return
-            widget.configure(height=int(start + delta * (i + 1)))
-            widget.after(16, lambda: step(i + 1))
+            # Cubic ease-out: 1 - (1 - t)^3
+            t = (i + 1) / steps
+            eased = 1 - (1 - t) ** 3
+            widget.configure(height=int(start + span * eased))
+            widget.after(FRAME_MS, lambda: step(i + 1))
 
         step(0)
 
