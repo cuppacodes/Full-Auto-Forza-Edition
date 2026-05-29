@@ -98,3 +98,39 @@ def switch_kwargs(cfg: dict) -> dict:
     """Accent kwargs to apply to a CTkSwitch."""
     _, fg, _ = get_accent(cfg)
     return {"progress_color": fg}
+
+
+def apply_accent_to_tree(root, cfg: dict) -> None:
+    """Walk the widget tree from `root` and reconfigure every slider,
+    segmented button, and switch to use the current accent color.
+
+    Lets accent picks take effect immediately without an app restart —
+    widgets bind to their fg/hover/etc. at construction time, so anything
+    already on screen needs to be explicitly reconfigured.
+    """
+    import customtkinter as ctk  # local import to keep theme.py importable
+                                  # in headless contexts
+
+    sk = slider_kwargs(cfg)
+    bk = segbtn_kwargs(cfg)
+    wk = switch_kwargs(cfg)
+
+    def walk(w):
+        try:
+            if isinstance(w, ctk.CTkSlider):
+                w.configure(**sk)
+            elif isinstance(w, ctk.CTkSegmentedButton):
+                w.configure(**bk)
+            elif isinstance(w, ctk.CTkSwitch):
+                w.configure(**wk)
+        except Exception:
+            # Defensive: a widget might not accept one of these kwargs
+            # (e.g. CTk version skew). Skip it rather than crashing.
+            pass
+        try:
+            for child in w.winfo_children():
+                walk(child)
+        except Exception:
+            pass
+
+    walk(root)

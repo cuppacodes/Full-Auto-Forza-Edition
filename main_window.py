@@ -1266,11 +1266,14 @@ class MainWindow(ctk.CTk):
             self._accent_buttons[sw_name] = btn
 
     def _on_accent_pick(self, name: str, fg: str, hover: str):
-        """Persist new accent and update the selection border."""
+        """Persist new accent, update the selection border, and apply the
+        accent live to every existing slider/segmented button/switch in the
+        running app — no restart required."""
         self._cfg['accent_color'] = name
         save(self._cfg)
         for btn_name, btn in self._accent_buttons.items():
             btn.configure(border_width=2 if btn_name == name else 0)
+        theme.apply_accent_to_tree(self, self._cfg)
 
     def _on_lang_change(self, val: str):
         if self._restarting:
