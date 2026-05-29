@@ -107,12 +107,36 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
             else:
                 src_dir = tmp_extract
 
-            # ── Write updater.bat — only replace FAFE.exe and _internal/ ──
+            # ── Write updater.bat — replace FAFE.exe, _internal/, and preset
+            # templates while preserving the user's templates/.../custom/
+            # folders and their config.json.
+            #
             # Copy is retried while FAFE.exe is still locked; if it ultimately
             # fails, skip the destructive /PURGE on _internal and relaunch the
             # existing exe so the user isn't left with a broken install.
+            # Template copy failures are non-fatal — the app is already
+            # updated, the user can recapture if a preset is bad.
             src_exe      = os.path.join(src_dir, "FAFE.exe")
             src_internal = os.path.join(src_dir, "_internal")
+
+            # Preset template folders to refresh (custom/ folders are
+            # implicitly preserved — never written to).
+            tpl_pairs: list[tuple[str, str]] = []
+            for category in ("race", "mastery_full"):
+                for preset in ("1080p", "1440p", "2160p"):
+                    tpl_pairs.append((
+                        os.path.join(src_dir, "templates", category, preset),
+                        os.path.join(exe_dir, "templates", category, preset),
+                    ))
+            tpl_pairs.append((
+                os.path.join(src_dir, "templates", "examples"),
+                os.path.join(exe_dir, "templates", "examples"),
+            ))
+            tpl_lines = "".join(
+                f'robocopy "{src}" "{dst}" /E /IS /IT /IM /PURGE >nul\n'
+                for src, dst in tpl_pairs
+            )
+
             bat_path = os.path.join(tempfile.gettempdir(), "fafe_update.bat")
             bat = (
                 "@echo off\n"
@@ -129,6 +153,7 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
                 ":copy_ok\n"
                 f'robocopy "{src_internal}" "{exe_dir}\\_internal" /E /IS /IT /IM /PURGE >nul\n'
                 "if errorlevel 8 goto fail\n"
+                + tpl_lines +
                 f'start "" "{exe_path}"\n'
                 f'rmdir /s /q "{tmp_extract}" >nul 2>&1\n'
                 'del "%~f0"\n'

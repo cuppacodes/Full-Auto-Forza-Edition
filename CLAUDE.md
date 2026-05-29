@@ -88,8 +88,9 @@ New APP/
 
 ### Auto-updater (updater.py)
 - Checks GitHub API on startup (2s delay)
-- Downloads full zip, extracts to temp, bat replaces FAFE.exe + _internal/ only (leaves config.json and templates/ untouched)
-- Bat uses a retry loop on `copy /y` and gates `robocopy /PURGE` behind copy success — a locked FAFE.exe falls through to a `:fail` branch that relaunches the existing install instead of bricking it
+- Downloads full zip, extracts to temp, bat replaces FAFE.exe + _internal/ + preset templates (1080p / 1440p / 2160p folders for both race and mastery_full, plus `templates/examples/`). Leaves `config.json` and `templates/.../custom/` folders untouched so user customisations persist across updates.
+- Bat uses a retry loop on `copy /y` and gates `robocopy /PURGE` on _internal behind copy success — a locked FAFE.exe falls through to a `:fail` branch that relaunches the existing install instead of bricking it
+- Template robocopy failures are non-fatal — the app is already updated before they run, so a missing/locked preset folder doesn't trigger the fail branch
 
 ## Key Design Decisions
 - All UI strings go through `_at(key, lang, **kwargs)` in app_lang.py — never hardcode UI text
