@@ -238,12 +238,21 @@ class ScreenDetector:
         # text promotes the score to _ocr_confirm_score regardless of how
         # low the pixel match was.
         #   _ocr_primary:         master switch (UI: Default=true, Custom=false)
-        #   _ocr_skip_above:      pixel score that's high enough to skip OCR
+        #   _ocr_skip_above:      pixel score high enough that OCR is skipped
+        #                         (we trust the pixel match)
+        #   _ocr_skip_below:      pixel score so low that OCR is also skipped
+        #                         (screen is almost certainly not the target;
+        #                         saves the ~150 ms OCR call during wait loops
+        #                         on unrelated screens)
         #   _ocr_confirm_score:   score floor when OCR confirms a match
+        #   _ocr_cache_duration:  how long an OCR confirmation stays cached
+        #                         (decoupled from cooldown — cooldown caps
+        #                         the OCR call rate, cache caps how long the
+        #                         result is reused)
         #   _ocr_cache_pixel_min: minimum pixel score for a cached OCR
         #                         confirmation to still apply (safeguards
         #                         against the screen having changed during
-        #                         the cooldown window)
+        #                         the cache window)
         # Users with custom templates that differ from defaults (different
         # language, non-text content, etc.) should set "detector_ocr_primary"
         # to false ("Custom" mode in the topbar) to disable OCR confirmation
@@ -251,9 +260,13 @@ class ScreenDetector:
         self._ocr_primary: bool = bool(
             self.cfg.get("detector_ocr_primary", True))
         self._ocr_skip_above: float = float(
-            self.cfg.get("detector_ocr_skip_above", 0.75))
+            self.cfg.get("detector_ocr_skip_above", 0.65))
+        self._ocr_skip_below: float = float(
+            self.cfg.get("detector_ocr_skip_below", 0.20))
         self._ocr_confirm_score: float = float(
             self.cfg.get("detector_ocr_confirm_score", 0.85))
+        self._ocr_cache_duration: float = float(
+            self.cfg.get("detector_ocr_cache_duration", 5.0))
         self._ocr_cache_pixel_min: float = float(
             self.cfg.get("detector_ocr_cache_pixel_min", 0.15))
         # Cache of recent OCR confirmations per key — (timestamp, text).
@@ -385,12 +398,19 @@ class ScreenDetector:
         has_hints = key in OCR_HINTS
 
         if self._ocr_primary and is_text_template and has_hints:
-            if image_score < self._ocr_skip_above:
+            # OCR is useful only in the borderline pixel-score zone.
+            #   image_score >= skip_above → trust the pixel match
+            #   image_score <  skip_below → screen is almost certainly wrong;
+            #                               OCR can't save us either, save the
+            #                               CPU on wait loops over irrelevant
+            #                               screens
+            #   between        → run OCR (or use cached confirmation)
+            if self._ocr_skip_below <= image_score < self._ocr_skip_above:
                 now = time.time()
                 cached = self._ocr_confirmed.get(key)
                 cache_valid = (
                     cached is not None
-                    and (now - cached[0]) < self._ocr_cooldown
+                    and (now - cached[0]) < self._ocr_cache_duration
                     and image_score >= self._ocr_cache_pixel_min
                 )
                 if cache_valid:
