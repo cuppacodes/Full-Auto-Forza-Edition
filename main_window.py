@@ -303,19 +303,32 @@ class MainWindow(ctk.CTk):
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.pack(side="right")
 
-        # ── DEV: Detection mode toggle (Stable / Beta) ─────────────────────
-        # Beta = OCR-primary detection (detector_ocr_primary in config.json).
-        # Temporary developer tool for testing — remove before public release.
+        # ── Detection mode toggle (Default / Custom) ──────────────────────
+        # Default = OCR-primary (text confirmation, robust across hardware).
+        # Custom  = pixel-only (for user-captured templates that differ from
+        #           defaults — different language, non-text content, etc.)
+        self._det_default_label = _at("det_mode_default", self._lang)
+        self._det_custom_label  = _at("det_mode_custom",  self._lang)
         self._det_mode_var = ctk.StringVar(
-            value="Beta" if self._cfg.get("detector_ocr_primary", False)
-            else "Stable")
+            value=self._det_default_label
+            if self._cfg.get("detector_ocr_primary", True)
+            else self._det_custom_label)
         ctk.CTkSegmentedButton(
             right,
-            values=["Stable", "Beta"],
+            values=[self._det_default_label, self._det_custom_label],
             variable=self._det_mode_var,
             command=self._on_detection_mode_change,
             width=140, height=28,
-        ).pack(side="left", padx=(0, 8))
+        ).pack(side="left", padx=(0, 4))
+
+        # ? icon — tooltip explains when to use Custom mode
+        det_q_lbl = ctk.CTkLabel(
+            right, text="?", width=18,
+            font=("Segoe UI", 11),
+            text_color=("gray50", "gray60"),
+            cursor="question_arrow")
+        det_q_lbl.pack(side="left", padx=(0, 8))
+        Tooltip(det_q_lbl, _at("det_mode_tip", self._lang))
 
         ctk.CTkButton(
             right, text="⚙", width=36,
@@ -327,8 +340,8 @@ class MainWindow(ctk.CTk):
         ).pack(side="left", padx=(8, 0))
 
     def _on_detection_mode_change(self, val: str):
-        """DEV: Toggle detector_ocr_primary in config.json. Removes for release."""
-        self._cfg["detector_ocr_primary"] = (val == "Beta")
+        """Toggle detector_ocr_primary in config.json based on segmented button."""
+        self._cfg["detector_ocr_primary"] = (val == self._det_default_label)
         save(self._cfg)
 
     def _build_race_tab(self) -> ctk.CTkFrame:

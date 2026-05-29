@@ -230,23 +230,26 @@ class ScreenDetector:
         self._ocr_cooldown: float = float(
             self.cfg.get("detector_ocr_cooldown", 1.0))
         self._ocr_last_run: dict[str, float] = {}
-        # OCR-first mode (beta — the real cross-hardware fix):
-        # When pixel-matching scores poorly (e.g. templates captured on a
-        # different machine than the one running detection), text content is
-        # what's actually invariant across hardware.  In OCR-primary mode,
-        # OCR is a first-class confirmation signal rather than a +0.10
-        # bonus — finding the hint text promotes the score to
-        # _ocr_confirm_score regardless of how low the pixel match was.
-        #   _ocr_primary:         master switch (default OFF — beta opt-in)
+        # OCR-primary mode (Default — exposed in UI as "Default" mode):
+        # When pixel-matching scores poorly (e.g. preset templates run on a
+        # different machine than the one they were captured on), text content
+        # is what's actually invariant across hardware.  OCR is a first-class
+        # confirmation signal rather than a +0.10 bonus — finding the hint
+        # text promotes the score to _ocr_confirm_score regardless of how
+        # low the pixel match was.
+        #   _ocr_primary:         master switch (UI: Default=true, Custom=false)
         #   _ocr_skip_above:      pixel score that's high enough to skip OCR
         #   _ocr_confirm_score:   score floor when OCR confirms a match
         #   _ocr_cache_pixel_min: minimum pixel score for a cached OCR
         #                         confirmation to still apply (safeguards
         #                         against the screen having changed during
         #                         the cooldown window)
-        # Set "detector_ocr_primary": true in config.json to enable.
+        # Users with custom templates that differ from defaults (different
+        # language, non-text content, etc.) should set "detector_ocr_primary"
+        # to false ("Custom" mode in the topbar) to disable OCR confirmation
+        # and rely purely on pixel template matching.
         self._ocr_primary: bool = bool(
-            self.cfg.get("detector_ocr_primary", False))
+            self.cfg.get("detector_ocr_primary", True))
         self._ocr_skip_above: float = float(
             self.cfg.get("detector_ocr_skip_above", 0.75))
         self._ocr_confirm_score: float = float(
