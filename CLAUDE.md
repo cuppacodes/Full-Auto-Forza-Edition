@@ -19,7 +19,7 @@ New APP/
 ├── app_lang.py           # All UI strings in zh-tw / zh-cn / en
 ├── config.py             # Config load/save, path helpers
 ├── updater.py            # GitHub release auto-updater
-├── version.py            # VERSION = "1.2.1"
+├── version.py            # VERSION = "1.3.0"
 ├── build_app.bat         # PyInstaller build script
 ├── templates/            # Template images (race/, mastery_full/, each with 1080p/1440p/2160p/custom)
 └── index.html            # GitHub Pages intro/tutorial page (trilingual)
@@ -107,7 +107,7 @@ New APP/
 ## GitHub
 - Repo: https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition
 - Pages: https://leoncrispybacon.github.io/FAFE
-- Latest release: v1.2.1
+- Latest release: v1.3.0
 
 ## Build
 Run `build_app.bat` — produces `FAFE_dist/` with `FAFE.exe`, `_internal/`, `config.json`.
