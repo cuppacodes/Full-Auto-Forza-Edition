@@ -1225,99 +1225,52 @@ class MainWindow(ctk.CTk):
         save(self._cfg)
         ctk.set_appearance_mode(mode)
 
-    # ── Accent picker (inline accordion under Appearance) ─────
+    # ── Accent picker (always-visible swatch grid) ────────────
 
     def _build_accent_picker(self, parent):
-        """Adds an 'Accent color' row + collapsible swatches grid."""
-        accent_row = ctk.CTkFrame(parent, fg_color='transparent')
-        accent_row.pack(fill='x', padx=12, pady=4)
-
-        ctk.CTkLabel(accent_row,
+        """Inserts a label row + a 4×2 grid of accent color swatches.
+        The currently selected one is marked with a contrasting border."""
+        # Label row
+        label_row = ctk.CTkFrame(parent, fg_color='transparent')
+        label_row.pack(fill='x', padx=12, pady=(4, 2))
+        ctk.CTkLabel(label_row,
                      text=_at('label_accent_color', self._lang),
                      width=160, anchor='w').pack(side='left')
 
-        name, fg, hover = theme.get_accent(self._cfg)
-        self._accent_swatch_btn = ctk.CTkButton(
-            accent_row, text=f'  {name}  ▾',
-            width=160, height=28,
-            font=theme.BODY_FONT,
-            fg_color=fg, hover_color=hover,
-            anchor='w',
-            command=self._toggle_accent_picker)
-        self._accent_swatch_btn.pack(side='left', padx=theme.PAD_INLINE)
-
-        # Expand frame — initially collapsed (height 0, not packed)
-        self._accent_expand = ctk.CTkFrame(
-            parent, fg_color=('gray97', 'gray13'),
-            corner_radius=8, height=0)
-        self._accent_expand.pack_propagate(False)
-
-        pad = ctk.CTkFrame(self._accent_expand, fg_color='transparent')
-        pad.pack(fill='both', expand=True, padx=12, pady=10)
+        # Grid row — sits directly below the label, always expanded
+        grid = ctk.CTkFrame(parent, fg_color=('gray95', 'gray16'),
+                            corner_radius=8)
+        grid.pack(fill='x', padx=12, pady=(0, 4))
+        pad = ctk.CTkFrame(grid, fg_color='transparent')
+        pad.pack(fill='both', expand=True, padx=8, pady=8)
         for i in range(4):
             pad.columnconfigure(i, weight=1)
+
+        current_name, _, _ = theme.get_accent(self._cfg)
+        self._accent_buttons: dict[str, ctk.CTkButton] = {}
 
         for i, (sw_name, (sw_fg, sw_hover)) in enumerate(
                 theme.ACCENT_PRESETS.items()):
             r, c = divmod(i, 4)
-            ctk.CTkButton(
-                pad, text=sw_name, width=90, height=28,
+            selected = (sw_name == current_name)
+            btn = ctk.CTkButton(
+                pad, text=sw_name, width=90, height=30,
                 font=theme.HINT_FONT,
                 fg_color=sw_fg, hover_color=sw_hover,
+                border_width=2 if selected else 0,
+                border_color=('white', 'white'),
                 command=lambda n=sw_name, f=sw_fg, h=sw_hover:
                     self._on_accent_pick(n, f, h),
-            ).grid(row=r, column=c, padx=4, pady=4, sticky='ew')
-
-        self._accent_open = False
-        self._accent_anchor = accent_row  # for relative .pack(after=...)
-
-    def _toggle_accent_picker(self):
-        OPEN_H = 100
-        if self._accent_open:
-            self._animate_height(self._accent_expand, OPEN_H, 0, 140,
-                                 done=self._accent_expand.pack_forget)
-            self._accent_open = False
-            name, _, _ = theme.get_accent(self._cfg)
-            self._accent_swatch_btn.configure(text=f'  {name}  ▾')
-        else:
-            self._accent_expand.pack(fill='x', padx=12, pady=(2, 0),
-                                     after=self._accent_anchor)
-            self._accent_expand.configure(height=0)
-            self._animate_height(self._accent_expand, 0, OPEN_H, 160)
-            self._accent_open = True
-            name, _, _ = theme.get_accent(self._cfg)
-            self._accent_swatch_btn.configure(text=f'  {name}  ▴')
+            )
+            btn.grid(row=r, column=c, padx=4, pady=4, sticky='ew')
+            self._accent_buttons[sw_name] = btn
 
     def _on_accent_pick(self, name: str, fg: str, hover: str):
-        """Persist new accent; remind user a restart is needed for full effect."""
+        """Persist new accent and update the selection border."""
         self._cfg['accent_color'] = name
         save(self._cfg)
-        self._accent_swatch_btn.configure(
-            text=f'  {name}  ▴', fg_color=fg, hover_color=hover)
-
-    @staticmethod
-    def _animate_height(widget, start: int, end: int, duration_ms: int = 160,
-                        done=None):
-        """Eased height animator at ~120 fps.  Ease-out gives motion that
-        starts fast and decelerates — feels natural on UI panels and helps
-        mask the per-frame reflow tkinter does on sibling widgets."""
-        FRAME_MS = 8  # ~120 fps — smoother than the 16 ms default
-        steps = max(1, duration_ms // FRAME_MS)
-        span = end - start
-
-        def step(i: int):
-            if i >= steps:
-                widget.configure(height=int(end))
-                if done:
-                    done()
-                return
-            # Cubic ease-out: 1 - (1 - t)^3
-            t = (i + 1) / steps
-            eased = 1 - (1 - t) ** 3
-            widget.configure(height=int(start + span * eased))
-            widget.after(FRAME_MS, lambda: step(i + 1))
-
-        step(0)
+        for btn_name, btn in self._accent_buttons.items():
+            btn.configure(border_width=2 if btn_name == name else 0)
 
     def _on_lang_change(self, val: str):
         if self._restarting:
