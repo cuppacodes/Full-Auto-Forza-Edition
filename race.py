@@ -80,14 +80,16 @@ TEMPLATE_KEYS = ["start_menu", "racing", "restart_menu", "confirm"]
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb, warn_cb=None):
+        log_cb, status_cb, warn_cb=None, section_cb=None):
     """
     Main race automation loop.
     cfg: config dict
     stop_event: set this to stop
     log_cb(msg): append a line to the log
     status_cb(msg): update the status bar
+    section_cb(msg): start a new (bounded) log section; falls back to log_cb
     """
+    section = section_cb or log_cb
 
     lang          = cfg.get("lang", "en")
     monitor_index = cfg.get("monitor_index", 1)
@@ -157,7 +159,7 @@ def run(cfg: dict, stop_event: threading.Event,
 
     while not stop():
         loop_count += 1
-        log_cb(f"\n-- {_at('log_loop', lang)} #{loop_count} --")
+        section(f"-- {_at('log_loop', lang)} #{loop_count} --")
 
         wait_for("Start Race menu", templates["start_menu"], "start_menu")
         if stop(): break

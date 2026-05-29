@@ -20,6 +20,11 @@ import numpy as np
 Rect = tuple[float, float, float, float]
 Point = tuple[int, int]
 
+# DEFAULT_ROIS are tuned on 16:9. Template sizes scale by height (so vertical
+# layout is invariant across same-height screens), but the horizontal fraction
+# of a UI element shifts on non-16:9 aspect ratios — see _roi_for_frame.
+REF_ASPECT = 16.0 / 9.0
+
 
 @dataclass
 class MatchResult:
@@ -221,6 +226,41 @@ class ScreenDetector:
             [0.95, 1.00, 1.05],
         )
         self.stable_frames = int(self.cfg.get("detector_stable_frames", 2))
+        # Full-screen fallback gating.  The ROI-miss full-screen search is the
+        # single most expensive per-check operation (~85% of wait-state cost).
+        # While idly waiting for a screen, the ROI already tells us the target
+        # isn't present, so the full sweep just burns CPU confirming "nope".
+        # Only run it when the ROI hints the element may be present but drifted
+        # (roi_score >= gate) or on a periodic safety sweep (every Nth gated
+        # check) so drift outside the ROI is still caught within a bounded
+        # number of checks.  Gating applies only to the stable (wait_for) path;
+        # single-shot detect (stable=False, used by click ops) always runs the
+        # full fallback so one-off clicks never miss a drifted element.
+        # Set detector_full_sweep_every <= 1 to disable gating entirely.
+        self._full_gate_score: float = float(
+            self.cfg.get("detector_full_gate_score", 0.40))
+        self._full_sweep_every: int = int(
+            self.cfg.get("detector_full_sweep_every", 4))
+        self._full_sweep_counter: dict[str, int] = {}
+        # Force the Canny edge channel on even for text templates.  Off by
+        # default: text edges are noisy (anti-aliasing) and the gray channel
+        # alone matches text more reliably — so Custom mode now runs text
+        # templates gray-only over the wide scale range instead of gray+edge,
+        # roughly halving its matchTemplate count with no accuracy cost on
+        # text.  Enable only if a custom non-text/structural template actually
+        # benefits from edge matching.
+        self._force_edges: bool = bool(
+            self.cfg.get("detector_force_edges", False))
+        # Ultrawide / non-16:9 ROI handling.  DEFAULT_ROIS are tuned on 16:9;
+        # on other aspect ratios the distorted axis is searched in full while
+        # the accurate axis keeps its band (see _roi_for_frame).  On by
+        # default; disable with detector_roi_aspect_fix=false to force the raw
+        # 16:9 ROIs.  detector_roi_aspect_tol is the ± fraction of 16:9 treated
+        # as "still 16:9" (0.05 ≈ covers 16:9 exactly but not 16:10 / 21:9).
+        self._roi_aspect_fix: bool = bool(
+            self.cfg.get("detector_roi_aspect_fix", True))
+        self._roi_aspect_tol: float = float(
+            self.cfg.get("detector_roi_aspect_tol", 0.05))
         # OCR cooldown: minimum seconds between actual OCR calls for the same
         # key.  Without this, a score stuck in the borderline zone triggers
         # rapidocr on every check interval (~0.5 s), causing CPU spikes.
@@ -294,10 +334,17 @@ class ScreenDetector:
 
     def detect(self, frame: np.ndarray, key: str, template: np.ndarray,
                threshold: float, stable: bool = True) -> MatchResult:
-        roi = DEFAULT_ROIS.get(key)
+        roi = self._roi_for_frame(
+            DEFAULT_ROIS.get(key), frame.shape[1], frame.shape[0])
         roi_result = self._detect_in_area(
             frame, key, template, threshold, roi, "roi", stable)
         if roi_result.matched:
+            return roi_result
+
+        # Skip the costly full-screen fallback on stable (wait_for) checks
+        # where the ROI score is clearly low — see _should_run_full. Single
+        # shot detect (stable=False) always runs it so click ops never miss.
+        if stable and not self._should_run_full(key, roi_result.score):
             return roi_result
 
         full_result = self._detect_in_area(
@@ -314,6 +361,47 @@ class ScreenDetector:
             if stable else full_result.score >= max(0.45, threshold * 0.92)
         )
         return full_result
+
+    def _roi_for_frame(self, roi: Optional[Rect],
+                       frame_w: int, frame_h: int) -> Optional[Rect]:
+        """Adjust a 16:9-tuned ROI for non-16:9 (ultrawide / tall) screens.
+
+        Template sizes scale by height, so vertical layout is invariant across
+        same-height screens — but the horizontal fraction of a UI element
+        shifts on ultrawide because the game anchors UI to screen edges or a
+        centred safe area rather than stretching it across the extra width.
+        Rather than guess each element's anchor, keep the accurate axis and
+        search the full extent of the distorted one:
+          • wider than 16:9 (ultrawide) → full width, keep the vertical band
+          • taller than 16:9            → full height, keep the horizontal band
+        ROI-first stays a real speed win (a band is far cheaper than the whole
+        frame) and the full-screen fallback still backs it up.
+        """
+        if roi is None or not self._roi_aspect_fix:
+            return roi
+        aspect = frame_w / max(1, frame_h)
+        if aspect > REF_ASPECT * (1 + self._roi_aspect_tol):
+            return (0.0, roi[1], 1.0, roi[3])
+        if aspect < REF_ASPECT * (1 - self._roi_aspect_tol):
+            return (roi[0], 0.0, roi[2], 1.0)
+        return roi
+
+    def _should_run_full(self, key: str, roi_score: float) -> bool:
+        """Whether to run the expensive full-screen fallback this check.
+
+        True when the ROI score suggests the element may be present but
+        drifted (>= gate), or on a periodic safety sweep so drift outside the
+        ROI is still caught within `_full_sweep_every` checks. Otherwise the
+        full search is skipped — it's the dominant cost while idly waiting.
+        """
+        if roi_score >= self._full_gate_score:
+            return True
+        n = self._full_sweep_every
+        if n <= 1:
+            return True   # gating disabled
+        c = self._full_sweep_counter.get(key, 0) + 1
+        self._full_sweep_counter[key] = c
+        return (c % n) == 0
 
     def wait_for(self, frame_cb: Callable[[], np.ndarray], key: str,
                  template: np.ndarray, threshold: float,
@@ -358,18 +446,26 @@ class ScreenDetector:
         # in a different language, or captured at a non-standard scale, so
         # the full 7-scale + Canny edge pipeline gives the best chance of
         # matching arbitrary content.
-        is_text_template = self._ocr_primary and (key in TEXT_TEMPLATES)
-        if is_text_template:
-            scales = self._text_scales
-            gray_conf, gray_loc, gray_scale = _best_template_match(
-                gray_area, gray_tpl, scales)
-            image_score = gray_conf  # edge channel skipped for text
-        else:
-            gray_conf, gray_loc, gray_scale = _best_template_match(
-                gray_area, gray_tpl, self.scales)
+        key_is_text = key in TEXT_TEMPLATES
+        # Scale set: Default mode runs text templates on the tight 3-scale fast
+        # path; Custom mode and any non-text template use the wide range.
+        # Edge channel: only for genuinely non-text templates (text edges are
+        # noisy anti-aliasing — gray matches text more reliably). This makes
+        # Custom-mode text matching gray-only over the wide scales, ~halving
+        # its matchTemplate count vs the old gray+edge path with no accuracy
+        # cost. `_force_edges` restores edges for all templates if needed.
+        default_text_path = self._ocr_primary and key_is_text
+        use_edges = self._force_edges or not key_is_text
+        scales = self._text_scales if default_text_path else self.scales
+
+        gray_conf, gray_loc, gray_scale = _best_template_match(
+            gray_area, gray_tpl, scales)
+        if use_edges:
             edge_area = _prepare_edges(area)
-            edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, self.scales)
+            edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, scales)
             image_score = (gray_conf * 0.62) + (edge_conf * 0.28)
+        else:
+            image_score = gray_conf
 
         # OCR gate.  Only runs in Default (OCR-primary) mode.
         #
@@ -397,7 +493,7 @@ class ScreenDetector:
         ocr_text = ""
         has_hints = key in OCR_HINTS
 
-        if self._ocr_primary and is_text_template and has_hints:
+        if default_text_path and has_hints:
             # OCR is useful only in the borderline pixel-score zone.
             #   image_score >= skip_above → trust the pixel match
             #   image_score <  skip_below → screen is almost certainly wrong;

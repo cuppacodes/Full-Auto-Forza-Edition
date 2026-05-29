@@ -138,7 +138,8 @@ def _nav_keys_for_loop(loop: int) -> list:
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb, max_cars: int = 0, warn_cb=None):
+        log_cb, status_cb, max_cars: int = 0, warn_cb=None, section_cb=None):
+    section       = section_cb or log_cb
     lang          = cfg.get("lang", "en")
     monitor_index = cfg.get("monitor_index", 1)
     # Per-template thresholds
@@ -176,7 +177,8 @@ def run(cfg: dict, stop_event: threading.Event,
     # Load nodes
     try:
         nodes_file = get_nodes_file(res)
-        nodes = load_nodes(nodes_file, current_w, current_h)
+        nodes = load_nodes(nodes_file, current_w, current_h,
+                           aspect_fix=_fresh.get("nodes_aspect_fix", True))
         log_cb(_at("log_nodes_loaded", lang, n=len(nodes)))
     except Exception:
         log_cb(_at("log_nodes_missing", lang))
@@ -236,8 +238,8 @@ def run(cfg: dict, stop_event: threading.Event,
         # ── Navigate to next car ──────────────────────────────
         # Skip navigation on the first car — the user is already positioned there.
         nav_keys = [] if is_first else _nav_keys_for_loop(loop_count)
-        log_cb(_at("log_car", lang, n=car_num) +
-               (f" / {max_cars}" if max_cars > 0 else ""))
+        section(_at("log_car", lang, n=car_num) +
+                (f" / {max_cars}" if max_cars > 0 else ""))
 
         if nav_keys:
             log_cb(_at("log_navigating", lang, keys=' '.join(k.upper() for k in nav_keys)))

@@ -15,20 +15,53 @@ import config
 
 # ── mss screen capture ───────────────────────────────────────
 
+# An mss instance is bound to the thread that created it, so we keep one
+# per thread and reuse it across captures. Rebuilding mss.MSS() on every
+# frame (the detection loop grabs ~2×/sec, indefinitely) leaks GDI
+# device-contexts/bitmaps on Windows and eventually makes grab() return
+# black frames — which is why long runs grew more failure-prone.
+_tls = threading.local()
+
+
+def _get_sct():
+    """Return this thread's reusable mss instance, creating it on first use."""
+    sct = getattr(_tls, "sct", None)
+    if sct is None:
+        sct = _tls.sct = mss.mss()
+    return sct
+
+
 def grab_frame(monitor_index: int) -> np.ndarray:
     """Capture game monitor via mss. Returns BGR frame."""
-    with mss.MSS() as sct:
+    sct = _get_sct()
+    try:
         monitors = sct.monitors
         if monitor_index >= len(monitors):
             raise RuntimeError(
                 f"Monitor {monitor_index} not found. "
                 f"Only {len(monitors)-1} monitor(s) available.")
         shot = sct.grab(monitors[monitor_index])
-        if shot is None:
+    except RuntimeError:
+        raise
+    except Exception:
+        # mss can fail transiently (e.g. display/DC reset). Rebuild once.
+        try:
+            sct.close()
+        except Exception:
+            pass
+        _tls.sct = None
+        sct = _get_sct()
+        monitors = sct.monitors
+        if monitor_index >= len(monitors):
             raise RuntimeError(
-                f"Monitor {monitor_index} returned no image. "
-                f"Check if the monitor is active.")
-        return cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+                f"Monitor {monitor_index} not found. "
+                f"Only {len(monitors)-1} monitor(s) available.")
+        shot = sct.grab(monitors[monitor_index])
+    if shot is None:
+        raise RuntimeError(
+            f"Monitor {monitor_index} returned no image. "
+            f"Check if the monitor is active.")
+    return cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
 
 
 def list_monitors() -> list:
@@ -124,12 +157,56 @@ def save_nodes(nodes_file: str, nodes: list,
         json.dump(data, f, indent=2)
 
 
-def load_nodes(nodes_file: str, current_w: int, current_h: int) -> list:
+_REF_ASPECT = 16.0 / 9.0
+
+
+def _content_box(screen_w: int, screen_h: int, ref: float = _REF_ASPECT):
+    """Pixel rect (x, y, w, h) of a centred `ref`-aspect UI area fit (contain)
+    into the screen.  Forza anchors menu UI to a centred 16:9 box rather than
+    stretching it, so on non-16:9 screens the box is pillarboxed (wide screen,
+    bars left/right) or letterboxed (tall screen, bars top/bottom).  On a 16:9
+    screen the box equals the full screen."""
+    if screen_w / max(1, screen_h) >= ref:
+        box_h = float(screen_h)
+        box_w = screen_h * ref
+    else:
+        box_w = float(screen_w)
+        box_h = screen_w / ref
+    box_x = (screen_w - box_w) / 2.0
+    box_y = (screen_h - box_h) / 2.0
+    return box_x, box_y, box_w, box_h
+
+
+def load_nodes(nodes_file: str, current_w: int, current_h: int,
+               aspect_fix: bool = True) -> list:
     with open(nodes_file, encoding="utf-8") as f:
         data = json.load(f)
-    return [(int(n["x_ratio"] * current_w),
-             int(n["y_ratio"] * current_h))
-            for n in data["nodes"]]
+    nodes = data["nodes"]
+    src_w = data.get("screen_width", current_w)
+    src_h = data.get("screen_height", current_h)
+
+    # Naive width/height scaling is only correct when the capture and current
+    # screen share an aspect ratio.  When they differ (e.g. a 16:9 preset on a
+    # 21:9 ultrawide), the UI is anchored to a centred 16:9 box, not stretched
+    # across the extra width — so map each node through the source's content
+    # box into the current screen's content box.  This reduces to naive
+    # scaling when the aspects match (verified: 5120x2160 custom capture maps
+    # to itself), so it's safe to apply unconditionally for same-aspect cases.
+    if not aspect_fix or src_w <= 0 or src_h <= 0:
+        return [(int(n["x_ratio"] * current_w),
+                 int(n["y_ratio"] * current_h)) for n in nodes]
+
+    sx, sy, sw, sh = _content_box(src_w, src_h)
+    cx, cy, cw, ch = _content_box(current_w, current_h)
+    out = []
+    for n in nodes:
+        # node pixel within the source's centred 16:9 box -> box fraction
+        cfx = (n["x_ratio"] * src_w - sx) / sw
+        cfy = (n["y_ratio"] * src_h - sy) / sh
+        # map that fraction onto the current screen's centred 16:9 box
+        out.append((int(round(cx + cfx * cw)),
+                    int(round(cy + cfy * ch))))
+    return out
 
 
 def nodes_exist(nodes_file: str) -> bool:

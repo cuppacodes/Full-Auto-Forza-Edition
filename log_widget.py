@@ -10,13 +10,15 @@ import theme
 
 
 class LogWidget(ctk.CTkFrame):
-    MAX_LINES = 1000
+    MAX_LINES    = 1000
+    MAX_SECTIONS = 3      # keep only the last N loop sections
 
     def __init__(self, parent, placeholder="", **kwargs):
         super().__init__(parent, **kwargs)
-        self._queue       = queue.Queue()
-        self._lines       = []
-        self._placeholder = placeholder
+        self._queue        = queue.Queue()
+        self._lines        = []
+        self._section_lens = []   # line count per live section (front = oldest)
+        self._placeholder  = placeholder
 
         self._text = ctk.CTkTextbox(
             self,
@@ -49,8 +51,59 @@ class LogWidget(ctk.CTkFrame):
             self._placeholder = ""
         self._queue.put(("warning", message))
 
+    def log_section(self, message: str):
+        """Thread-safe: start a new loop section with this header line.
+
+        Only the last MAX_SECTIONS sections are retained; older ones are
+        trimmed off the top so the log doesn't grow without bound.
+        """
+        if self._placeholder and not self._lines:
+            self._queue.put(None)
+            self._placeholder = ""
+        self._queue.put(("section", message))
+
     def clear(self):
         self._queue.put(None)   # sentinel for clear
+
+    def _delete_top_lines(self, n: int):
+        """Remove the first n lines from buffer + widget (no section bookkeeping)."""
+        n = min(n, len(self._lines))
+        if n <= 0:
+            return
+        del self._lines[:n]
+        self._text.configure(state="normal")
+        self._text.delete("1.0", f"{n + 1}.0")
+        self._text.configure(state="disabled")
+
+    def _append_line(self, text: str, style: str):
+        """Append a single line to the widget and the current section."""
+        self._lines.append(text)
+        if self._section_lens:
+            self._section_lens[-1] += 1
+        self._text.configure(state="normal")
+        try:
+            if style == "warning":
+                # Use underlying tk Text widget for colored tag
+                tk_text = self._text._textbox
+                tk_text.tag_configure("warning", foreground="#ff4444")
+                tk_text.insert("end", text + "\n", "warning")
+            else:
+                self._text.insert("end", text + "\n")
+        except Exception:
+            self._text.insert("end", repr(text) + "\n")
+        self._text.configure(state="disabled")
+
+        # Hard safety cap, kept in sync with section counters.
+        over = len(self._lines) - self.MAX_LINES
+        if over > 0:
+            self._delete_top_lines(over)
+            while over > 0 and self._section_lens:
+                if self._section_lens[0] <= over:
+                    over -= self._section_lens.pop(0)
+                else:
+                    self._section_lens[0] -= over
+                    over = 0
+        self._text.see("end")
 
     def _poll(self):
         """Poll the queue and update the text widget."""
@@ -59,31 +112,27 @@ class LogWidget(ctk.CTkFrame):
                 msg = self._queue.get_nowait()
                 if msg is None:
                     self._lines.clear()
+                    self._section_lens.clear()
                     self._text.configure(state="normal")
                     self._text.delete("1.0", "end")
                     self._text.configure(state="disabled")
-                else:
-                    style, text = msg
-                    self._lines.append(text)
-                    if len(self._lines) > self.MAX_LINES:
-                        self._lines.pop(0)
-                        self._text.configure(state="normal")
-                        self._text.delete("1.0", "2.0")
-                        self._text.configure(state="disabled")
+                    continue
 
-                    self._text.configure(state="normal")
-                    try:
-                        if style == "warning":
-                            # Use underlying tk Text widget for colored tag
-                            tk_text = self._text._textbox
-                            tk_text.tag_configure("warning", foreground="#ff4444")
-                            tk_text.insert("end", text + "\n", "warning")
-                        else:
-                            self._text.insert("end", text + "\n")
-                    except Exception:
-                        self._text.insert("end", repr(text) + "\n")
-                    self._text.configure(state="disabled")
-                    self._text.see("end")
+                style, text = msg
+                if style == "section":
+                    # Open a new section, dropping the oldest if over the cap.
+                    self._section_lens.append(0)
+                    while len(self._section_lens) > self.MAX_SECTIONS:
+                        drop = self._section_lens.pop(0)
+                        self._delete_top_lines(drop)
+                    # Blank separator between sections (counts into the new one).
+                    if self._lines:
+                        self._append_line("", "normal")
+                    self._append_line(text, "normal")
+                else:
+                    if not self._section_lens:
+                        self._section_lens.append(0)   # implicit preamble section
+                    self._append_line(text, style)
         except queue.Empty:
             pass
         self.after(50, self._poll)

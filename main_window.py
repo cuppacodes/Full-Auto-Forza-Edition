@@ -706,7 +706,8 @@ class MainWindow(ctk.CTk):
                 log_cb(_at('startup_running', lang))
                 race_run(cfg, self._stop_event,
                          self._race_log.log, self._set_status,
-                         warn_cb=self._race_log.log_warning)
+                         warn_cb=self._race_log.log_warning,
+                         section_cb=self._race_log.log_section)
             except Exception as e:
                 import traceback
                 self._race_log.log(f'ERROR: {e}')
@@ -754,7 +755,8 @@ class MainWindow(ctk.CTk):
                 mastery_run(cfg, self._stop_event,
                             self._mastery_log.log, self._set_status,
                             max_cars=max_cars,
-                            warn_cb=self._mastery_log.log_warning)
+                            warn_cb=self._mastery_log.log_warning,
+                            section_cb=self._mastery_log.log_section)
             except Exception as e:
                 import traceback
                 self._mastery_log.log(f'ERROR: {e}')
