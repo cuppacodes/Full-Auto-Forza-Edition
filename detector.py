@@ -289,9 +289,13 @@ class ScreenDetector:
 
         full_result = self._detect_in_area(
             frame, key, template, threshold, None, "full", False)
-        # Full-screen fallback is useful on unusual UI layouts, but slightly
-        # discounted so normal ROI hits win.
-        full_result.score *= 0.94
+        # Default mode trusts DEFAULT_ROIS, so the full-screen fallback is
+        # discounted to keep ROI hits ranked above coincidental matches
+        # elsewhere on screen.  In Custom mode the user may have captured
+        # templates that don't appear at the default ROI position, so the
+        # full-screen result is the genuine answer — no discount.
+        if self._ocr_primary:
+            full_result.score *= 0.94
         full_result.matched = (
             self._stable_match(f"{key}:full", full_result.score, threshold)
             if stable else full_result.score >= max(0.45, threshold * 0.92)
@@ -335,7 +339,13 @@ class ScreenDetector:
         # rendered at a fixed scale, so 3 scale variants are sufficient.
         # This drops from 14 matchTemplate calls (7 scales × 2 channels) down
         # to 3, giving a ~4–5× speedup for the common path.
-        is_text_template = key in TEXT_TEMPLATES
+        #
+        # Custom mode (ocr_primary=False) opts out of the text fast path
+        # regardless of TEXT_TEMPLATES — user templates may be non-text,
+        # in a different language, or captured at a non-standard scale, so
+        # the full 7-scale + Canny edge pipeline gives the best chance of
+        # matching arbitrary content.
+        is_text_template = self._ocr_primary and (key in TEXT_TEMPLATES)
         if is_text_template:
             scales = self._text_scales
             gray_conf, gray_loc, gray_scale = _best_template_match(
@@ -348,29 +358,28 @@ class ScreenDetector:
             edge_conf, _, _ = _best_template_match(edge_area, edge_tpl, self.scales)
             image_score = (gray_conf * 0.62) + (edge_conf * 0.28)
 
-        # OCR gate.  Two modes:
+        # OCR gate.  Only runs in Default (OCR-primary) mode.
         #
-        # OCR-primary (beta — set "detector_ocr_primary": true to enable):
-        #   For text templates with hints, OCR is a first-class confirmation
-        #   signal — not a bonus.  Pixel matching gives location and a quick
-        #   fast-path, but text content is what's actually invariant across
-        #   different hardware/settings.
-        #     - image_score >= skip_above  → trust the pixel match, skip OCR
-        #     - else                       → run OCR (or use cached confirm)
-        #     - hint matched               → promote score to confirm_score
-        #     - hint not matched           → keep image_score as-is
+        # In Default mode, for text templates with OCR hints, OCR is a
+        # first-class confirmation signal — not a +0.10 bonus.  Pixel
+        # matching gives location and a quick fast-path, but text content
+        # is what's actually invariant across different hardware/settings.
+        #   - image_score >= skip_above  → trust the pixel match, skip OCR
+        #   - else                       → run OCR (or use cached confirm)
+        #   - hint matched               → promote score to confirm_score
+        #   - hint not matched           → keep image_score as-is
         #
-        #   The OCR result is cached for _ocr_cooldown seconds so subsequent
-        #   frames within the cooldown window (where OCR can't re-run) still
-        #   benefit from the confirmation.  This prevents the cooldown from
-        #   breaking the stability filter under OCR-primary mode.  Cached
-        #   confirmations only apply if image_score >= _ocr_cache_pixel_min
-        #   (default 0.15) — a safeguard against the screen having changed
-        #   completely during the cooldown.
+        # The OCR result is cached for _ocr_cooldown seconds so subsequent
+        # frames within the cooldown window (where OCR can't re-run) still
+        # benefit from the confirmation.  This prevents the cooldown from
+        # breaking the stability filter.  Cached confirmations only apply
+        # if image_score >= _ocr_cache_pixel_min (default 0.15) — a
+        # safeguard against the screen having changed during cooldown.
         #
-        # Legacy mode (default):
-        #   OCR only runs in the narrow [soft-0.10, soft] borderline zone
-        #   and adds a +0.10 bonus when it matches a hint.
+        # In Custom mode (ocr_primary=False), OCR is disabled entirely —
+        # user templates may be non-text, in a language not covered by
+        # OCR_HINTS, or capture content where text inference would
+        # hallucinate matches.  Pixel matching alone is the signal.
         ocr_bonus = 0.0
         ocr_text = ""
         has_hints = key in OCR_HINTS
@@ -394,11 +403,6 @@ class ScreenDetector:
                         # OCR hint found — confirmed match regardless of pixels
                         image_score = max(image_score, self._ocr_confirm_score)
                         self._ocr_confirmed[key] = (now, ocr_text)
-        else:
-            # Legacy borderline-only behaviour
-            if (image_score < soft_threshold and
-                    image_score + self.OCR_MAX_BONUS >= soft_threshold):
-                ocr_bonus, ocr_text = self._ocr_bonus(area, key)
 
         score = image_score + ocr_bonus
         loc = (gray_loc[0] + off_x, gray_loc[1] + off_y)
