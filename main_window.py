@@ -878,16 +878,33 @@ class MainWindow(ctk.CTk):
         self.after(100, self._poll_example_queue)
 
     def _show_example_win(self, key, img_path):
-        """Open a CTkToplevel showing the example image."""
+        """Open a CTkToplevel showing the example image, scaled to fit
+        the user's screen so it doesn't overflow on small displays."""
         self._close_example_win()   # close any existing
         try:
             from PIL import Image as _PIL
             import customtkinter as _ctk
+
             img = _PIL.open(img_path)
             w, h = img.size
+
+            # Constrain to ~80% of the screen, preserving aspect ratio.
+            # 80 px of vertical headroom is reserved for the caption + title bar.
+            CAPTION_RESERVED = 80
+            max_w = int(self.winfo_screenwidth()  * 0.80)
+            max_h = int(self.winfo_screenheight() * 0.80) - CAPTION_RESERVED
+            scale = min(max_w / w, max_h / h, 1.0)
+            if scale < 1.0:
+                w = max(1, int(w * scale))
+                h = max(1, int(h * scale))
+                # Resampling.LANCZOS in Pillow 10+, LANCZOS at top level pre-10
+                resample = getattr(getattr(_PIL, 'Resampling', _PIL),
+                                   'LANCZOS', 1)
+                img = img.resize((w, h), resample)
+
             win = _ctk.CTkToplevel(self)
             win.title(f'Example: {key}')
-            win.geometry(f'{w}x{h+80}')
+            win.geometry(f'{w}x{h + CAPTION_RESERVED}')
             win.resizable(False, False)
             win.after(200, lambda: win.attributes('-topmost', False))
 
@@ -908,7 +925,7 @@ class MainWindow(ctk.CTk):
                 text=_at('capture_instruction', self._lang),
                 font=('Segoe UI', 16, 'bold'),
                 text_color='#ff3333',
-                wraplength=w - 20,
+                wraplength=max(200, w - 20),
                 justify='center'
             ).pack(pady=10)
             self._example_win = win
