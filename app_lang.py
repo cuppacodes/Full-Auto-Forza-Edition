@@ -248,9 +248,9 @@ STRINGS = {
         "zh-cn": "▼  设置与模板",
     },
     "label_threshold": {
-        "en":    "Detection threshold:",
-        "zh-tw": "偵測閾值：",
-        "zh-cn": "检测阈值：",
+        "en":    "Minimum required similarity:",
+        "zh-tw": "最低所需相似度：",
+        "zh-cn": "最低所需相似度：",
     },
     "label_resolution": {
         "en":    "Template set:",
@@ -370,9 +370,9 @@ STRINGS = {
         "zh-cn": "▼  高级设置",
     },
     "setting_race_threshold": {
-        "en":    "Detection threshold",
-        "zh-tw": "偵測閾值",
-        "zh-cn": "检测阈值",
+        "en":    "Minimum required similarity",
+        "zh-tw": "最低所需相似度",
+        "zh-cn": "最低所需相似度",
     },
     "setting_race_check_interval": {
         "en":    "Check interval (s)",
@@ -385,9 +385,9 @@ STRINGS = {
         "zh-cn": "触发与开始输入之间的间隔（秒）",
     },
     "setting_mastery_threshold": {
-        "en":    "Detection threshold",
-        "zh-tw": "偵測閾值",
-        "zh-cn": "检测阈值",
+        "en":    "Minimum required similarity",
+        "zh-tw": "最低所需相似度",
+        "zh-cn": "最低所需相似度",
     },
     "setting_mastery_post_click_wait": {
         "en":    "Click wait (s)",

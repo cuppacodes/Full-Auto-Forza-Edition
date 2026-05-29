@@ -71,7 +71,7 @@ class TemplateRow(ctk.CTkFrame):
         _thresh_slider.pack(side='left', fill='x', expand=True, padx=6)
         _thresh_slider.bind('<ButtonRelease-1>', self._on_thresh_release)
         self._thresh_lbl = ctk.CTkLabel(
-            thresh_row, text=f'{init_val:.2f}',
+            thresh_row, text=f'{init_val:.0%}',
             width=36, font=('Segoe UI', 10),
             text_color=('gray50', 'gray55'))
         self._thresh_lbl.pack(side='left')
@@ -81,7 +81,7 @@ class TemplateRow(ctk.CTkFrame):
     def _on_thresh_move(self, val):
         """Update label while dragging — no save."""
         if hasattr(self, '_thresh_lbl'):
-            self._thresh_lbl.configure(text=f'{float(val):.2f}')
+            self._thresh_lbl.configure(text=f'{float(val):.0%}')
 
     def _on_thresh_release(self, event=None):
         """Save on mouse release."""
