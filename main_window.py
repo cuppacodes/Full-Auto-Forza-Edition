@@ -10,6 +10,7 @@ import os
 import sys
 
 import config
+import theme
 from app_lang import t as _at
 from config import (load, save, EXAMPLES_DIR,
                     get_race_templates, get_mastery_templates, get_nodes_file)
@@ -268,14 +269,14 @@ class MainWindow(ctk.CTk):
         # App title
         ctk.CTkLabel(
             bar, text=_at("app_title", self._lang),
-            font=("Arial", 18, "bold")).pack(side="left")
+            font=theme.TITLE_FONT).pack(side="left")
 
         # Monitor picker (left side of topbar)
         mon_left_frame = ctk.CTkFrame(bar, fg_color="transparent")
         mon_left_frame.pack(side="left", padx=(16, 0))
         ctk.CTkLabel(mon_left_frame,
                      text=_at('label_monitor', self._lang),
-                     font=('Segoe UI', 12)).pack(side='left')
+                     font=theme.LABEL_FONT).pack(side='left')
         from capture import list_monitors
         _monitors   = list_monitors()
         _mon_options = [
@@ -319,25 +320,26 @@ class MainWindow(ctk.CTk):
             variable=self._det_mode_var,
             command=self._on_detection_mode_change,
             width=140, height=28,
-        ).pack(side="left", padx=(0, 4))
+            **theme.segbtn_kwargs(self._cfg),
+        ).pack(side="left", padx=(0, theme.PAD_TIGHT))
 
         # ? icon — tooltip explains when to use Custom mode
         det_q_lbl = ctk.CTkLabel(
             right, text="?", width=18,
-            font=("Segoe UI", 11),
+            font=theme.HINT_FONT,
             text_color=("gray50", "gray60"),
             cursor="question_arrow")
-        det_q_lbl.pack(side="left", padx=(0, 8))
+        det_q_lbl.pack(side="left", padx=(0, theme.PAD_INLINE))
         Tooltip(det_q_lbl, _at("det_mode_tip", self._lang))
 
         ctk.CTkButton(
             right, text="⚙", width=36,
-            font=("Segoe UI", 16),
+            font=theme.ICON_FONT,
             command=self._open_settings,
             fg_color="transparent",
             hover_color=("gray80", "gray30"),
             text_color=("gray20", "gray90")
-        ).pack(side="left", padx=(8, 0))
+        ).pack(side="left", padx=(theme.PAD_INLINE, 0))
 
     def _on_detection_mode_change(self, val: str):
         """Toggle detector_ocr_primary in config.json based on segmented button."""
@@ -420,7 +422,7 @@ class MainWindow(ctk.CTk):
         start_row_frame.pack(fill="x", padx=12, pady=(8, 0))
         ctk.CTkLabel(start_row_frame,
                      text=_at("mastery_start_row_label", self._lang),
-                     font=("Arial", 12)).pack(side="left")
+                     font=theme.LABEL_FONT).pack(side="left")
         saved_start_row = str(self._cfg.get("mastery_start_loop", 1))
         self._mastery_start_row_var = ctk.StringVar(value=saved_start_row)
         ctk.CTkSegmentedButton(
@@ -430,7 +432,8 @@ class MainWindow(ctk.CTk):
             command=self._on_mastery_start_row_change,
             width=120,
             height=32,
-        ).pack(side="left", padx=8)
+            **theme.segbtn_kwargs(self._cfg),
+        ).pack(side="left", padx=theme.PAD_INLINE)
         ctk.CTkLabel(start_row_frame,
                      text=_at("mastery_start_row_hint", self._lang),
                      font=("Arial", 11),
@@ -475,7 +478,8 @@ class MainWindow(ctk.CTk):
                           vl.configure(text=f"{va.get():.2f}"))
             slider = ctk.CTkSlider(
                 row, variable=var,
-                from_=lo, to=hi)
+                from_=lo, to=hi,
+                **theme.slider_kwargs(self._cfg))
             # Save only on mouse release
             slider.bind('<ButtonRelease-1>',
                         lambda e, k=key, va=var: self._on_setting_change(k, va))
@@ -544,89 +548,93 @@ class MainWindow(ctk.CTk):
 
         if mode == "race":
             self._race_start_btn = ctk.CTkButton(
-                row, text=_at("btn_start", self._lang),
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_race,
-                width=120, font=("Arial", 13, "bold"))
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
             self._race_start_btn.pack(side="left", padx=(0, 8))
 
             self._race_stop_btn = ctk.CTkButton(
-                row, text=_at("btn_stop", self._lang),
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color="#dc2626", hover_color="#b91c1c",
-                width=100, state="disabled")
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                width=100, font=theme.BUTTON_FONT, state="disabled")
             self._race_stop_btn.pack(side="left")
 
             self._race_shortcut_lbl = ctk.CTkLabel(
                 parent,
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
-                font=("Arial", 11),
+                font=theme.HINT_FONT,
                 text_color=("gray50", "gray60"))
             self._race_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         elif mode == "mastery":
             self._mastery_start_btn = ctk.CTkButton(
-                row, text=_at("btn_start", self._lang),
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_mastery,
-                width=120, font=("Arial", 13, "bold"))
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
             self._mastery_start_btn.pack(side="left", padx=(0, 8))
 
             self._mastery_stop_btn = ctk.CTkButton(
-                row, text=_at("btn_stop", self._lang),
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color="#dc2626", hover_color="#b91c1c",
-                width=100, state="disabled")
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                width=100, font=theme.BUTTON_FONT, state="disabled")
             self._mastery_stop_btn.pack(side="left")
 
             self._mastery_shortcut_lbl = ctk.CTkLabel(
                 parent,
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
-                font=("Arial", 11),
+                font=theme.HINT_FONT,
                 text_color=("gray50", "gray60"))
             self._mastery_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         elif mode == "buy":
             self._buy_start_btn = ctk.CTkButton(
-                row, text=_at("btn_start", self._lang),
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_buy,
-                width=120, font=("Arial", 13, "bold"))
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
             self._buy_start_btn.pack(side="left", padx=(0, 8))
 
             self._buy_stop_btn = ctk.CTkButton(
-                row, text=_at("btn_stop", self._lang),
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color="#dc2626", hover_color="#b91c1c",
-                width=100, state="disabled")
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                width=100, font=theme.BUTTON_FONT, state="disabled")
             self._buy_stop_btn.pack(side="left")
 
             self._buy_shortcut_lbl = ctk.CTkLabel(
                 parent,
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
-                font=("Arial", 11),
+                font=theme.HINT_FONT,
                 text_color=("gray50", "gray60"))
             self._buy_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         else:  # delete
             self._delete_start_btn = ctk.CTkButton(
-                row, text=_at("btn_start", self._lang),
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_delete,
-                width=120, font=("Arial", 13, "bold"))
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
             self._delete_start_btn.pack(side="left", padx=(0, 8))
 
             self._delete_stop_btn = ctk.CTkButton(
-                row, text=_at("btn_stop", self._lang),
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color="#dc2626", hover_color="#b91c1c",
-                width=100, state="disabled")
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                width=100, font=theme.BUTTON_FONT, state="disabled")
             self._delete_stop_btn.pack(side="left")
 
             self._delete_shortcut_lbl = ctk.CTkLabel(
                 parent,
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
-                font=("Arial", 11),
+                font=theme.HINT_FONT,
                 text_color=("gray50", "gray60"))
             self._delete_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
@@ -1140,6 +1148,9 @@ class MainWindow(ctk.CTk):
             width=160)
         self._lang_menu.pack(side='left', padx=8)
 
+        # ── Accent color picker (inline accordion) ─────────────
+        self._build_accent_picker(scroll)
+
         # ── Shortcuts ─────────────────────────────────────
         section('settings_shortcuts_section')
         self._build_key_bindings(scroll)
@@ -1209,10 +1220,98 @@ class MainWindow(ctk.CTk):
             # Fallback English
             'System': 'system', 'Light': 'light', 'Dark': 'dark',
         }
-        theme = theme_map.get(val, 'system')
-        self._cfg["theme"] = theme
+        mode = theme_map.get(val, 'system')
+        self._cfg["theme"] = mode
         save(self._cfg)
-        ctk.set_appearance_mode(theme)
+        ctk.set_appearance_mode(mode)
+
+    # ── Accent picker (inline accordion under Appearance) ─────
+
+    def _build_accent_picker(self, parent):
+        """Adds an 'Accent color' row + collapsible swatches grid."""
+        accent_row = ctk.CTkFrame(parent, fg_color='transparent')
+        accent_row.pack(fill='x', padx=12, pady=4)
+
+        ctk.CTkLabel(accent_row,
+                     text=_at('label_accent_color', self._lang),
+                     width=160, anchor='w').pack(side='left')
+
+        name, fg, hover = theme.get_accent(self._cfg)
+        self._accent_swatch_btn = ctk.CTkButton(
+            accent_row, text=f'  {name}  ▾',
+            width=160, height=28,
+            font=theme.BODY_FONT,
+            fg_color=fg, hover_color=hover,
+            anchor='w',
+            command=self._toggle_accent_picker)
+        self._accent_swatch_btn.pack(side='left', padx=theme.PAD_INLINE)
+
+        # Expand frame — initially collapsed (height 0, not packed)
+        self._accent_expand = ctk.CTkFrame(
+            parent, fg_color=('gray97', 'gray13'),
+            corner_radius=8, height=0)
+        self._accent_expand.pack_propagate(False)
+
+        pad = ctk.CTkFrame(self._accent_expand, fg_color='transparent')
+        pad.pack(fill='both', expand=True, padx=12, pady=10)
+        for i in range(4):
+            pad.columnconfigure(i, weight=1)
+
+        for i, (sw_name, (sw_fg, sw_hover)) in enumerate(
+                theme.ACCENT_PRESETS.items()):
+            r, c = divmod(i, 4)
+            ctk.CTkButton(
+                pad, text=sw_name, width=90, height=28,
+                font=theme.HINT_FONT,
+                fg_color=sw_fg, hover_color=sw_hover,
+                command=lambda n=sw_name, f=sw_fg, h=sw_hover:
+                    self._on_accent_pick(n, f, h),
+            ).grid(row=r, column=c, padx=4, pady=4, sticky='ew')
+
+        self._accent_open = False
+        self._accent_anchor = accent_row  # for relative .pack(after=...)
+
+    def _toggle_accent_picker(self):
+        OPEN_H = 100
+        if self._accent_open:
+            self._animate_height(self._accent_expand, OPEN_H, 0, 160,
+                                 done=self._accent_expand.pack_forget)
+            self._accent_open = False
+            name, _, _ = theme.get_accent(self._cfg)
+            self._accent_swatch_btn.configure(text=f'  {name}  ▾')
+        else:
+            self._accent_expand.pack(fill='x', padx=12, pady=(2, 0),
+                                     after=self._accent_anchor)
+            self._accent_expand.configure(height=0)
+            self._animate_height(self._accent_expand, 0, OPEN_H, 200)
+            self._accent_open = True
+            name, _, _ = theme.get_accent(self._cfg)
+            self._accent_swatch_btn.configure(text=f'  {name}  ▴')
+
+    def _on_accent_pick(self, name: str, fg: str, hover: str):
+        """Persist new accent; remind user a restart is needed for full effect."""
+        self._cfg['accent_color'] = name
+        save(self._cfg)
+        self._accent_swatch_btn.configure(
+            text=f'  {name}  ▴', fg_color=fg, hover_color=hover)
+
+    @staticmethod
+    def _animate_height(widget, start: int, end: int, duration_ms: int = 200,
+                        done=None):
+        """Simple after()-based height animator, ~60 fps."""
+        steps = max(1, duration_ms // 16)
+        delta = (end - start) / steps
+
+        def step(i: int):
+            if i >= steps:
+                widget.configure(height=int(end))
+                if done:
+                    done()
+                return
+            widget.configure(height=int(start + delta * (i + 1)))
+            widget.after(16, lambda: step(i + 1))
+
+        step(0)
 
     def _on_lang_change(self, val: str):
         if self._restarting:

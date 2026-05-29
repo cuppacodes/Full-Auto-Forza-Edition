@@ -44,6 +44,7 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\config.py;." ^
     --add-data "%CD%\capture.py;." ^
     --add-data "%CD%\detector.py;." ^
+    --add-data "%CD%\theme.py;." ^
     --add-data "%CD%\race.py;." ^
     --add-data "%CD%\mastery.py;." ^
     --add-data "%CD%\main_window.py;." ^

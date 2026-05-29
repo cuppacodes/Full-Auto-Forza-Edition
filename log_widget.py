@@ -6,6 +6,8 @@ import customtkinter as ctk
 import queue
 import threading
 
+import theme
+
 
 class LogWidget(ctk.CTkFrame):
     MAX_LINES = 1000
@@ -20,7 +22,7 @@ class LogWidget(ctk.CTkFrame):
             self,
             wrap="word",
             state="disabled",
-            font=("Segoe UI", 12),
+            font=theme.LABEL_FONT,
         )
         self._text.pack(fill="both", expand=True, padx=4, pady=4)
 

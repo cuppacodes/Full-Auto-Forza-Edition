@@ -14,6 +14,7 @@ from config import (EXAMPLES_DIR, RESOLUTION_SETS,
                     get_race_templates, get_mastery_templates,
                     get_nodes_file)
 import config
+import theme
 
 
 class TemplateRow(ctk.CTkFrame):
@@ -35,11 +36,11 @@ class TemplateRow(ctk.CTkFrame):
         top.pack(fill='x')
 
         self._dot = ctk.CTkLabel(top, text='●', width=20,
-                                  font=('Arial', 14))
-        self._dot.pack(side='left', padx=(0, 6))
+                                  font=("Segoe UI", 14))
+        self._dot.pack(side='left', padx=(0, theme.PAD_INLINE - 2))
 
-        ctk.CTkLabel(top, text=label, anchor='w').pack(
-            side='left', fill='x', expand=True)
+        ctk.CTkLabel(top, text=label, font=theme.LABEL_FONT,
+                     anchor='w').pack(side='left', fill='x', expand=True)
 
         if on_recapture:
             self._recapture_btn = ctk.CTkButton(
@@ -48,14 +49,15 @@ class TemplateRow(ctk.CTkFrame):
                 fg_color='transparent',
                 hover_color=('gray80', 'gray30'),
                 text_color=('gray40', 'gray70'),
-                font=('Arial', 14))
-            self._recapture_btn.pack(side='right', padx=4)
+                font=("Segoe UI", 14))
+            self._recapture_btn.pack(side='right', padx=theme.PAD_TIGHT)
 
         # ── Bottom row: threshold slider ───────────────────
         thresh_row = ctk.CTkFrame(self, fg_color='transparent')
-        thresh_row.pack(fill='x', padx=(26, 4), pady=(2, 6))
+        thresh_row.pack(fill='x', padx=(26, theme.PAD_TIGHT),
+                        pady=(2, theme.PAD_INLINE - 2))
         ctk.CTkLabel(thresh_row, text=_at('label_threshold', lang),
-                     font=('Segoe UI', 10),
+                     font=theme.HINT_FONT,
                      text_color=('gray50', 'gray55')).pack(side='left')
         init_val = 0.80
         if main_cfg:
@@ -67,12 +69,14 @@ class TemplateRow(ctk.CTkFrame):
             from_=0.50, to=0.90,
             command=self._on_thresh_move,
             height=14,
+            **theme.slider_kwargs(main_cfg or {}),
         )
-        _thresh_slider.pack(side='left', fill='x', expand=True, padx=6)
+        _thresh_slider.pack(side='left', fill='x', expand=True,
+                            padx=theme.PAD_INLINE - 2)
         _thresh_slider.bind('<ButtonRelease-1>', self._on_thresh_release)
         self._thresh_lbl = ctk.CTkLabel(
             thresh_row, text=f'{init_val:.0%}',
-            width=36, font=('Segoe UI', 10),
+            width=36, font=theme.VALUE_FONT,
             text_color=('gray50', 'gray55'))
         self._thresh_lbl.pack(side='left')
 

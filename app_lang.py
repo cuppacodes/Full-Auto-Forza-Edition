@@ -31,7 +31,12 @@ STRINGS = {
     "det_mode_tip": {
         "en":    "Switch to Custom mode if you captured your own templates that differ from the defaults — for example: a different language, non-text content, or anything that doesn't match what's shown in the example image. Default mode uses OCR text confirmation to make detection more reliable across different PCs.",
         "zh-tw": "若您擷取的自訂樣本與預設樣本不同，請切換至「自訂」模式 — 例如：不同語言、非文字內容、或任何與範例圖不符的情況。「預設」模式會搭配 OCR 文字辨識，讓偵測在不同電腦上更穩定。",
-        "zh-cn": "若您截取的自定义模板与默认模板不同，请切换至「自定义」模式 — 例如：不同语言、非文字内容、或任何与示例图不符的情况。「默认」模式会配合 OCR 文字识别，让检测在不同电脑上更稳定。",
+        "zh-cn": "若您截取的自定义模板与默认模板不同，请切换至「自定义」模式 — 例如：不同语言、非文字内容、或任何与示例图不符的情况。「默认」模式会配合 OCR 文字识别,让检测在不同电脑上更稳定。",
+    },
+    "label_accent_color": {
+        "en":    "Accent color",
+        "zh-tw": "強調色",
+        "zh-cn": "强调色",
     },
     "tab_race": {
         "en":    "🏁  Race Auto",

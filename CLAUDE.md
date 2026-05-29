@@ -15,6 +15,7 @@ New APP/
 ├── mastery.py            # Auto Unlock 22B Mastery automation logic
 ├── delete_cars.py        # Delete Used Cars automation logic
 ├── log_widget.py         # Thread-safe log widget with colored warning support
+├── theme.py              # Design tokens — fonts, spacing, semantic colors, accent presets
 ├── app_lang.py           # All UI strings in zh-tw / zh-cn / en
 ├── config.py             # Config load/save, path helpers
 ├── updater.py            # GitHub release auto-updater
