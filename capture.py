@@ -17,36 +17,49 @@ import config
 
 # ── IME / input-language helper ───────────────────────────────
 
+_LANG_ENGLISH = 0x09   # primary language id for English
+
+
 def force_english_ime() -> bool:
-    """Switch the foreground (game) window's input language to English (US).
+    """If a non-English input language is active on the foreground (game)
+    window, switch it to English (US); otherwise leave it completely alone.
 
-    A Traditional Chinese IME in native mode consumes keystrokes for
-    composition *before* the game's input read — even injected scancodes — so
-    scancode injection alone isn't enough on every setup. Taking the IME out of
-    native mode is the only reliable fix: we ask the foreground window to switch
-    its active input language to English (US), which removes the IME from the
-    input chain for that window.
-
-    Best-effort and non-fatal; returns True if the switch request was posted.
-    Call after the game has focus (i.e. at the start of a run).
+    A CJK IME in native mode can consume keystrokes before the game reads them.
+    But forcing a switch *unconditionally* is harmful: users who already set
+    English (often the CJK IME toggled to alphanumeric mode) get their state
+    clobbered, and Windows can revert them to the IME's default native (Chinese)
+    mode — re-introducing the very problem. So we **check first** and only act
+    when the current language isn't already English. No-op (returns True)
+    when already English, so a user who manages their IME manually is never
+    disturbed. Best-effort and non-fatal.
     """
     try:
         u32 = ctypes.windll.user32
-        u32.LoadKeyboardLayoutW.restype  = ctypes.c_void_p
-        u32.LoadKeyboardLayoutW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint]
-        u32.GetForegroundWindow.restype  = ctypes.c_void_p
-        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
-                                     ctypes.c_void_p, ctypes.c_void_p]
+        u32.GetForegroundWindow.restype = ctypes.c_void_p
+        u32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        u32.GetWindowThreadProcessId.restype = ctypes.c_ulong
+        u32.GetKeyboardLayout.argtypes = [ctypes.c_ulong]
+        u32.GetKeyboardLayout.restype = ctypes.c_void_p
 
-        KLF_ACTIVATE = 0x00000001
-        WM_INPUTLANGCHANGEREQUEST = 0x0050
-        # c_void_p so the 64-bit HKL handle isn't truncated when passed as
-        # lParam (the #1 silent-failure trap for this call).
-        hkl = u32.LoadKeyboardLayoutW("00000409", KLF_ACTIVATE)  # en-US
-        if not hkl:
-            return False
         hwnd = u32.GetForegroundWindow()
         if not hwnd:
+            return False
+        tid = u32.GetWindowThreadProcessId(hwnd, None)
+        cur = u32.GetKeyboardLayout(tid) or 0
+        # Low word of the HKL is the LANGID; primary language is its low 10 bits.
+        if (cur & 0x3FF) == _LANG_ENGLISH:
+            return True   # already English — do NOT touch the user's setup
+
+        # Non-English active → switch the game window to English (US).
+        u32.LoadKeyboardLayoutW.restype  = ctypes.c_void_p
+        u32.LoadKeyboardLayoutW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint]
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_void_p, ctypes.c_void_p]
+        KLF_ACTIVATE = 0x00000001
+        WM_INPUTLANGCHANGEREQUEST = 0x0050
+        # c_void_p so the 64-bit HKL handle isn't truncated as lParam.
+        hkl = u32.LoadKeyboardLayoutW("00000409", KLF_ACTIVATE)  # en-US
+        if not hkl:
             return False
         u32.PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
         return True

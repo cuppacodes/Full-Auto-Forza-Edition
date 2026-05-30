@@ -38,23 +38,27 @@ class _INPUT_UNION(ctypes.Union):
 class _INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("union", _INPUT_UNION)]
 
-_KEYEVENTF_KEYUP    = 0x0002
-_KEYEVENTF_SCANCODE = 0x0008
+_KEYEVENTF_EXTENDEDKEY = 0x0001
+_KEYEVENTF_KEYUP       = 0x0002
+_EXTENDED_VKS = frozenset({0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+                           0x2D, 0x2E, 0xA3, 0xA5})
 
 def _send_vk(key_name, key_up=False):
     vk = _VK_MAP.get(key_name.lower())
     if vk is None:
         return
-    # Send the hardware SCANCODE instead of the virtual key. A Traditional
-    # Chinese IME in native mode intercepts virtual-key input (e.g. Enter/ESC
-    # commit/cancel composition) before the game receives it, which makes the
-    # script fail. Scancode input is delivered via the DirectInput / Raw Input
-    # path the game actually reads, bypassing the IME — the same approach
-    # pydirectinput uses for nav keys. (All keys here are non-extended.)
+    # Send BOTH the virtual key (wVk) and the hardware scancode (wScan) so the
+    # game receives input whether it reads the Windows message / VK path
+    # (WM_KEYDOWN / GetAsyncKeyState) or the DirectInput / Raw Input scancode
+    # path. Scancode-only (wVk=0) regressed VK-path games; VK-only (wScan=0)
+    # leaves DirectInput games with scancode 0. Both populated is the most
+    # compatible. CJK IME is handled by capture.force_english_ime() at run start.
     scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC
-    flags = _KEYEVENTF_SCANCODE | (_KEYEVENTF_KEYUP if key_up else 0)
+    flags = _KEYEVENTF_KEYUP if key_up else 0
+    if vk in _EXTENDED_VKS:
+        flags |= _KEYEVENTF_EXTENDEDKEY
     inp = _INPUT(type=1, union=_INPUT_UNION(
-        ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
+        ki=_KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags,
                        time=0, dwExtraInfo=None)))
     ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
@@ -237,10 +241,11 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_mastery_started_count", lang, n=max_cars))
     else:
         log_cb(_at("log_mastery_started", lang))
-    # Take the game out of native IME mode — a CJK IME otherwise eats the
-    # keystrokes (incl. injected scancodes) before the game reads them.
-    force_english_ime()
-    time.sleep(0.2)
+    # Switch the game to English input only if it isn't already (see
+    # capture.force_english_ime). Disable with auto_english_ime=false.
+    if _fresh.get("auto_english_ime", True):
+        force_english_ime()
+        time.sleep(0.2)
     loop_count = start_loop - 1
     car_num    = 0
 

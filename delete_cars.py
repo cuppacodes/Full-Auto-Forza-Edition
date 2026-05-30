@@ -47,18 +47,18 @@ def _send_vk(key_name, key_up=False):
     vk = _VK_MAP.get(key_name.lower())
     if vk is None:
         return
-    # Send the hardware SCANCODE instead of the virtual key. A Traditional
-    # Chinese IME in native mode intercepts virtual-key input — and for this
-    # script the keys (Space=convert, Down=next candidate, Enter=confirm) are
-    # exactly the IME candidate-window keys, so they get eaten before the game
-    # sees them. Scancodes go through the DirectInput / Raw Input path the game
-    # reads, bypassing the IME.
+    # Send BOTH the virtual key (wVk) and the hardware scancode (wScan) so the
+    # game receives input whether it reads the Windows message / VK path or the
+    # DirectInput / Raw Input scancode path. Scancode-only (wVk=0) regressed
+    # VK-path games; VK-only (wScan=0) leaves DirectInput games with scancode 0.
+    # The extended flag (for Down) keeps the arrow from colliding with numpad-2.
+    # CJK IME is handled by capture.force_english_ime() at the start of the run.
     scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC
-    flags = _KEYEVENTF_SCANCODE | (_KEYEVENTF_KEYUP if key_up else 0)
+    flags = _KEYEVENTF_KEYUP if key_up else 0
     if vk in _EXTENDED_VKS:
         flags |= _KEYEVENTF_EXTENDEDKEY
     inp = _INPUT(type=1, union=_INPUT_UNION(
-        ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
+        ki=_KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags,
                        time=0, dwExtraInfo=None)))
     ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
@@ -91,10 +91,11 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at('log_delete_started_count', lang, n=max_cars))
     else:
         log_cb(_at('log_delete_started', lang))
-    # Take the game out of native IME mode — a CJK IME otherwise eats the
-    # keystrokes (incl. injected scancodes) before the game reads them.
-    force_english_ime()
-    time.sleep(0.2)
+    # Switch the game to English input only if it isn't already (see
+    # capture.force_english_ime). Disable with auto_english_ime=false.
+    if cfg.get("auto_english_ime", True):
+        force_english_ime()
+        time.sleep(0.2)
     loop_count = 0
 
     while not stop():

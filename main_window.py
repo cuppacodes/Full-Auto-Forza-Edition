@@ -864,11 +864,12 @@ class MainWindow(ctk.CTk):
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
                 log_cb(_at('buy_running', lang))
-                # Take the game out of native IME mode — a CJK IME otherwise
-                # eats the keystrokes (Space/Down/Enter are IME candidate keys)
-                # before the game reads them.
-                force_english_ime()
-                _t.sleep(0.2)
+                # Switch the game to English input only if it isn't already
+                # (see capture.force_english_ime). Disable with
+                # auto_english_ime=false.
+                if self._cfg.get("auto_english_ime", True):
+                    force_english_ime()
+                    _t.sleep(0.2)
                 try:
                     max_buy = int(self._buy_count_var.get())
                 except ValueError:
