@@ -125,7 +125,7 @@ New APP/
 ## GitHub
 - Repo: https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition
 - Pages: https://leoncrispybacon.github.io/FAFE
-- Latest release: v1.3.1
+- Latest release: v1.3.2
 
 ## Build
 Run `build_app.bat` — produces `FAFE_dist/` with `FAFE.exe`, `_internal/`, `config.json`.
