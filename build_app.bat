@@ -40,6 +40,9 @@ echo.
 echo  [2/2]  Building FAFE.exe...
 echo  -----------------------------------------------------
 python -m PyInstaller --onedir --windowed --name FAFE ^
+    --icon "%CD%\FAFE_icon.ico" ^
+    --add-data "%CD%\FAFE_icon.ico;." ^
+    --add-data "%CD%\assets;assets" ^
     --add-data "%CD%\app_lang.py;." ^
     --add-data "%CD%\config.py;." ^
     --add-data "%CD%\capture.py;." ^
@@ -103,7 +106,7 @@ echo  [+]    Writing default config.json...
   echo   "thresh_mastery_my_cars": 0.6,
   echo   "thresh_mastery_sort_recent": 0.6,
   echo   "race_check_interval": 0.5,
-  echo   "race_post_key_wait": 1.5,
+  echo   "race_post_key_wait": 0.75,
   echo   "mastery_threshold": 0.85,
   echo   "mastery_check_interval": 0.5,
   echo   "mastery_start_loop": 1,

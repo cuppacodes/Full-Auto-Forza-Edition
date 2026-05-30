@@ -10,13 +10,27 @@ import ctypes
 from ctypes import wintypes
 
 from app_lang import t as _at
+from capture import force_english_ime
 
 
 _VK_MAP = {
     'enter':  0x0D, 'return': 0x0D,
     'esc':    0x1B, 'escape': 0x1B,
     'down':   0x28,
+    'space':  0x20,
 }
+
+_KEYEVENTF_EXTENDEDKEY = 0x0001
+_KEYEVENTF_KEYUP       = 0x0002
+_KEYEVENTF_SCANCODE    = 0x0008
+# Virtual keys that map to an EXTENDED scancode — must set the extended flag,
+# else they collide with the numpad block (e.g. Down arrow's scancode 0x50 is
+# also numpad-2). Covers the arrow/navigation cluster + R-Ctrl/Alt.
+_EXTENDED_VKS = frozenset({
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,  # PgUp/PgDn/End/Home/arrows
+    0x2D, 0x2E,                                        # Insert / Delete
+    0xA3, 0xA5,                                        # R-Ctrl / R-Alt
+})
 
 class _KEYBDINPUT(ctypes.Structure):
     _fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD),
@@ -33,9 +47,18 @@ def _send_vk(key_name, key_up=False):
     vk = _VK_MAP.get(key_name.lower())
     if vk is None:
         return
-    flags = 0x0002 if key_up else 0
+    # Send the hardware SCANCODE instead of the virtual key. A Traditional
+    # Chinese IME in native mode intercepts virtual-key input — and for this
+    # script the keys (Space=convert, Down=next candidate, Enter=confirm) are
+    # exactly the IME candidate-window keys, so they get eaten before the game
+    # sees them. Scancodes go through the DirectInput / Raw Input path the game
+    # reads, bypassing the IME.
+    scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC
+    flags = _KEYEVENTF_SCANCODE | (_KEYEVENTF_KEYUP if key_up else 0)
+    if vk in _EXTENDED_VKS:
+        flags |= _KEYEVENTF_EXTENDEDKEY
     inp = _INPUT(type=1, union=_INPUT_UNION(
-        ki=_KEYBDINPUT(wVk=vk, wScan=0, dwFlags=flags,
+        ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
                        time=0, dwExtraInfo=None)))
     ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
@@ -44,6 +67,10 @@ def _key_press(key, post_wait=0.5):
     time.sleep(0.05)
     _send_vk(key, key_up=True)
     time.sleep(post_wait)
+
+# Public alias — reused by the Buy worker in main_window.py so all four scripts
+# share one IME-safe (scancode) key sender.
+key_press = _key_press
 
 
 def run(cfg: dict, stop_event: threading.Event,
@@ -64,6 +91,10 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at('log_delete_started_count', lang, n=max_cars))
     else:
         log_cb(_at('log_delete_started', lang))
+    # Take the game out of native IME mode — a CJK IME otherwise eats the
+    # keystrokes (incl. injected scancodes) before the game reads them.
+    force_english_ime()
+    time.sleep(0.2)
     loop_count = 0
 
     while not stop():

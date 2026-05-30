@@ -88,7 +88,7 @@ DEFAULTS = {
     "thresh_mastery_my_cars":      0.60,
     "thresh_mastery_sort_recent":  0.60,
     "race_check_interval":    0.5,
-    "race_post_key_wait":     1.5,
+    "race_post_key_wait":     0.75,
     # Mastery settings
     "mastery_threshold":      0.85,
     "mastery_post_click_wait":0.8,
@@ -148,3 +148,30 @@ def get_scale_factor() -> float:
 def s(px: int) -> int:
     """Scale a pixel value relative to 1080p baseline."""
     return int(px * get_scale_factor())
+
+
+# UI scale options shown in Settings. "auto" = derive from screen resolution
+# (get_scale_factor); the rest are explicit multipliers stored as e.g. "150%".
+UI_SCALE_OPTIONS = ["auto", "100%", "125%", "150%", "175%", "200%", "250%"]
+
+
+def resolve_ui_scale(cfg: dict) -> float:
+    """Resolve the saved `ui_scale` setting to a CustomTkinter scaling factor.
+
+    Accepts "auto" (resolution-derived), a percentage string like "150%", or a
+    raw float. Clamped to a sane range so a stale/bad value can't make the UI
+    unusable.
+    """
+    val = cfg.get("ui_scale", "auto")
+    if isinstance(val, (int, float)):
+        return max(0.8, min(2.5, float(val)))
+    v = str(val).strip().lower()
+    if v in ("", "auto"):
+        return get_scale_factor()
+    try:
+        n = float(v.rstrip("%"))
+        if n > 5:           # given as a percentage (e.g. 150) not a ratio
+            n /= 100.0
+        return max(0.8, min(2.5, n))
+    except ValueError:
+        return get_scale_factor()

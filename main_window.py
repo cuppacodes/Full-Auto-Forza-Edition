@@ -82,8 +82,12 @@ class Tooltip:
 class MainWindow(ctk.CTk):
 
     def __init__(self):
-        super().__init__()
         self._cfg         = load()
+        # Apply UI scaling BEFORE the Tk root is created so geometry + widgets
+        # come up at the right size. Scales the whole UI (widgets + fonts) for
+        # high-res displays where the app would otherwise be tiny.
+        self._apply_scaling()
+        super().__init__()
         self._lang        = self._cfg.get('lang', 'en')
         self._restarting   = False
         self._toggle_key   = self._cfg.get('toggle_key', 'f9')
@@ -92,10 +96,12 @@ class MainWindow(ctk.CTk):
         self._stop_event  = threading.Event()
         self._auto_thread = None
         self._in_settings = False
+        self._in_support  = False
 
         self._apply_theme()
         self._setup_window()
         self._build_ui()
+        self._set_window_icon()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         # Start example window queue poller
         self._example_win = None
@@ -180,6 +186,29 @@ class MainWindow(ctk.CTk):
 
     # ── Window setup ──────────────────────────────────────────
 
+    def _apply_scaling(self):
+        """Scale the whole UI by the resolved ui_scale factor.
+
+        We drive scaling ourselves (resolution- or user-chosen) rather than
+        relying on CustomTkinter's automatic per-monitor DPI scaling, so the
+        size is predictable across machines and the percentages mean the same
+        thing regardless of the user's Windows display-scaling setting. The
+        process is still marked DPI-aware so text stays crisp (no bitmap
+        stretching). Must run before the Tk root exists.
+        """
+        try:
+            import ctypes
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+        try:
+            ctk.deactivate_automatic_dpi_awareness()
+        except Exception:
+            pass
+        self._ui_scale = config.resolve_ui_scale(self._cfg)
+        ctk.set_widget_scaling(self._ui_scale)
+        ctk.set_window_scaling(self._ui_scale)
+
     def _apply_theme(self):
         theme = self._cfg.get("theme", "system")
         if theme == "system":
@@ -193,6 +222,39 @@ class MainWindow(ctk.CTk):
         self.geometry("900x650")
         self.minsize(700, 500)
         self.resizable(True, True)
+
+    def _icon_path(self):
+        """Locate FAFE_icon.ico in dev and frozen (--onedir) layouts."""
+        name = "FAFE_icon.ico"
+        candidates = []
+        if getattr(sys, "frozen", False):
+            meipass = getattr(sys, "_MEIPASS", None)
+            if meipass:
+                candidates.append(os.path.join(meipass, name))  # _internal
+            candidates.append(os.path.join(os.path.dirname(sys.executable), name))
+        candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), name))
+        return next((p for p in candidates if os.path.exists(p)), None)
+
+    def _set_window_icon(self):
+        """Set the title-bar / taskbar icon to match the exe icon.
+
+        The PyInstaller --icon flag only sets the *exe* icon; the running
+        window's icon is Tk's default unless we set it. CustomTkinter also
+        applies its own default icon shortly after init, so we re-assert ours
+        on a short delay to make it stick.
+        """
+        path = self._icon_path()
+        if not path:
+            return
+
+        def _apply():
+            try:
+                self.iconbitmap(path)
+            except Exception:
+                pass
+
+        _apply()
+        self.after(300, _apply)
 
     # ── UI construction ───────────────────────────────────────
 
@@ -248,18 +310,28 @@ class MainWindow(ctk.CTk):
         self._current_tab = None
         self._switch_tab("race")
 
-        # Support button — fixed bottom right
+        # Bottom-right overlay: [Discord] [☕ Support Me]
+        overlay = ctk.CTkFrame(self, fg_color="transparent")
+        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(18, 18))
+        self._discord_img = discord_img   # keep a ref so it isn't GC'd
+        discord_btn = ctk.CTkButton(
+            overlay,
+            text=" Discord", image=discord_img, compound="left",
+            width=104, height=30,
+            font=("Segoe UI", 11),
+            fg_color="#5865F2", hover_color="#4752c4", text_color="#ffffff",
+            command=lambda: __import__("webbrowser").open(
+                "https://discord.com/invite/MNg2g9Pp6K"))
+        discord_btn.pack(side="left", padx=(0, 8))
         support_btn = ctk.CTkButton(
-            self,
+            overlay,
             text="☕ " + _at("support_btn", self._lang),
             width=110, height=30,
             font=("Segoe UI", 11),
-            fg_color="#0070ba",
-            hover_color="#005ea6",
-            text_color="#ffffff",
-            command=lambda: __import__("webbrowser").open("https://paypal.me/Leonbacon")
-        )
-        support_btn.place(relx=1.0, rely=1.0, anchor="se", x=-12, y=-12)
+            fg_color="#0070ba", hover_color="#005ea6", text_color="#ffffff",
+            command=self._open_support)
+        support_btn.pack(side="left")
+        overlay.place(relx=1.0, rely=1.0, anchor="se", x=-12, y=-12)
 
     def _build_topbar(self):
         bar = ctk.CTkFrame(self, fg_color="transparent")
@@ -782,7 +854,8 @@ class MainWindow(ctk.CTk):
             lang = self._cfg.get('lang', 'en')
             try:
                 import time as _t
-                import keyboard
+                from delete_cars import key_press as _send_key
+                from capture import force_english_ime
                 log_cb(_at('startup_switch_to_game', lang))
                 for i in range(5, 0, -1):
                     if self._stop_event.is_set(): return
@@ -791,6 +864,11 @@ class MainWindow(ctk.CTk):
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
                 log_cb(_at('buy_running', lang))
+                # Take the game out of native IME mode — a CJK IME otherwise
+                # eats the keystrokes (Space/Down/Enter are IME candidate keys)
+                # before the game reads them.
+                force_english_ime()
+                _t.sleep(0.2)
                 try:
                     max_buy = int(self._buy_count_var.get())
                 except ValueError:
@@ -803,9 +881,8 @@ class MainWindow(ctk.CTk):
                            (f" / {max_buy}" if max_buy > 0 else "") + " --")
                     for key in ['space', 'down', 'enter', 'enter', 'enter']:
                         if self._stop_event.is_set(): break
-                        keyboard.press_and_release(key)
                         log_cb(_at('log_buy_key', lang, key=key.upper()))
-                        _t.sleep(buy_kw)
+                        _send_key(key, post_wait=buy_kw)
                     if max_buy > 0 and loop >= max_buy:
                         log_cb(_at('log_buy_limit_reached', lang, n=max_buy))
                         break
@@ -1090,6 +1167,8 @@ class MainWindow(ctk.CTk):
         self._mastery_frame.pack_forget()
         self._buy_frame.pack_forget()
         self._delete_frame.pack_forget()
+        if getattr(self, '_support_frame', None):
+            self._support_frame.pack_forget()
         self._settings_frame.pack(fill='both', expand=True)
         self._in_settings = True
 
@@ -1105,6 +1184,121 @@ class MainWindow(ctk.CTk):
         saved = self._current_tab
         self._current_tab = None
         self._switch_tab(saved)
+
+    # ── Resource / image helpers ──────────────────────────────
+
+    def _resource_path(self, *parts):
+        """Locate a bundled resource in dev and frozen (--onedir) layouts."""
+        bases = []
+        if getattr(sys, "frozen", False):
+            mp = getattr(sys, "_MEIPASS", None)
+            if mp:
+                bases.append(mp)
+            bases.append(os.path.dirname(sys.executable))
+        bases.append(os.path.dirname(os.path.abspath(__file__)))
+        for b in bases:
+            p = os.path.join(b, *parts)
+            if os.path.exists(p):
+                return p
+        return None
+
+    def _load_ctk_image(self, *parts, size):
+        """Return a CTkImage for a bundled asset, or None if missing/unreadable.
+
+        `size` (keyword-only) is treated as a bounding box: the image is fit
+        inside it preserving aspect ratio, so non-square logos/QRs aren't
+        squished. Callers pass the path parts then size=(w, h).
+        """
+        path = self._resource_path(*parts)
+        if not path:
+            return None
+        try:
+            from PIL import Image
+            img = Image.open(path)
+            iw, ih = img.size
+            bw, bh = size
+            if iw and ih:
+                scale = min(bw / iw, bh / ih)
+                size = (max(1, round(iw * scale)), max(1, round(ih * scale)))
+            return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+        except Exception:
+            return None
+
+    # ── Support panel (inline, like settings) ─────────────────
+
+    def _open_support(self):
+        """Show the Support Me panel as an inline page (like settings)."""
+        if not hasattr(self, "_support_frame"):
+            self._build_support_panel()
+        self._topbar.pack_forget()
+        self._tab_frame.pack_forget()
+        self._race_frame.pack_forget()
+        self._mastery_frame.pack_forget()
+        self._buy_frame.pack_forget()
+        self._delete_frame.pack_forget()
+        if getattr(self, "_settings_frame", None):
+            self._settings_frame.pack_forget()
+        self._support_frame.pack(fill="both", expand=True)
+        self._in_support = True
+
+    def _close_support(self):
+        """Hide the support panel and restore the current tab."""
+        if hasattr(self, "_support_frame"):
+            self._support_frame.pack_forget()
+        self._in_support = False
+        self._topbar.pack(fill="x", padx=12, pady=(10, 4))
+        self._tab_frame.pack(fill="x", padx=12, pady=(0, 4))
+        saved = self._current_tab
+        self._current_tab = None
+        self._switch_tab(saved)
+
+    def _build_support_panel(self):
+        """Build the inline Support Me panel once. Two ways to support:
+        a 街口支付 (JKOPAY) QR image and a PayPal button sized to match it."""
+        QR = 260   # QR display size; the PayPal button matches this width
+        self._support_frame = ctk.CTkFrame(self, fg_color="transparent")
+
+        header = ctk.CTkFrame(self._support_frame, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(10, 4))
+        ctk.CTkButton(
+            header, text="← " + _at("settings_back", self._lang),
+            width=90, command=self._close_support,
+            fg_color="transparent", border_width=1).pack(side="left")
+
+        body = ctk.CTkScrollableFrame(self._support_frame, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=12, pady=8)
+
+        ctk.CTkLabel(body, text=_at("support_btn", self._lang),
+                     font=theme.H2_FONT).pack(pady=(4, 2))
+        ctk.CTkLabel(body, text=_at("support_thanks", self._lang),
+                     font=theme.BODY_FONT, text_color=("gray40", "gray60"),
+                     wraplength=320, justify="center").pack(pady=(0, 14))
+
+        # ── 街口支付 (JKOPAY) QR ──
+        ctk.CTkLabel(body, text=_at("support_jkopay", self._lang),
+                     font=theme.LABEL_FONT).pack(pady=(0, 4))
+        # Tall bounding box so width is the binding dimension → the QR renders
+        # exactly QR px wide (matching the PayPal button) with aspect preserved,
+        # whether the source is the full portrait card or a square QR.
+        qr_img = self._load_ctk_image("assets", "support_jkopay.png", size=(QR, QR * 4))
+        if qr_img:
+            self._support_qr_img = qr_img   # keep a ref so it isn't GC'd
+            ctk.CTkLabel(body, image=qr_img, text="").pack(pady=(0, 14))
+        else:
+            ctk.CTkLabel(
+                body, text="assets/support_jkopay.png", width=QR, height=QR,
+                fg_color=("gray85", "gray25"), corner_radius=8,
+                text_color=("gray50", "gray60")).pack(pady=(0, 14))
+
+        # ── PayPal (button sized to match the QR width) ──
+        pp_img = self._load_ctk_image("assets", "paypal_logo.png", size=(20, 20))
+        self._support_pp_img = pp_img
+        ctk.CTkButton(
+            body, text=" PayPal", image=pp_img, compound="left",
+            width=QR, height=46, font=("Segoe UI", 14, "bold"),
+            fg_color="#0070ba", hover_color="#005ea6", text_color="#ffffff",
+            command=lambda: __import__("webbrowser").open(
+                "https://paypal.me/Leonbacon")).pack(pady=(0, 8))
 
     def _build_settings_panel(self):
         """Build the inline settings panel once."""
@@ -1167,6 +1361,21 @@ class MainWindow(ctk.CTk):
             width=160)
         self._lang_menu.pack(side='left', padx=8)
 
+        # UI scale
+        _scale_row = ctk.CTkFrame(scroll, fg_color='transparent')
+        _scale_row.pack(fill='x', padx=12, pady=4)
+        ctk.CTkLabel(_scale_row, text=_at('label_ui_scale', self._lang),
+                     width=160, anchor='w').pack(side='left')
+        _auto_lbl = _at('scale_auto', self._lang)
+        _cur_scale = str(self._cfg.get('ui_scale', 'auto'))
+        self._scale_var = ctk.StringVar(
+            value=_auto_lbl if _cur_scale.lower() == 'auto' else _cur_scale)
+        ctk.CTkOptionMenu(
+            _scale_row, variable=self._scale_var,
+            values=[_auto_lbl, '100%', '125%', '150%', '175%', '200%', '250%'],
+            command=self._on_scale_change,
+            width=160).pack(side='left', padx=8)
+
         # ── Accent color picker (inline accordion) ─────────────
         self._build_accent_picker(scroll)
 
@@ -1180,7 +1389,7 @@ class MainWindow(ctk.CTk):
             scroll,
             fields=[
                 (_at('setting_race_check_interval', self._lang), 'race_check_interval', 0.1, 2.0, 0.1, 'tip_race_check_interval'),
-                (_at('setting_race_post_key_wait',  self._lang), 'race_post_key_wait',  0.5, 3.0, 0.1, 'tip_race_post_key_wait'),
+                (_at('setting_race_post_key_wait',  self._lang), 'race_post_key_wait',  0.75, 3.0, 0.05, 'tip_race_post_key_wait'),
             ])
 
         # ── Mastery settings ──────────────────────────────
@@ -1243,6 +1452,20 @@ class MainWindow(ctk.CTk):
         self._cfg["theme"] = mode
         save(self._cfg)
         ctk.set_appearance_mode(mode)
+
+    def _on_scale_change(self, val: str):
+        # Map the localized "Auto" label back to the stored "auto" sentinel.
+        stored = 'auto' if val == _at('scale_auto', self._lang) else val
+        self._cfg["ui_scale"] = stored
+        save(self._cfg)
+        scale = config.resolve_ui_scale(self._cfg)
+        ctk.set_widget_scaling(scale)
+        ctk.set_window_scaling(scale)
+        self._ui_scale = scale
+        # Re-apply the base geometry so the window resizes to fit the new
+        # scale (set_window_scaling multiplies it). Otherwise scaling up can
+        # clip content inside the old window size.
+        self.geometry("900x650")
 
     # ── Accent picker (always-visible swatch grid) ────────────
 

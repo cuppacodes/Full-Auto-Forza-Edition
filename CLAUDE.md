@@ -19,8 +19,10 @@ New APP/
 ├── app_lang.py           # All UI strings in zh-tw / zh-cn / en
 ├── config.py             # Config load/save, path helpers
 ├── updater.py            # GitHub release auto-updater
-├── version.py            # VERSION = "1.3.1"
+├── version.py            # VERSION = "1.3.2"
 ├── build_app.bat         # PyInstaller build script
+├── FAFE_icon.ico         # App icon (exe icon + runtime window/taskbar icon)
+├── assets/               # Support panel images: support_jkopay.png, discord_logo.png, paypal_logo.png (see assets/README.txt)
 ├── templates/            # Template images (race/, mastery_full/, each with 1080p/1440p/2160p/custom)
 └── index.html            # GitHub Pages intro/tutorial page (trilingual)
 ```
@@ -30,11 +32,14 @@ New APP/
 ### UI (main_window.py)
 - 4 tabs: Race Auto / Auto Unlock 22B / Auto Buy 22B-STi / Delete Used Cars
 - Settings is inline (not popup) — ⚙ hides topbar+tabs and shows settings panel, ← Back restores
-- Topbar: app title, monitor picker, ⚙ button, ☕ Support Me button (bottom-right overlay)
+- Topbar: app title, monitor picker, ⚙ button
+- **Bottom-right overlay**: a frame placed at `se` holding a **Discord** button (official-logo icon, opens the invite link) left of the **☕ Support Me** button. Support Me no longer opens PayPal directly — it opens an **inline Support panel** (`_open_support`/`_close_support`/`_build_support_panel`, mirrors the settings inline pattern: pack_forget topbar+tabs, ← Back to restore). The panel offers two tip methods: a **街口支付 (JKOPAY) QR** image (260×260) and a **PayPal** button sized to the QR width (260). Discord/PayPal button icons use official-logo PNGs from `assets/`; images load via `_load_ctk_image` (PIL→CTkImage) resolved by `_resource_path` (dev + frozen `--onedir`/`_MEIPASS`), with graceful text/placeholder fallback if a file is missing. Assets bundled via `--add-data "assets;assets"`. See `assets/README.txt` for required files: `support_jkopay.png`, `discord_logo.png`, `paypal_logo.png`.
 - Each tab has: description label, optional count input (0=unlimited), Start/Stop buttons, log widget
 - Auto Unlock 22B tab also has a start-row selector (CTkSegmentedButton, values 1/2/3) between count and run controls; saved as `mastery_start_loop` in config
 - Language: zh-tw (default), zh-cn, en — switching triggers app restart
 - Theme: system/light/dark
+- **App icon**: `FAFE_icon.ico` is both the exe icon (PyInstaller `--icon`) and the runtime window/taskbar icon. `--icon` only covers the exe; the window icon is set by `MainWindow._set_window_icon()` via `iconbitmap`. CustomTkinter applies its own default icon ~200ms after init, so we re-assert ours on a `self.after(300, …)` delay or it gets overridden. `_icon_path()` finds the `.ico` in both dev (next to source) and frozen `--onedir` (`sys._MEIPASS` / next to exe); the icon is bundled via `--add-data "FAFE_icon.ico;."` so it exists at runtime.
+- **UI scale** (Settings → Appearance, `ui_scale` config): `Auto` / `100%`–`250%`. Drives `ctk.set_widget_scaling` + `set_window_scaling` from a single factor resolved by `config.resolve_ui_scale` (Auto = `get_scale_factor()` = screen_height/1080, clamped 0.8–2.5). `MainWindow._apply_scaling()` runs **before `super().__init__()`** (before the Tk root exists): it marks the process DPI-aware (crisp text) and calls `ctk.deactivate_automatic_dpi_awareness()` so scaling is driven only by our factor, not stacked on CTk's per-monitor DPI — so a given % means the same size regardless of the user's Windows display-scaling. Changing it applies live (`_on_scale_change` re-sets scaling + re-applies base geometry `900x650` so the window refits).
 
 ### Detection (detector.py)
 - `ScreenDetector.detect(frame, key, template, threshold)` returns a `MatchResult` dataclass
@@ -58,6 +63,10 @@ New APP/
 ### Automation modules (race.py, mastery.py, delete_cars.py)
 - Each has a `run(cfg, stop_event, log_cb, status_cb, ...)` function
 - Run in a daemon thread; `stop_event` signals shutdown
+- **CJK IME breaks input — two-part fix (all 4 scripts)**. A Traditional Chinese IME in native mode consumes keystrokes for composition *before the game reads them*, breaking every script — worst for Buy, whose keys (Space=convert, Down=next candidate, Enter=confirm) are exactly the IME candidate-window keys.
+  - **(1) `capture.force_english_ime()` — the actual fix.** Called once at the start of each `run()` (race/mastery/delete) and the Buy worker, right after the game has focus (post-countdown), followed by a 0.2s settle. It loads the en-US layout (`LoadKeyboardLayoutW("00000409")`) and posts `WM_INPUTLANGCHANGEREQUEST` to the foreground (game) window, switching its input language to English so the IME stops composing. **Scancode injection alone is NOT enough** — the IME intercepts upstream of the game's input read regardless of VK vs scancode; only taking the IME out of native mode works (confirmed: manually switching to English mode fixes it). HKL is passed as `c_void_p` so the 64-bit handle isn't truncated. Best-effort/non-fatal. Lives in capture.py because every script already imports that module.
+  - **(2) Scancode input (`_send_vk` with `KEYEVENTF_SCANCODE`, VK→scancode via `MapVirtualKeyW`, `wVk=0`)** is still used everywhere as the game-correct delivery path (DirectInput/Raw Input), same as mastery's `pydirectinput` nav keys. Coverage: race.py + mastery.py have their own `_send_vk`; **delete_cars.py** has the extended-aware version and exposes `key_press` (public alias) which the Buy worker imports, so all four share one sender. **Extended keys** (`_EXTENDED_VKS`: arrows, PgUp/PgDn/Home/End, Ins/Del, R-Ctrl/Alt) must set `KEYEVENTF_EXTENDEDKEY` or they collide with the numpad block (Down's scancode `0x50` == numpad-2); delete_cars's `down` relies on this. race.py/mastery.py use only non-extended keys.
+  - Mouse input is unaffected (IME is keyboard-only).
 - race.py / mastery.py instantiate `ScreenDetector(cfg)` per run and call its `wait_for` / `detect`
 - Per-template thresholds stored in config (keys like `thresh_start_menu`, `thresh_racing`, etc.)
 - After 3s without detection: fires `warn_cb` with a red warning message that includes `best.source` and `best.score` for diagnostics
@@ -86,6 +95,7 @@ New APP/
 - Mastery-specific timing keys: `mastery_check_interval` (min 0.3), `mastery_post_click_wait` (min 0.5), `mastery_post_key_wait` (min 0.8), `mastery_node_click_wait` (min 0.7)
 - `mastery_start_loop` (int 1–3): which row the first car is on for Auto Unlock 22B
 - `nodes_aspect_fix` (bool, default true): aspect-aware mastery node click remapping via the centred 16:9 content box (see Capture → Node click rescaling)
+- `ui_scale` (str, default `"auto"`): UI scale factor — `"auto"` (resolution-derived) or a percentage like `"150%"`. Resolved by `config.resolve_ui_scale`; applied via CTk widget/window scaling (see UI → UI scale)
 - Optional detector tuning keys: `detector_scales` (list of floats), `detector_text_scales` (list of floats), `detector_stable_frames` (int), `detector_enable_ocr` (bool), `detector_ocr_cooldown` (float seconds, default 1.0), `detector_ocr_primary` (bool, default **true** — OCR as first-class match signal; toggle via topbar Default/Custom segmented button), `detector_ocr_skip_above` (float, default 0.75), `detector_ocr_confirm_score` (float, default 0.85), `detector_ocr_cache_pixel_min` (float, default 0.15 — minimum pixel score for cached OCR confirmation to apply), `detector_full_gate_score` (float, default 0.40 — ROI score at/above which the full-screen fallback always runs), `detector_full_sweep_every` (int, default 4 — run the full-screen fallback every Nth gated check as a safety sweep; ≤1 disables gating), `detector_force_edges` (bool, default false — force Canny edge channel on for all templates incl. text), `detector_roi_aspect_fix` (bool, default true — expand ROIs along the distorted axis on non-16:9 screens), `detector_roi_aspect_tol` (float, default 0.05 — ± fraction of 16:9 treated as still-16:9)
 
 ### Log widget (log_widget.py)

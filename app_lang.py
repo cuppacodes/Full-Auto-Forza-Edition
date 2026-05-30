@@ -13,6 +13,16 @@ STRINGS = {
         "zh-tw": "FAFE",
         "zh-cn": "FAFE",
     },
+    "support_thanks": {
+        "en":    "If FAFE saves you time, a small tip helps keep it maintained. Thank you!",
+        "zh-tw": "如果 FAFE 為你節省了時間，小額贊助能幫助它持續維護。感謝你！",
+        "zh-cn": "如果 FAFE 为你节省了时间，小额赞助能帮助它持续维护。感谢你！",
+    },
+    "support_jkopay": {
+        "en":    "街口支付 (JKOPAY) — scan to tip",
+        "zh-tw": "街口支付（掃碼贊助）",
+        "zh-cn": "街口支付（扫码赞助）",
+    },
     "support_btn": {
         "en":    "Support Me",
         "zh-tw": "支持我",
@@ -239,6 +249,16 @@ STRINGS = {
         "en":    "Language:",
         "zh-tw": "語言：",
         "zh-cn": "语言：",
+    },
+    "label_ui_scale": {
+        "en":    "UI scale:",
+        "zh-tw": "介面縮放：",
+        "zh-cn": "界面缩放：",
+    },
+    "scale_auto": {
+        "en":    "Auto",
+        "zh-tw": "自動",
+        "zh-cn": "自动",
     },
     "theme_system": {
         "en":    "System",

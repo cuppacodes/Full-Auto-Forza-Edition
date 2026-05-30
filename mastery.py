@@ -15,7 +15,7 @@ import pydirectinput
 from app_lang import t as _at
 import config
 from config import get_mastery_templates, get_nodes_file
-from capture import grab_frame, load_template, load_nodes, get_monitor_dims
+from capture import grab_frame, load_template, load_nodes, get_monitor_dims, force_english_ime
 from detector import ScreenDetector
 
 
@@ -38,13 +38,23 @@ class _INPUT_UNION(ctypes.Union):
 class _INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("union", _INPUT_UNION)]
 
+_KEYEVENTF_KEYUP    = 0x0002
+_KEYEVENTF_SCANCODE = 0x0008
+
 def _send_vk(key_name, key_up=False):
     vk = _VK_MAP.get(key_name.lower())
     if vk is None:
         return
-    flags = 0x0002 if key_up else 0
+    # Send the hardware SCANCODE instead of the virtual key. A Traditional
+    # Chinese IME in native mode intercepts virtual-key input (e.g. Enter/ESC
+    # commit/cancel composition) before the game receives it, which makes the
+    # script fail. Scancode input is delivered via the DirectInput / Raw Input
+    # path the game actually reads, bypassing the IME — the same approach
+    # pydirectinput uses for nav keys. (All keys here are non-extended.)
+    scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC
+    flags = _KEYEVENTF_SCANCODE | (_KEYEVENTF_KEYUP if key_up else 0)
     inp = _INPUT(type=1, union=_INPUT_UNION(
-        ki=_KEYBDINPUT(wVk=vk, wScan=0, dwFlags=flags,
+        ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
                        time=0, dwExtraInfo=None)))
     ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
@@ -227,6 +237,10 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_mastery_started_count", lang, n=max_cars))
     else:
         log_cb(_at("log_mastery_started", lang))
+    # Take the game out of native IME mode — a CJK IME otherwise eats the
+    # keystrokes (incl. injected scancodes) before the game reads them.
+    force_english_ime()
+    time.sleep(0.2)
     loop_count = start_loop - 1
     car_num    = 0
 
