@@ -42,6 +42,7 @@ class _INPUT(ctypes.Structure):
 
 _KEYEVENTF_EXTENDEDKEY = 0x0001
 _KEYEVENTF_KEYUP       = 0x0002
+_KEYEVENTF_SCANCODE    = 0x0008
 # VKs that map to an extended scancode (none used here, kept for safety if
 # extended keys are ever added — see delete_cars.py for the rationale).
 _EXTENDED_VKS = frozenset({0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
@@ -64,6 +65,24 @@ def _send_vk(key_name, key_up=False):
         flags |= _KEYEVENTF_EXTENDEDKEY
     inp = _INPUT(type=1, union=_INPUT_UNION(
         ki=_KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags,
+                       time=0, dwExtraInfo=None)))
+    ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+
+def _send_scancode(key_name, key_up=False):
+    """Scancode injection WITH the KEYEVENTF_SCANCODE flag (wVk=0) — the
+    DirectInput / Raw Input path the game uses for *gameplay* (held W). This is
+    the same method pydirectinput uses for mastery's WASD nav, which works
+    in-game. The dual `_send_vk` (no SCANCODE flag) is fine for menu taps but
+    doesn't register as a true held key for driving."""
+    vk = _VK_MAP.get(key_name.lower())
+    if vk is None:
+        return
+    scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)  # MAPVK_VK_TO_VSC
+    flags = _KEYEVENTF_SCANCODE | (_KEYEVENTF_KEYUP if key_up else 0)
+    if vk in _EXTENDED_VKS:
+        flags |= _KEYEVENTF_EXTENDEDKEY
+    inp = _INPUT(type=1, union=_INPUT_UNION(
+        ki=_KEYBDINPUT(wVk=0, wScan=scan, dwFlags=flags,
                        time=0, dwExtraInfo=None)))
     ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
@@ -193,10 +212,24 @@ def run(cfg: dict, stop_event: threading.Event,
 
         log_cb(_at("log_holding_w", lang))
         status_cb(_at("status_racing", lang))
-        key_down('w')
+        # Hold W by re-asserting the keydown at ~30ms (the keyboard auto-repeat
+        # rate) in a background thread. A single SendInput keydown isn't reliably
+        # treated as a sustained hold by the game — it can register as a tap, so
+        # the car coasts/slows. Re-pressing keeps it at full throttle whether the
+        # game reads key STATE or keydown EVENTS. A single key_up at the end
+        # releases it (auto-repeat is many keydowns + one keyup).
+        _hold = threading.Event(); _hold.set()
+        def _hold_w():
+            while _hold.is_set() and not stop():
+                _send_scancode('w', key_up=False)   # flagged scancode = held
+                time.sleep(0.03)
+        _ht = threading.Thread(target=_hold_w, daemon=True)
+        _ht.start()
 
         wait_for("Restart menu", templates["restart_menu"], "restart_menu")
-        key_up('w')
+        _hold.clear()
+        _ht.join(timeout=0.3)
+        _send_scancode('w', key_up=True)
         if stop(): break
         log_cb(_at("log_released_w", lang))
 
@@ -206,6 +239,6 @@ def run(cfg: dict, stop_event: threading.Event,
         if stop(): break
         press(CONFIRM_KEY, "Confirm")
 
-    key_up('w')   # safety release
+    key_up('w'); _send_scancode('w', key_up=True)   # safety release (both paths)
     log_cb(_at("log_race_stopped", cfg.get("lang","en")))
     status_cb(_at("status_stopped", lang))

@@ -25,6 +25,12 @@ Point = tuple[int, int]
 # of a UI element shifts on non-16:9 aspect ratios — see _roi_for_frame.
 REF_ASPECT = 16.0 / 9.0
 
+# Keys whose ROI maps into the centred 16:9 box on non-16:9 screens (UI anchored
+# to the content box, e.g. menus). Everything else uses a full-axis band because
+# in-game HUD elements anchor to the screen edges. start_menu specifically needs
+# the box — on a full-width band it false-matched the loading screen (~85%).
+_ROI_BOX_KEYS = frozenset({"start_menu"})
+
 
 @dataclass
 class MatchResult:
@@ -44,7 +50,7 @@ DEFAULT_ROIS: dict[str, Rect] = {
     # outside.  Important under OCR-primary mode: a wrong ROI makes OCR read
     # the wrong region of the screen and produces false positives.
     "start_menu":           (0.00, 0.40, 0.30, 0.50),  # menu on left side
-    "racing":               (0.00, 0.55, 0.50, 0.45),  # ANNA prompt — bottom-left
+    "racing":               (0.00, 0.03, 0.32, 0.22),  # 時間 (race timer) — top-left HUD
     "restart_menu":         (0.00, 0.80, 0.35, 0.20),  # [X] 重新開始 — bottom-left
     "confirm":              (0.20, 0.20, 0.65, 0.65),  # centre dialog
     "mastery_ride_car":     (0.30, 0.30, 0.40, 0.40),  # centre context menu
@@ -62,7 +68,7 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     # Avoid hints that are too short or too generic — they false-positive on
     # unrelated UI text when OCR is the primary detection signal.
     "start_menu": ("start", "race", "開始", "開始賽事", "开始"),
-    "racing": ("anna", "ANNA"),
+    "racing": ("時間", "时间", "time"),
     "restart_menu": ("restart", "重新開始", "重新开始"),
     "confirm": ("確定", "确定", "重新開始賽事", "重新开始赛事", "confirm"),
     "mastery_ride_car": ("ride", "car", "駕駛", "驾驶"),
@@ -335,7 +341,7 @@ class ScreenDetector:
     def detect(self, frame: np.ndarray, key: str, template: np.ndarray,
                threshold: float, stable: bool = True) -> MatchResult:
         roi = self._roi_for_frame(
-            DEFAULT_ROIS.get(key), frame.shape[1], frame.shape[0])
+            key, DEFAULT_ROIS.get(key), frame.shape[1], frame.shape[0])
         roi_result = self._detect_in_area(
             frame, key, template, threshold, roi, "roi", stable)
         if roi_result.matched:
@@ -362,28 +368,38 @@ class ScreenDetector:
         )
         return full_result
 
-    def _roi_for_frame(self, roi: Optional[Rect],
+    def _roi_for_frame(self, key: str, roi: Optional[Rect],
                        frame_w: int, frame_h: int) -> Optional[Rect]:
-        """Adjust a 16:9-tuned ROI for non-16:9 (ultrawide / tall) screens.
+        """Remap a 16:9-tuned ROI onto a non-16:9 screen — per element anchor.
 
-        Template sizes scale by height, so vertical layout is invariant across
-        same-height screens — but the horizontal fraction of a UI element
-        shifts on ultrawide because the game anchors UI to screen edges or a
-        centred safe area rather than stretching it across the extra width.
-        Rather than guess each element's anchor, keep the accurate axis and
-        search the full extent of the distorted one:
-          • wider than 16:9 (ultrawide) → full width, keep the vertical band
-          • taller than 16:9            → full height, keep the horizontal band
-        ROI-first stays a real speed win (a band is far cheaper than the whole
-        frame) and the full-screen fallback still backs it up.
+        Forza anchors UI two different ways on ultrawide:
+          • **Menus/dialogs** (e.g. start_menu) live in a **centred 16:9 box**.
+          • **In-game HUD** (e.g. the race timer `racing`/時間) anchors to the
+            **screen edges**, OUTSIDE that box.
+        So `_ROI_BOX_KEYS` map their ROI *into the centred box* (tight — avoids
+        look-alike false matches, needed for start_menu which matched the
+        loading screen at ~85% on a full-width band); every other key uses a
+        **full-axis band** (so edge-anchored HUD is still found wherever it
+        sits). Reduces to the original ROI when the screen is ~16:9.
         """
         if roi is None or not self._roi_aspect_fix:
             return roi
+        x, y, w, h = roi
+        ref = REF_ASPECT
         aspect = frame_w / max(1, frame_h)
-        if aspect > REF_ASPECT * (1 + self._roi_aspect_tol):
-            return (0.0, roi[1], 1.0, roi[3])
-        if aspect < REF_ASPECT * (1 - self._roi_aspect_tol):
-            return (roi[0], 0.0, roi[2], 1.0)
+        box = key in _ROI_BOX_KEYS
+        if aspect > ref * (1 + self._roi_aspect_tol):       # ultrawide
+            if not box:
+                return (0.0, y, 1.0, h)                     # full-width band
+            bw = (frame_h * ref) / frame_w
+            bx = (1.0 - bw) / 2.0
+            return (bx + x * bw, y, w * bw, h)              # centred box (x)
+        if aspect < ref * (1 - self._roi_aspect_tol):       # taller than 16:9
+            if not box:
+                return (x, 0.0, w, 1.0)                     # full-height band
+            bh = (frame_w / ref) / frame_h
+            by = (1.0 - bh) / 2.0
+            return (x, by + y * bh, w, h * bh)              # centred box (y)
         return roi
 
     def _should_run_full(self, key: str, roi_score: float) -> bool:
@@ -403,11 +419,26 @@ class ScreenDetector:
         self._full_sweep_counter[key] = c
         return (c % n) == 0
 
+    def _reset_match_state(self, key: str):
+        """Drop stability history + OCR confirmation for `key` so a fresh
+        wait_for must see genuinely consecutive frames and can't fire on scores
+        left over from a previous loop/wait. Without this, the stability filter
+        carries state across loops: loop 1 (empty history) needs real
+        consecutive frames, but loops 2+ start with the prior loop's high scores
+        still in history, so a single transient/look-alike frame satisfies the
+        'N consecutive' rule and fires early — which then desyncs the flow and
+        makes the next step's detection fail. (Detection should be stateless
+        per wait — every loop the same.)"""
+        self._history.pop(f"{key}:roi", None)
+        self._history.pop(f"{key}:full", None)
+        self._ocr_confirmed.pop(key, None)
+
     def wait_for(self, frame_cb: Callable[[], np.ndarray], key: str,
                  template: np.ndarray, threshold: float,
                  stop_cb: Callable[[], bool], interval: float,
                  timeout: float = float("inf"),
                  on_warn: Callable[[MatchResult], None] | None = None) -> MatchResult:
+        self._reset_match_state(key)   # start each wait with a clean slate
         start = time.time()
         warned = False
         best = MatchResult(False, 0.0, 0.0, (0, 0), 1.0, "none")

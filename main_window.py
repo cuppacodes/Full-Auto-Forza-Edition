@@ -109,6 +109,23 @@ class MainWindow(ctk.CTk):
         # Register global toggle hotkey at startup
         import keyboard as _kb
         _kb.add_hotkey(self._toggle_key, self._toggle_auto)
+        # Register global bug-report hotkey (default F12)
+        self._report_key = self._cfg.get('report_key', 'f12')
+        self._report_in_progress = False
+        try:
+            _kb.add_hotkey(self._report_key, self._trigger_report)
+        except Exception:
+            pass
+
+        # Game status overlay + its toggle hotkey (default F10)
+        self._overlay = None
+        self._overlay_pos = None
+        self._overlay_key = self._cfg.get('overlay_key', 'f10')
+        try:
+            _kb.add_hotkey(self._overlay_key, self._toggle_overlay)
+        except Exception:
+            pass
+        self.after(1200, self._refresh_overlay)
 
         # Check for updates in background (silent if up to date or offline)
         self.after(2000, self._check_for_updates)
@@ -310,8 +327,14 @@ class MainWindow(ctk.CTk):
         self._current_tab = None
         self._switch_tab("race")
 
-        # Bottom-right overlay: [Discord] [☕ Support Me]
+        # Bottom-right overlay: [🐞 Report a Bug] [Discord] [☕ Support Me]
         overlay = ctk.CTkFrame(self, fg_color="transparent")
+        report_btn = ctk.CTkButton(
+            overlay, text="🐞 " + _at("report_help_btn", self._lang),
+            width=110, height=30, font=("Segoe UI", 11),
+            fg_color=("gray70", "gray35"), hover_color=("gray60", "gray45"),
+            command=self._open_report_help)
+        report_btn.pack(side="left", padx=(0, 8))
         discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(18, 18))
         self._discord_img = discord_img   # keep a ref so it isn't GC'd
         discord_btn = ctk.CTkButton(
@@ -371,6 +394,16 @@ class MainWindow(ctk.CTk):
             command=self._on_monitor_change,
             width=220)
         self._mon_menu.pack(side='left', padx=8)
+
+        # Overlay status indicator (right of monitor picker) — click to toggle
+        self._overlay_indicator = ctk.CTkButton(
+            mon_left_frame, text="", width=104, height=28,
+            font=("Segoe UI", 11),
+            fg_color=("gray80", "gray30"), hover_color=("gray70", "gray40"),
+            command=lambda: self._set_overlay_enabled(
+                not self._cfg.get('overlay_enabled', False)))
+        self._overlay_indicator.pack(side='left', padx=(8, 0))
+        self._update_overlay_indicator()
 
         # Right side controls
         right = ctk.CTkFrame(bar, fg_color="transparent")
@@ -966,21 +999,21 @@ class MainWindow(ctk.CTk):
             import customtkinter as _ctk
 
             img = _PIL.open(img_path)
-            w, h = img.size
+            ow, oh = img.size
 
             # Constrain to ~80% of the screen, preserving aspect ratio.
-            # 80 px of vertical headroom is reserved for the caption + title bar.
-            CAPTION_RESERVED = 80
-            max_w = int(self.winfo_screenwidth()  * 0.80)
-            max_h = int(self.winfo_screenheight() * 0.80) - CAPTION_RESERVED
-            scale = min(max_w / w, max_h / h, 1.0)
-            if scale < 1.0:
-                w = max(1, int(w * scale))
-                h = max(1, int(h * scale))
-                # Resampling.LANCZOS in Pillow 10+, LANCZOS at top level pre-10
-                resample = getattr(getattr(_PIL, 'Resampling', _PIL),
-                                   'LANCZOS', 1)
-                img = img.resize((w, h), resample)
+            # CTk multiplies CTkImage sizes AND CTkToplevel geometry by the UI
+            # scaling factor, so divide the screen budget by it — otherwise the
+            # example renders ~scale× oversized on high-DPI / scaled setups.
+            CAPTION_RESERVED = 80   # scaled units
+            S = getattr(self, '_ui_scale', 1.0) or 1.0
+            max_w = int(self.winfo_screenwidth()  * 0.80 / S)
+            max_h = int(self.winfo_screenheight() * 0.80 / S) - CAPTION_RESERVED
+            scale = min(max_w / ow, max_h / oh, 1.0)
+            w = max(1, int(ow * scale))
+            h = max(1, int(oh * scale))
+            # Pass the ORIGINAL image to CTkImage at the target size — CTk
+            # renders it at size×scale from the source (crisp), so no pre-resize.
 
             win = _ctk.CTkToplevel(self)
             win.title(f'Example: {key}')
@@ -1086,11 +1119,132 @@ class MainWindow(ctk.CTk):
     def _set_status(self, msg: str):
         self.after(0, lambda: self._status_var.set(f"  {msg}"))
 
+    def _trigger_report(self):
+        """Hotkey handler: build a bug-report bundle in the background."""
+        if getattr(self, '_report_in_progress', False):
+            return
+        self._report_in_progress = True
+        # Snapshot each tab's log on the UI side (copy = safe to read off-thread)
+        logs = {}
+        for label, attr in [('Race Auto', '_race_log'),
+                            ('Auto Unlock 22B', '_mastery_log'),
+                            ('Auto Buy', '_buy_log'),
+                            ('Delete Used Cars', '_delete_log')]:
+            w = getattr(self, attr, None)
+            if w is not None:
+                logs[label] = list(getattr(w, '_lines', []))
+
+        def _run():
+            try:
+                import report
+                report.generate_report(
+                    self._cfg, self._cfg.get('monitor_index', 1), logs,
+                    log_cb=self._log, status_cb=self._set_status)
+            except Exception as e:
+                self._log(f'Report error: {e}')
+            finally:
+                self._report_in_progress = False
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _set_overlay_enabled(self, enabled):
+        """Single source of truth for the overlay on/off state. Keeps the
+        settings switch + topbar indicator in sync; _refresh_overlay handles
+        actual show/hide on its next tick."""
+        enabled = bool(enabled)
+        self._cfg['overlay_enabled'] = enabled
+        save(self._cfg)
+        if hasattr(self, '_overlay_var') and bool(self._overlay_var.get()) != enabled:
+            self._overlay_var.set(enabled)
+        self._update_overlay_indicator()
+
+    def _update_overlay_indicator(self):
+        btn = getattr(self, '_overlay_indicator', None)
+        if btn is None:
+            return
+        on = bool(self._cfg.get('overlay_enabled', False))
+        btn.configure(
+            text=("● " if on else "○ ") + _at('overlay_indicator', self._lang),
+            text_color=("#39d353" if on else ("gray45", "gray60")))
+
+    def _on_overlay_toggle(self):
+        self._set_overlay_enabled(self._overlay_var.get())
+
+    def _on_overlay_move(self, x, y):
+        """Persist the overlay position after the user drags it."""
+        self._cfg['overlay_x'] = int(x)
+        self._cfg['overlay_y'] = int(y)
+        self._overlay_pos = (int(x), int(y))
+        save(self._cfg)
+
+    def _toggle_overlay(self):
+        """Overlay-toggle hotkey (default F10). Runs on the keyboard thread, so
+        marshal the actual state change onto the main thread."""
+        new = not self._cfg.get('overlay_enabled', False)
+        self.after(0, lambda: self._set_overlay_enabled(new))
+
+    def _refresh_overlay(self):
+        """Show/refresh the floating game overlay whenever it's enabled (via the
+        settings switch or the F10 toggle); hide it otherwise. Polled ~2x/sec."""
+        try:
+            enabled = self._cfg.get('overlay_enabled', False)
+            if enabled:
+                if self._overlay is None:
+                    import overlay as _ov
+                    tabs = [
+                        ('race',    _at('ov_func_race',    self._lang)),
+                        ('mastery', _at('ov_func_mastery', self._lang)),
+                        ('buy',     _at('ov_func_buy',     self._lang)),
+                        ('delete',  _at('ov_func_delete',  self._lang)),
+                    ]
+                    self._overlay = _ov.GameOverlay(
+                        self, on_move=self._on_overlay_move,
+                        icon_path=self._icon_path(),
+                        tabs=tabs, on_tab=self._switch_tab)
+                if self._overlay_pos is None:
+                    sx, sy = self._cfg.get('overlay_x'), self._cfg.get('overlay_y')
+                    if sx is not None and sy is not None:
+                        self._overlay_pos = (sx, sy)   # user-dragged position
+                    else:
+                        from capture import get_monitor_dims
+                        w, h, left, top = get_monitor_dims(
+                            self._cfg.get('monitor_index', 1))
+                        self._overlay_pos = (left + 24, top + 24)
+                lines = []
+                log = getattr(self, '_active_log', None)
+                if log is not None:
+                    lines = list(getattr(log, '_lines', []))[-5:]
+                running = (self._auto_thread is not None
+                           and self._auto_thread.is_alive())
+                k = self._cfg.get('toggle_key', 'f9').upper()
+                hint = _at('overlay_hint_stop' if running
+                           else 'overlay_hint_start', self._lang, key=k)
+                self._overlay.update(self._status_var.get(), lines, hint)
+                self._overlay.set_current_tab(self._current_tab)
+                self._overlay.show(*self._overlay_pos)
+            else:
+                self._overlay_pos = None
+                if self._overlay is not None:
+                    self._overlay.hide()
+        except Exception as e:
+            # Surface once so overlay problems aren't invisible.
+            if not getattr(self, '_overlay_err_logged', False):
+                self._overlay_err_logged = True
+                try:
+                    self._log(f'Overlay error: {e!r}')
+                except Exception:
+                    pass
+                import traceback
+                traceback.print_exc()
+        self.after(500, self._refresh_overlay)
+
     def _build_key_bindings(self, parent):
         """Add toggle key and capture key binding rows to a settings frame."""
         for cfg_key, label_key in [
             ('toggle_key',  'setting_toggle_key'),
             ('capture_key', 'setting_capture_key'),
+            ('report_key',  'setting_report_key'),
+            ('overlay_key', 'setting_overlay_key'),
         ]:
             row = ctk.CTkFrame(parent, fg_color='transparent')
             row.pack(fill='x', padx=12, pady=4)
@@ -1143,6 +1297,28 @@ class MainWindow(ctk.CTk):
             self._update_shortcut_hints()
         elif cfg_key == 'capture_key':
             self._capture_key = key_name
+        elif cfg_key == 'report_key':
+            import keyboard as _kb
+            try:
+                _kb.remove_hotkey(self._report_key)
+            except Exception:
+                pass
+            self._report_key = key_name
+            try:
+                _kb.add_hotkey(key_name, self._trigger_report)
+            except Exception:
+                pass
+        elif cfg_key == 'overlay_key':
+            import keyboard as _kb
+            try:
+                _kb.remove_hotkey(self._overlay_key)
+            except Exception:
+                pass
+            self._overlay_key = key_name
+            try:
+                _kb.add_hotkey(key_name, self._toggle_overlay)
+            except Exception:
+                pass
         btn = getattr(self, f'_keybtn_{cfg_key}', None)
         if btn:
             self.after(0, lambda: btn.configure(
@@ -1170,6 +1346,8 @@ class MainWindow(ctk.CTk):
         self._delete_frame.pack_forget()
         if getattr(self, '_support_frame', None):
             self._support_frame.pack_forget()
+        if getattr(self, '_report_help_frame', None):
+            self._report_help_frame.pack_forget()
         self._settings_frame.pack(fill='both', expand=True)
         self._in_settings = True
 
@@ -1239,6 +1417,8 @@ class MainWindow(ctk.CTk):
         self._delete_frame.pack_forget()
         if getattr(self, "_settings_frame", None):
             self._settings_frame.pack_forget()
+        if getattr(self, "_report_help_frame", None):
+            self._report_help_frame.pack_forget()
         self._support_frame.pack(fill="both", expand=True)
         self._in_support = True
 
@@ -1300,6 +1480,86 @@ class MainWindow(ctk.CTk):
             fg_color="#0070ba", hover_color="#005ea6", text_color="#ffffff",
             command=lambda: __import__("webbrowser").open(
                 "https://paypal.me/Leonbacon")).pack(pady=(0, 8))
+
+    # ── Report-a-bug help panel (inline tutorial, like support) ──
+
+    def _open_report_help(self):
+        if not hasattr(self, "_report_help_frame"):
+            self._build_report_help_panel()
+        self._topbar.pack_forget()
+        self._tab_frame.pack_forget()
+        self._race_frame.pack_forget()
+        self._mastery_frame.pack_forget()
+        self._buy_frame.pack_forget()
+        self._delete_frame.pack_forget()
+        if getattr(self, "_settings_frame", None):
+            self._settings_frame.pack_forget()
+        if getattr(self, "_support_frame", None):
+            self._support_frame.pack_forget()
+        self._report_help_frame.pack(fill="both", expand=True)
+        self._in_report_help = True
+
+    def _close_report_help(self):
+        if hasattr(self, "_report_help_frame"):
+            self._report_help_frame.pack_forget()
+        self._in_report_help = False
+        self._topbar.pack(fill="x", padx=12, pady=(10, 4))
+        self._tab_frame.pack(fill="x", padx=12, pady=(0, 4))
+        saved = self._current_tab
+        self._current_tab = None
+        self._switch_tab(saved)
+
+    def _build_report_help_panel(self):
+        """Inline tutorial explaining the F12 bug-report flow. (A capture
+        button can't work — clicking it foregrounds FAFE; the hotkey is pressed
+        while the game is in focus. So this teaches the hotkey instead.)"""
+        self._report_help_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header = ctk.CTkFrame(self._report_help_frame, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(10, 4))
+        ctk.CTkButton(
+            header, text="← " + _at("settings_back", self._lang),
+            width=90, command=self._close_report_help,
+            fg_color="transparent", border_width=1).pack(side="left")
+
+        body = ctk.CTkScrollableFrame(self._report_help_frame, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=16, pady=8)
+
+        ctk.CTkLabel(body, text=_at("report_help_title", self._lang),
+                     font=theme.H2_FONT).pack(anchor="w", pady=(4, 2))
+        ctk.CTkLabel(body, text=_at("report_help_intro", self._lang),
+                     font=theme.BODY_FONT, justify="left",
+                     wraplength=560).pack(anchor="w", pady=(0, 12))
+
+        key = self._cfg.get("report_key", "f12").upper()
+        steps = [
+            _at("report_help_step1", self._lang),
+            _at("report_help_step2", self._lang),
+            _at("report_help_step3", self._lang, key=key),
+            _at("report_help_step4", self._lang),
+            _at("report_help_step5", self._lang),
+        ]
+        for i, s in enumerate(steps, 1):
+            row = ctk.CTkFrame(body, fg_color="transparent")
+            row.pack(fill="x", pady=3)
+            ctk.CTkLabel(row, text=str(i), width=26, height=26,
+                         fg_color=("gray75", "gray30"), corner_radius=13,
+                         font=theme.BUTTON_FONT).pack(side="left", padx=(0, 10))
+            ctk.CTkLabel(row, text=s, font=theme.BODY_FONT, justify="left",
+                         wraplength=510, anchor="w").pack(
+                             side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(body, text=_at("report_privacy", self._lang),
+                     font=theme.HINT_FONT, text_color=("gray45", "gray60"),
+                     justify="left", wraplength=560).pack(anchor="w", pady=(14, 10))
+
+        di = self._load_ctk_image("assets", "discord_logo.png", size=(18, 18))
+        self._report_help_discord_img = di
+        ctk.CTkButton(
+            body, text=" " + _at("report_help_discord", self._lang),
+            image=di, compound="left", width=200, height=40,
+            fg_color="#5865F2", hover_color="#4752c4", text_color="#ffffff",
+            command=lambda: __import__("webbrowser").open(
+                "https://discord.com/invite/MNg2g9Pp6K")).pack(anchor="w", pady=(0, 8))
 
     def _build_settings_panel(self):
         """Build the inline settings panel once."""
@@ -1376,6 +1636,16 @@ class MainWindow(ctk.CTk):
             values=[_auto_lbl, '100%', '125%', '150%', '175%', '200%', '250%'],
             command=self._on_scale_change,
             width=160).pack(side='left', padx=8)
+
+        # Game overlay toggle
+        _ov_row = ctk.CTkFrame(scroll, fg_color='transparent')
+        _ov_row.pack(fill='x', padx=12, pady=4)
+        ctk.CTkLabel(_ov_row, text=_at('setting_overlay', self._lang),
+                     width=160, anchor='w').pack(side='left')
+        self._overlay_var = ctk.BooleanVar(
+            value=bool(self._cfg.get('overlay_enabled', False)))
+        ctk.CTkSwitch(_ov_row, text='', variable=self._overlay_var,
+                      command=self._on_overlay_toggle).pack(side='left', padx=8)
 
         # ── Accent color picker (inline accordion) ─────────────
         self._build_accent_picker(scroll)

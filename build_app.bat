@@ -56,9 +56,12 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\version.py;." ^
     --add-data "%CD%\updater.py;." ^
     --add-data "%CD%\delete_cars.py;." ^
+    --add-data "%CD%\report.py;." ^
+    --add-data "%CD%\overlay.py;." ^
     --hidden-import customtkinter ^
     --hidden-import PIL ^
     --hidden-import PIL.Image ^
+    --hidden-import PIL.ImageTk ^
     --hidden-import detector ^
     --hidden-import rapidocr_onnxruntime ^
     --hidden-import asyncio ^

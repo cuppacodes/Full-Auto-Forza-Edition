@@ -255,6 +255,38 @@ STRINGS = {
         "zh-tw": "介面縮放：",
         "zh-cn": "界面缩放：",
     },
+    "setting_overlay": {
+        "en":    "Game status overlay:",
+        "zh-tw": "遊戲狀態浮層：",
+        "zh-cn": "游戏状态浮层：",
+    },
+    "overlay_indicator": {
+        "en":    "Overlay",
+        "zh-tw": "浮層",
+        "zh-cn": "浮层",
+    },
+    "ov_func_race": {
+        "en": "Race", "zh-tw": "賽事", "zh-cn": "赛事",
+    },
+    "ov_func_mastery": {
+        "en": "Mastery", "zh-tw": "熟練度", "zh-cn": "熟练度",
+    },
+    "ov_func_buy": {
+        "en": "Buy", "zh-tw": "購買", "zh-cn": "购买",
+    },
+    "ov_func_delete": {
+        "en": "Delete", "zh-tw": "刪除", "zh-cn": "删除",
+    },
+    "overlay_hint_stop": {
+        "en":    "■  Press {key} to stop",
+        "zh-tw": "■  按 {key} 停止",
+        "zh-cn": "■  按 {key} 停止",
+    },
+    "overlay_hint_start": {
+        "en":    "▶  Press {key} to start",
+        "zh-tw": "▶  按 {key} 開始",
+        "zh-cn": "▶  按 {key} 开始",
+    },
     "scale_auto": {
         "en":    "Auto",
         "zh-tw": "自動",
@@ -487,6 +519,81 @@ STRINGS = {
         "en":    "Capture key",
         "zh-tw": "擷取鍵",
         "zh-cn": "截取键",
+    },
+    "setting_report_key": {
+        "en":    "Bug report key",
+        "zh-tw": "錯誤回報鍵",
+        "zh-cn": "错误回报键",
+    },
+    "setting_overlay_key": {
+        "en":    "Overlay toggle key",
+        "zh-tw": "浮層切換鍵",
+        "zh-cn": "浮层切换键",
+    },
+    "report_generating": {
+        "en":    "Generating bug report — capturing screenshot & log...",
+        "zh-tw": "正在產生錯誤回報 — 擷取截圖與日誌中…",
+        "zh-cn": "正在生成错误回报 — 截取截图与日志中…",
+    },
+    "report_specs": {
+        "en":    "Collecting system info (DxDiag, may take ~30s)...",
+        "zh-tw": "正在收集系統資訊（DxDiag，約需 30 秒）…",
+        "zh-cn": "正在收集系统信息（DxDiag，约需 30 秒）…",
+    },
+    "report_saved": {
+        "en":    "Bug report saved: {path}",
+        "zh-tw": "錯誤回報已儲存：{path}",
+        "zh-cn": "错误回报已保存：{path}",
+    },
+    "report_privacy": {
+        "en":    "Note: this bundle includes your settings and system info (DxDiag — includes your Windows username & hardware). Fine to share for support; review before posting publicly.",
+        "zh-tw": "注意：此回報包含你的設定與系統資訊（DxDiag，含 Windows 使用者名稱與硬體）。提供給支援沒問題，公開分享前請先檢視。",
+        "zh-cn": "注意：此回报包含你的设置与系统信息（DxDiag，含 Windows 用户名与硬件）。提供给支持没问题，公开分享前请先查看。",
+    },
+    "report_help_btn": {
+        "en":    "Report a Bug",
+        "zh-tw": "回報錯誤",
+        "zh-cn": "回报错误",
+    },
+    "report_help_title": {
+        "en":    "How to Report a Bug",
+        "zh-tw": "如何回報錯誤",
+        "zh-cn": "如何回报错误",
+    },
+    "report_help_intro": {
+        "en":    "Found a problem? Send us a one-click diagnostic report — just follow these steps:",
+        "zh-tw": "遇到問題嗎？只要依照以下步驟，就能一鍵傳送診斷回報：",
+        "zh-cn": "遇到问题吗？只要按照以下步骤，就能一键发送诊断回报：",
+    },
+    "report_help_step1": {
+        "en":    "Run the script (Race / Mastery / etc.) and let it run until the problem happens — i.e. it gets stuck or stops working.",
+        "zh-tw": "執行腳本（賽事／熟練度等），讓它持續運作直到發生問題（卡住或停止運作）。",
+        "zh-cn": "运行脚本（赛事／熟练度等），让它持续运行直到发生问题（卡住或停止运行）。",
+    },
+    "report_help_step2": {
+        "en":    "When it fails, STAY on that exact game screen — don't alt-tab, click away, or close anything.",
+        "zh-tw": "發生問題時，請停留在當下的遊戲畫面 — 不要切換視窗、點擊其他地方或關閉任何東西。",
+        "zh-cn": "发生问题时，请停留在当下的游戏画面 — 不要切换窗口、点击其他地方或关闭任何东西。",
+    },
+    "report_help_step3": {
+        "en":    "With that failing screen still showing, press {key}.",
+        "zh-tw": "在問題畫面仍顯示的狀態下，按下 {key}。",
+        "zh-cn": "在问题画面仍显示的状态下，按下 {key}。",
+    },
+    "report_help_step4": {
+        "en":    "FAFE saves a report (screenshot of that screen + log + system info) and opens the folder automatically.",
+        "zh-tw": "FAFE 會自動儲存回報（該畫面的截圖＋日誌＋系統資訊）並開啟資料夾。",
+        "zh-cn": "FAFE 会自动保存回报（该画面的截图＋日志＋系统信息）并打开文件夹。",
+    },
+    "report_help_step5": {
+        "en":    "Upload the FAFE_report_….zip to our Discord, and tell us your screen resolution and which tab failed.",
+        "zh-tw": "將 FAFE_report_….zip 上傳到我們的 Discord，並告訴我們你的螢幕解析度與發生問題的分頁。",
+        "zh-cn": "将 FAFE_report_….zip 上传到我们的 Discord，并告诉我们你的屏幕分辨率与发生问题的标签页。",
+    },
+    "report_help_discord": {
+        "en":    "Join our Discord",
+        "zh-tw": "加入我們的 Discord",
+        "zh-cn": "加入我们的 Discord",
     },
     "shortcut_press_any_key": {
         "en":    "Press any key...",

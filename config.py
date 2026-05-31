@@ -70,6 +70,8 @@ DEFAULTS = {
     "theme":             "system",
     "toggle_key":        "f9",
     "capture_key":       "caps lock",
+    "report_key":        "f12",
+    "overlay_key":       "f10",
     "monitor_index":     _get_primary_monitor_index(),
     "race_resolution":    "1080p",
     "mastery_resolution": "1080p",
@@ -93,6 +95,17 @@ DEFAULTS = {
     "mastery_threshold":      0.85,
     "mastery_post_click_wait":0.8,
     "mastery_post_key_wait":  1.2,
+    "mastery_check_interval": 0.5,
+    "mastery_node_click_wait":0.8,
+    "mastery_start_loop":     1,
+    # Buy / Delete settings
+    "buy_post_key_wait":      0.5,
+    "delete_post_key_wait":   0.5,
+    # UI / behavior toggles
+    "ui_scale":               "auto",
+    "nodes_aspect_fix":       True,
+    "auto_english_ime":       True,
+    "overlay_enabled":        False,
 }
 
 
@@ -101,21 +114,36 @@ def load() -> dict:
         try:
             with open(CONFIG_FILE, encoding="utf-8") as f:
                 data = json.load(f)
-            # Fill in any missing keys with defaults
-            for k, v in DEFAULTS.items():
-                data.setdefault(k, v)
-            # Validate monitor index against available monitors
-            try:
-                with mss.mss() as sct:
-                    n = len(sct.monitors) - 1
-                if data['monitor_index'] > n or data['monitor_index'] < 1:
-                    data['monitor_index'] = _get_primary_monitor_index()
-            except Exception:
-                pass
-            return data
+        except Exception:
+            # Unreadable/corrupt — fall back to defaults but DON'T overwrite the
+            # file (it may be recoverable / the user's).
+            return dict(DEFAULTS)
+        # Fill in any missing keys with defaults, and persist them back so the
+        # file stays complete + self-documenting across app updates. The updater
+        # leaves config.json untouched, so without this, keys added in a new
+        # version (e.g. auto_english_ime) would never appear in an existing
+        # user's file for them to see or toggle.
+        added = False
+        for k, v in DEFAULTS.items():
+            if k not in data:
+                data[k] = v
+                added = True
+        # Validate monitor index against available monitors (runtime-only;
+        # doesn't itself trigger a rewrite).
+        try:
+            with mss.mss() as sct:
+                n = len(sct.monitors) - 1
+            if data['monitor_index'] > n or data['monitor_index'] < 1:
+                data['monitor_index'] = _get_primary_monitor_index()
         except Exception:
             pass
-    return dict(DEFAULTS)
+        if added:
+            save(data)
+        return data
+    # No config yet — create one from defaults so the file exists + is complete.
+    data = dict(DEFAULTS)
+    save(data)
+    return data
 
 
 def save(data: dict):

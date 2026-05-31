@@ -76,12 +76,28 @@ def force_english_ime() -> bool:
 # black frames — which is why long runs grew more failure-prone.
 _tls = threading.local()
 
+# Reusing one mss instance fixes the per-call GDI leak, but some mss versions
+# still accumulate native GDI/handles slowly even on a reused instance over many
+# thousands of grabs (the detection loop grabs ~2×/sec indefinitely) — which can
+# make long runs deteriorate. Periodically rebuild the instance to flush that.
+# ~400 grabs ≈ a few minutes; rebuild cost is negligible.
+_SCT_REFRESH_EVERY = 400
+
 
 def _get_sct():
-    """Return this thread's reusable mss instance, creating it on first use."""
+    """Return this thread's reusable mss instance, periodically rebuilding it to
+    flush any native/GDI accumulation over a long run."""
     sct = getattr(_tls, "sct", None)
+    cnt = getattr(_tls, "sct_count", 0) + 1
+    if sct is not None and cnt > _SCT_REFRESH_EVERY:
+        try:
+            sct.close()
+        except Exception:
+            pass
+        sct, cnt = None, 1
     if sct is None:
         sct = _tls.sct = mss.mss()
+    _tls.sct_count = cnt
     return sct
 
 
