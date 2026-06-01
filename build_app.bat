@@ -25,7 +25,7 @@ echo  [1/2]  Installing dependencies...
 echo  -----------------------------------------------------
 pip install --upgrade pyinstaller customtkinter Pillow ^
     pydirectinput opencv-python ^
-    mss numpy keyboard requests ^
+    mss numpy keyboard requests certifi ^
     rapidocr-onnxruntime
 if errorlevel 1 (
     echo.
@@ -71,8 +71,10 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --hidden-import asyncio.tasks ^
     --hidden-import urllib.request ^
     --hidden-import zipfile ^
+    --hidden-import certifi ^
     --collect-all customtkinter ^
     --collect-all rapidocr_onnxruntime ^
+    --collect-all certifi ^
     forza_app.py
 if errorlevel 1 (
     echo.

@@ -5,6 +5,7 @@ the download / replace / relaunch flow.
 
 import os
 import sys
+import ssl
 import threading
 import zipfile
 import urllib.request
@@ -18,6 +19,36 @@ GITHUB_API   = "https://api.github.com/repos/Leoncrispybacon/Full-Auto-Forza-Edi
 TIMEOUT      = 8   # seconds for API request
 
 
+def _make_ssl_context():
+    """SSL context backed by certifi's CA bundle.
+
+    A frozen app's Python `ssl` falls back to the OS cert store, which on some
+    Windows installs (notably handhelds whose root-cert store was never
+    populated) is missing the issuer cert — HTTPS to GitHub then dies with
+    'CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate'. certifi
+    ships the Mozilla CA bundle WITH the app, so verification no longer depends
+    on the device. Falls back to the default context if certifi is unavailable."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        try:
+            return ssl.create_default_context()
+        except Exception:
+            return None
+
+
+# Built once at import; passed to every urlopen so both the version check and
+# the download use the bundled CA bundle.
+_SSL_CTX = _make_ssl_context()
+
+# Reason the last fetch_latest() failed (None on success). Lets the UI log WHY
+# an update check came back empty instead of failing silently — important for
+# diagnosing devices where the check never surfaces a dialog (network/SSL/clock
+# skew/rate-limit).
+_last_error = None
+
+
 def _parse_version(tag: str):
     """'v1.0.2' → (1, 0, 2)"""
     return tuple(int(x) for x in tag.lstrip("v").split("."))
@@ -28,12 +59,15 @@ def fetch_latest():
     Returns (latest_tag, download_url) or (None, None) on any error.
     download_url points to the first .zip asset in the release.
     """
+    global _last_error
+    _last_error = None
     try:
         req = urllib.request.Request(
             GITHUB_API,
             headers={"User-Agent": "FAFE-updater"}
         )
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT,
+                                    context=_SSL_CTX) as resp:
             data = json.loads(resp.read().decode())
         tag   = data.get("tag_name", "")
         assets = data.get("assets", [])
@@ -42,8 +76,11 @@ def fetch_latest():
              if a["browser_download_url"].endswith(".zip")),
             None
         )
+        if not tag:
+            _last_error = "GitHub returned no tag_name (rate-limited?)"
         return tag, url
-    except Exception:
+    except Exception as e:
+        _last_error = f"{type(e).__name__}: {e}"
         return None, None
 
 
@@ -71,7 +108,8 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
 
             # ── Download zip ──────────────────────────────────
             tmp_zip = os.path.join(tempfile.gettempdir(), "FAFE_update.zip")
-            with urllib.request.urlopen(zip_url, timeout=60) as resp:
+            with urllib.request.urlopen(zip_url, timeout=60,
+                                        context=_SSL_CTX) as resp:
                 total = int(resp.headers.get("Content-Length", 0))
                 downloaded = 0
                 chunk = 65536
@@ -188,15 +226,34 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
     threading.Thread(target=_run, daemon=True).start()
 
 
-def check_async(on_update_available):
+def check_async(on_update_available, on_status=None):
     """
     Checks for updates in a background thread.
-    Calls on_update_available(latest_tag, download_url) if a newer
-    version is found. Silent on error or if already up to date.
+    Calls on_update_available(latest_tag, download_url) if a newer version is
+    found. `on_status(msg)` (optional) receives a human-readable diagnostic at
+    each outcome so the check is never silent — critical for figuring out why a
+    device (e.g. a handheld) never shows the update dialog.
     """
+    def _say(msg):
+        if on_status:
+            try:
+                on_status(msg)
+            except Exception:
+                pass
+
     def _check():
+        _say(f"checking for updates (installed v{VERSION})…")
         tag, url = fetch_latest()
-        if tag and url and is_newer(tag):
-            on_update_available(tag, url)
+        if not tag:
+            _say(f"update check failed: {_last_error or 'unknown error'}")
+            return
+        if not is_newer(tag):
+            _say(f"up to date (latest {tag})")
+            return
+        if not url:
+            _say(f"update {tag} found, but it has no .zip asset to download")
+            return
+        _say(f"update available: {tag}")
+        on_update_available(tag, url)
 
     threading.Thread(target=_check, daemon=True).start()

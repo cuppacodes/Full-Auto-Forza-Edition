@@ -67,7 +67,7 @@ class Tooltip:
             justify="left",
             fg_color=("gray90", "gray20"),
             corner_radius=6,
-            font=("Segoe UI", 11),
+            font=(theme.UI_FAMILY, 11),
             padx=10, pady=8,
         ).pack()
         # Click anywhere to close
@@ -99,6 +99,16 @@ class MainWindow(ctk.CTk):
         self._in_support  = False
 
         self._apply_theme()
+        # Lock the UI font family to a guaranteed-installed Windows face for
+        # this language (CJK UIs → JhengHei/YaHei, English → Segoe UI). MUST run
+        # AFTER _apply_theme(): set_default_color_theme() reloads the theme JSON
+        # and would reset CTk's default font family back to Roboto (no CJK
+        # glyphs), clobbering the override and leaving font=None widgets (e.g.
+        # the tab buttons) rendering in a fallback/brush font. Runs before
+        # _build_ui so widgets are born with the right family; the post-build
+        # _apply_ui_fonts() walk then also fixes widgets with hardcoded
+        # ('Arial'/'Segoe UI', N) font tuples.
+        theme.init_fonts(self._lang, root=self)
         self._setup_window()
         self._build_ui()
         self._set_window_icon()
@@ -106,9 +116,22 @@ class MainWindow(ctk.CTk):
         # Start example window queue poller
         self._example_win = None
         self._poll_example_queue()
-        # Register global toggle hotkey at startup
-        import keyboard as _kb
-        _kb.add_hotkey(self._toggle_key, self._toggle_auto)
+        # Register global toggle hotkey at startup. Wrapped like the report/
+        # overlay hotkeys below: on devices that restrict global keyboard hooks
+        # (some handhelds / locked-down Windows), add_hotkey can raise — and an
+        # UNGUARDED failure here aborted the rest of __init__, so the overlay
+        # (after 1200ms) and the update check (after 2000ms) scheduled below
+        # never ran. Hotkeys are best-effort; the on-screen Start/Stop buttons
+        # still work without them.
+        try:
+            import keyboard as _kb
+        except Exception:
+            _kb = None
+        try:
+            if _kb is not None:
+                _kb.add_hotkey(self._toggle_key, self._toggle_auto)
+        except Exception:
+            pass
         # Register global bug-report hotkey (default F12)
         self._report_key = self._cfg.get('report_key', 'f12')
         self._report_in_progress = False
@@ -130,12 +153,19 @@ class MainWindow(ctk.CTk):
         # Check for updates in background (silent if up to date or offline)
         self.after(2000, self._check_for_updates)
 
+        self._diag_init()
+
     # ── Update check ──────────────────────────────────────────
 
     def _check_for_updates(self):
         def _on_found(tag, url):
             self.after(0, lambda: self._show_update_dialog(tag, url))
-        check_async(_on_found)
+        def _on_status(msg):
+            # Log the outcome so a silent/failed check is diagnosable from a bug
+            # report (network/SSL/rate-limit/up-to-date all surface here).
+            self.after(0, lambda: self._log(f"[Updater] {msg}"))
+            self._diag(f"[Updater] {msg}")   # also to the persistent file
+        check_async(_on_found, on_status=_on_status)
 
     def _show_update_dialog(self, tag: str, url: str):
         lang = self._lang
@@ -144,6 +174,16 @@ class MainWindow(ctk.CTk):
         dialog.geometry("420x220")
         dialog.resizable(False, False)
         dialog.grab_set()
+        # Force it to the front + focus. On some setups (e.g. a handheld's
+        # full-screen shell) a plain Toplevel can open behind the main window
+        # and look like "the updater never popped up".
+        try:
+            dialog.lift()
+            dialog.attributes("-topmost", True)
+            dialog.after(100, lambda: dialog.attributes("-topmost", False))
+            dialog.focus_force()
+        except Exception:
+            pass
 
         ctk.CTkLabel(
             dialog,
@@ -200,6 +240,7 @@ class MainWindow(ctk.CTk):
             width=100
         )
         no_btn.pack(side="left", padx=8)
+        theme.apply_font_family_to_tree(dialog)
 
     # ── Window setup ──────────────────────────────────────────
 
@@ -355,6 +396,19 @@ class MainWindow(ctk.CTk):
             command=self._open_support)
         support_btn.pack(side="left")
         overlay.place(relx=1.0, rely=1.0, anchor="se", x=-12, y=-12)
+
+        self._apply_ui_fonts()
+
+    def _apply_ui_fonts(self):
+        """Force every widget's font family to the locked UI family. Many
+        widgets use hardcoded ('Arial'/'Segoe UI', N) tuples that lack CJK
+        glyphs, so on a Chinese UI they'd render in a fallback/brush font;
+        this normalises the whole tree (incl. on-demand panels) in one pass.
+        Idempotent — safe to call after every build."""
+        try:
+            theme.apply_font_family_to_tree(self)
+        except Exception:
+            pass
 
     def _build_topbar(self):
         bar = ctk.CTkFrame(self, fg_color="transparent")
@@ -1041,6 +1095,7 @@ class MainWindow(ctk.CTk):
                 wraplength=max(200, w - 20),
                 justify='center'
             ).pack(pady=10)
+            theme.apply_font_family_to_tree(win)
             self._example_win = win
         except Exception as e:
             print(f'Example window error: {e}')
@@ -1116,6 +1171,37 @@ class MainWindow(ctk.CTk):
         if hasattr(self, '_active_log'):
             self._active_log.log(msg)
 
+    def _diag(self, msg: str):
+        """Append a line to a persistent diagnostics file next to the exe.
+        Survives the bounded/trimmed UI log and works in a --windowed build
+        (where stderr is a void) — used to diagnose device-specific issues like
+        the overlay/updater not appearing on handhelds."""
+        try:
+            import config as _c, time as _t
+            with open(os.path.join(_c.BASE_DIR, 'fafe_diag.log'),
+                      'a', encoding='utf-8') as f:
+                f.write(f"{_t.strftime('%H:%M:%S')} {msg}\n")
+        except Exception:
+            pass
+
+    def _diag_init(self):
+        """Truncate + seed the diagnostics file with version/env/monitors."""
+        try:
+            import config as _c, time as _t
+            with open(os.path.join(_c.BASE_DIR, 'fafe_diag.log'),
+                      'w', encoding='utf-8') as f:
+                f.write(f"FAFE diag v{VERSION} {_t.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"lang={self._lang} ui_scale={getattr(self,'_ui_scale',None)} "
+                        f"overlay_enabled={self._cfg.get('overlay_enabled')} "
+                        f"monitor_index={self._cfg.get('monitor_index')}\n")
+        except Exception:
+            pass
+        try:
+            from capture import list_monitors
+            self._diag(f"monitors={list_monitors()}")
+        except Exception as e:
+            self._diag(f"list_monitors error: {e!r}")
+
     def _set_status(self, msg: str):
         self.after(0, lambda: self._status_var.set(f"  {msg}"))
 
@@ -1176,6 +1262,21 @@ class MainWindow(ctk.CTk):
         self._cfg['overlay_y'] = int(y)
         self._overlay_pos = (int(x), int(y))
         save(self._cfg)
+        self._update_overlay_mask()   # re-blank at the new position immediately
+
+    def _update_overlay_mask(self):
+        """Tell the capture layer the overlay's current screen rect so it's
+        blanked from detection frames (the overlay must never be self-detected)."""
+        try:
+            import capture as _cap
+            if self._overlay is None:
+                _cap.clear_overlay_mask()
+                return
+            b = self._overlay.bounds()
+            if b:
+                _cap.set_overlay_mask(*b)
+        except Exception:
+            pass
 
     def _toggle_overlay(self):
         """Overlay-toggle hotkey (default F10). Runs on the keyboard thread, so
@@ -1201,15 +1302,22 @@ class MainWindow(ctk.CTk):
                         self, on_move=self._on_overlay_move,
                         icon_path=self._icon_path(),
                         tabs=tabs, on_tab=self._switch_tab)
+                    self._diag("overlay: GameOverlay created OK")
                 if self._overlay_pos is None:
                     sx, sy = self._cfg.get('overlay_x'), self._cfg.get('overlay_y')
                     if sx is not None and sy is not None:
                         self._overlay_pos = (sx, sy)   # user-dragged position
                     else:
+                        import overlay as _ov2
                         from capture import get_monitor_dims
                         w, h, left, top = get_monitor_dims(
                             self._cfg.get('monitor_index', 1))
-                        self._overlay_pos = (left + 24, top + 24)
+                        # Default to the TOP-RIGHT corner: clear of the detection
+                        # ROIs (racing top-left, restart bottom-left, confirm
+                        # centre, start left) so the overlay self-mask (which
+                        # blanks the overlay's rect from detection frames) doesn't
+                        # blank a needed UI element. User can drag it anywhere.
+                        self._overlay_pos = (left + w - _ov2._WIDTH - 24, top + 24)
                 lines = []
                 log = getattr(self, '_active_log', None)
                 if log is not None:
@@ -1222,10 +1330,31 @@ class MainWindow(ctk.CTk):
                 self._overlay.update(self._status_var.get(), lines, hint)
                 self._overlay.set_current_tab(self._current_tab)
                 self._overlay.show(*self._overlay_pos)
+                # Register the overlay's live rect so the detector blanks it out
+                # of captured frames (never self-detect). Re-read each poll so a
+                # drag is picked up within ~500ms.
+                self._update_overlay_mask()
+                # One-time durable diagnostic: requested position vs. the actual
+                # mapped window geometry, so we can tell off-screen vs. not-shown
+                # vs. compositor-hidden on devices where it doesn't appear.
+                if not getattr(self, '_overlay_diag_done', False):
+                    self._overlay_diag_done = True
+                    try:
+                        win = self._overlay._win
+                        self._diag(
+                            f"overlay shown: requested_pos={self._overlay_pos} "
+                            f"bounds={self._overlay.bounds()} "
+                            f"mapped={win.winfo_ismapped()} "
+                            f"viewable={win.winfo_viewable()} "
+                            f"override={win.overrideredirect()}")
+                    except Exception as de:
+                        self._diag(f"overlay show-diag error: {de!r}")
             else:
                 self._overlay_pos = None
                 if self._overlay is not None:
                     self._overlay.hide()
+                import capture as _cap
+                _cap.clear_overlay_mask()
         except Exception as e:
             # Surface once so overlay problems aren't invisible.
             if not getattr(self, '_overlay_err_logged', False):
@@ -1235,6 +1364,7 @@ class MainWindow(ctk.CTk):
                 except Exception:
                     pass
                 import traceback
+                self._diag("overlay EXC:\n" + traceback.format_exc())
                 traceback.print_exc()
         self.after(500, self._refresh_overlay)
 
@@ -1337,6 +1467,7 @@ class MainWindow(ctk.CTk):
         """Show settings as an inline panel inside the main window."""
         if not hasattr(self, '_settings_frame'):
             self._build_settings_panel()
+            self._apply_ui_fonts()
         # Hide topbar, tab bar and current tab content
         self._topbar.pack_forget()
         self._tab_frame.pack_forget()
@@ -1409,6 +1540,7 @@ class MainWindow(ctk.CTk):
         """Show the Support Me panel as an inline page (like settings)."""
         if not hasattr(self, "_support_frame"):
             self._build_support_panel()
+            self._apply_ui_fonts()
         self._topbar.pack_forget()
         self._tab_frame.pack_forget()
         self._race_frame.pack_forget()
@@ -1486,6 +1618,7 @@ class MainWindow(ctk.CTk):
     def _open_report_help(self):
         if not hasattr(self, "_report_help_frame"):
             self._build_report_help_panel()
+            self._apply_ui_fonts()
         self._topbar.pack_forget()
         self._tab_frame.pack_forget()
         self._race_frame.pack_forget()

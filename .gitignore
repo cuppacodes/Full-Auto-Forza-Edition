@@ -21,3 +21,6 @@ config.json
 
 # Bug-report bundles (generated at runtime by report.py)
 reports/
+
+# runtime diagnostics
+fafe_diag.log

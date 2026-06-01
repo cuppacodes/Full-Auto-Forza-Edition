@@ -305,10 +305,35 @@ class ScreenDetector:
         # and rely purely on pixel template matching.
         self._ocr_primary: bool = bool(
             self.cfg.get("detector_ocr_primary", True))
+        # Pixel score at/above which we trust the pixel match and skip OCR.
+        # Must be HIGH: small text templates scanned multi-scale over a large
+        # ROI can hit ~0.80 TM_CCOEFF on unrelated scenes, and on hardware where
+        # even genuine matches only score ~0.75–0.80 the pixel score can't tell
+        # them apart — so anything below this is gated by OCR (confirm/veto)
+        # rather than trusted.  Only a near-perfect pixel match (>= this) is
+        # taken on pixels alone.
         self._ocr_skip_above: float = float(
-            self.cfg.get("detector_ocr_skip_above", 0.65))
+            self.cfg.get("detector_ocr_skip_above", 0.90))
         self._ocr_skip_below: float = float(
             self.cfg.get("detector_ocr_skip_below", 0.20))
+        # OCR VETO — OFF by default.  When on, a coincidental pixel match is
+        # rejected if OCR reads the ROI and the text does NOT contain the hint.
+        # It is DEFAULT OFF and, even when on, only fires when OCR actually read
+        # something (`ocr_text` non-empty) — never on a silent/failed OCR.  Why:
+        # a *hard* veto (reject whenever the hint isn't confirmed) breaks
+        # detection on any machine where OCR can't reliably read the game text —
+        # every genuine screen then gets vetoed and the script stalls on every
+        # step (a real regression report).  So by default OCR can only *confirm*
+        # (promote a weak pixel match), never block one; the overlay
+        # capture-exclusion (see overlay.py) handles the common ghost cause.
+        # Users who still see phantom matches on the game scene itself and whose
+        # OCR reads their UI text well can enable `detector_ocr_veto`.
+        self._ocr_veto: bool = bool(
+            self.cfg.get("detector_ocr_veto", False))
+        # When the veto is on and triggers, cap the score to this (below the
+        # 0.45 soft-threshold floor) so the coincidental match can't fire.
+        self._ocr_veto_ceiling: float = float(
+            self.cfg.get("detector_ocr_veto_ceiling", 0.40))
         self._ocr_confirm_score: float = float(
             self.cfg.get("detector_ocr_confirm_score", 0.85))
         self._ocr_cache_duration: float = float(
@@ -432,6 +457,10 @@ class ScreenDetector:
         self._history.pop(f"{key}:roi", None)
         self._history.pop(f"{key}:full", None)
         self._ocr_confirmed.pop(key, None)
+        # Also clear the OCR cooldown so the first frame of a fresh wait can run
+        # OCR immediately — otherwise a stale cooldown from this key's previous
+        # wait could veto a genuine screen (no cache yet) until it expires.
+        self._ocr_last_run.pop(key, None)
 
     def wait_for(self, frame_cb: Callable[[], np.ndarray], key: str,
                  template: np.ndarray, threshold: float,
@@ -520,38 +549,58 @@ class ScreenDetector:
         # user templates may be non-text, in a language not covered by
         # OCR_HINTS, or capture content where text inference would
         # hallucinate matches.  Pixel matching alone is the signal.
-        ocr_bonus = 0.0
         ocr_text = ""
         has_hints = key in OCR_HINTS
 
-        if default_text_path and has_hints:
-            # OCR is useful only in the borderline pixel-score zone.
-            #   image_score >= skip_above → trust the pixel match
-            #   image_score <  skip_below → screen is almost certainly wrong;
-            #                               OCR can't save us either, save the
-            #                               CPU on wait loops over irrelevant
-            #                               screens
-            #   between        → run OCR (or use cached confirmation)
-            if self._ocr_skip_below <= image_score < self._ocr_skip_above:
-                now = time.time()
-                cached = self._ocr_confirmed.get(key)
-                cache_valid = (
-                    cached is not None
-                    and (now - cached[0]) < self._ocr_cache_duration
-                    and image_score >= self._ocr_cache_pixel_min
-                )
-                if cache_valid:
-                    # Recent OCR confirmation still applies — skip the OCR call
+        # For text templates in Default mode, OCR is a first-class CONFIRMATION
+        # signal: pixel matching of game UI text is fragile across hardware (GPU
+        # AA, HDR, font hinting all change pixels), so finding the hint text
+        # promotes a weak pixel match to a confident one. In the decision band
+        # (skip_below ≤ score < skip_above) we run OCR (or use a cached confirm)
+        # and, if the hint is present, promote to _ocr_confirm_score.
+        #   image_score >= skip_above → trust the pixel match, skip OCR
+        #   image_score <  skip_below → almost certainly absent, skip OCR
+        #   in between                → OCR confirms (promote) if hint present
+        # A confirmation is cached per key for _ocr_cache_duration so the OCR
+        # cooldown doesn't break the stability filter.
+        #
+        # VETO (reject) is DEFAULT OFF (`detector_ocr_veto`).  A *hard* veto —
+        # rejecting whenever the hint isn't confirmed — breaks detection on any
+        # machine where OCR can't reliably read the game text: every genuine
+        # screen gets vetoed and the script stalls on every step (a real
+        # regression).  So by default OCR can only CONFIRM, never block, and a
+        # screen that OCR can't confirm keeps its pixel score (original, working
+        # behaviour).  When the veto IS enabled it only fires on a POSITIVE
+        # contradiction — OCR actually read text (`ocr_text` non-empty) that
+        # doesn't contain the hint — never on a silent/failed OCR.  If no OCR
+        # backend is installed the whole gate is skipped (pixel-only).
+        if (default_text_path and has_hints
+                and self._ocr_skip_below <= image_score < self._ocr_skip_above
+                and self._ocr.available()):
+            now = time.time()
+            cached = self._ocr_confirmed.get(key)
+            cache_valid = (
+                cached is not None
+                and (now - cached[0]) < self._ocr_cache_duration
+                and image_score >= self._ocr_cache_pixel_min
+            )
+            if cache_valid:
+                # Recent OCR confirmation still applies — skip the OCR call.
+                image_score = max(image_score, self._ocr_confirm_score)
+                ocr_text = cached[1] + " [cached]"
+            else:
+                bonus, ocr_text = self._ocr_bonus(area, key)
+                if bonus > 0:
+                    # Hint text confirmed on screen — genuine match.
                     image_score = max(image_score, self._ocr_confirm_score)
-                    ocr_text = cached[1] + " [cached]"
-                else:
-                    bonus, ocr_text = self._ocr_bonus(area, key)
-                    if bonus > 0:
-                        # OCR hint found — confirmed match regardless of pixels
-                        image_score = max(image_score, self._ocr_confirm_score)
-                        self._ocr_confirmed[key] = (now, ocr_text)
+                    self._ocr_confirmed[key] = (now, ocr_text)
+                elif self._ocr_veto and ocr_text.strip():
+                    # Opt-in veto, and only on a positive contradiction: OCR
+                    # read real text that isn't the hint → coincidental pixel
+                    # match → cap below threshold. Never vetoes a silent OCR.
+                    image_score = min(image_score, self._ocr_veto_ceiling)
 
-        score = image_score + ocr_bonus
+        score = image_score
         loc = (gray_loc[0] + off_x, gray_loc[1] + off_y)
         matched = (score >= soft_threshold if not stable
                    else self._stable_match(f"{key}:{source}", score, threshold))

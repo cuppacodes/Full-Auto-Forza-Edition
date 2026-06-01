@@ -83,6 +83,37 @@ _tls = threading.local()
 # ~400 grabs ≈ a few minutes; rebuild cost is negligible.
 _SCT_REFRESH_EVERY = 400
 
+# ── Overlay self-mask ─────────────────────────────────────────
+# The app's own status overlay is a visible on-screen window that the detector
+# must NEVER see — it pixel-matches the game's menu/dialog templates AND shows
+# log/status text containing template hint words, so capturing it creates a
+# self-detection feedback loop.  We do NOT use SetWindowDisplayAffinity
+# (WDA_EXCLUDEFROMCAPTURE): on some displays — notably handhelds whose built-in
+# screen is driven through a capture/composition path (Xbox/ROG Ally) — it hides
+# the window from the USER too, and there's no reliable way to detect that.
+# Instead, because the overlay is our own window we know its exact screen rect,
+# so we simply blank that rectangle out of every detection frame.  Works on
+# every display path and keeps the overlay fully visible to the user.
+# Set from the UI thread, read from the detection thread; an immutable-tuple
+# global is atomic enough under the GIL (no lock needed).
+_overlay_rect = None   # (x, y, w, h) absolute virtual-screen pixels, or None
+
+
+def set_overlay_mask(x, y, w, h):
+    """Register the overlay's absolute screen rect to blank from detection grabs."""
+    global _overlay_rect
+    try:
+        if w > 0 and h > 0:
+            _overlay_rect = (int(x), int(y), int(w), int(h))
+    except Exception:
+        pass
+
+
+def clear_overlay_mask():
+    """Stop masking (overlay hidden)."""
+    global _overlay_rect
+    _overlay_rect = None
+
 
 def _get_sct():
     """Return this thread's reusable mss instance, periodically rebuilding it to
@@ -101,8 +132,12 @@ def _get_sct():
     return sct
 
 
-def grab_frame(monitor_index: int) -> np.ndarray:
-    """Capture game monitor via mss. Returns BGR frame."""
+def grab_frame(monitor_index: int, mask_overlay: bool = True) -> np.ndarray:
+    """Capture game monitor via mss. Returns BGR frame.
+
+    mask_overlay (default True): blank the app's own overlay rect out of the
+    frame so the automation never detects its own window (see set_overlay_mask).
+    Bug-report capture passes False to grab the real, unmasked screen."""
     sct = _get_sct()
     try:
         monitors = sct.monitors
@@ -110,7 +145,8 @@ def grab_frame(monitor_index: int) -> np.ndarray:
             raise RuntimeError(
                 f"Monitor {monitor_index} not found. "
                 f"Only {len(monitors)-1} monitor(s) available.")
-        shot = sct.grab(monitors[monitor_index])
+        mon = monitors[monitor_index]
+        shot = sct.grab(mon)
     except RuntimeError:
         raise
     except Exception:
@@ -126,12 +162,27 @@ def grab_frame(monitor_index: int) -> np.ndarray:
             raise RuntimeError(
                 f"Monitor {monitor_index} not found. "
                 f"Only {len(monitors)-1} monitor(s) available.")
-        shot = sct.grab(monitors[monitor_index])
+        mon = monitors[monitor_index]
+        shot = sct.grab(mon)
     if shot is None:
         raise RuntimeError(
             f"Monitor {monitor_index} returned no image. "
             f"Check if the monitor is active.")
-    return cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+    frame = cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+    if mask_overlay:
+        rect = _overlay_rect   # atomic read of immutable tuple
+        if rect is not None:
+            ox, oy, ow, oh = rect
+            # Overlay rect is absolute virtual-screen px; frame origin = monitor
+            # (left, top). Translate, clip to the frame, then blank to black —
+            # a flat region can't match a text template.
+            lx, ly = ox - mon["left"], oy - mon["top"]
+            fh, fw = frame.shape[:2]
+            x0, y0 = max(0, lx), max(0, ly)
+            x1, y1 = min(fw, lx + ow), min(fh, ly + oh)
+            if x1 > x0 and y1 > y0:
+                frame[y0:y1, x0:x1] = 0
+    return frame
 
 
 def list_monitors() -> list:

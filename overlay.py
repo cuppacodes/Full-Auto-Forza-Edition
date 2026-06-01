@@ -19,6 +19,17 @@ try:
 except Exception:
     Image = ImageTk = None
 
+
+def _ui_family():
+    """The locked UI font family (set by theme.init_fonts at startup), so the
+    overlay's CJK text renders in the same known-good face as the main window
+    rather than via Windows' font-linking fallback. Falls back to Segoe UI."""
+    try:
+        import theme
+        return getattr(theme, "UI_FAMILY", "Segoe UI") or "Segoe UI"
+    except Exception:
+        return "Segoe UI"
+
 _GWL_EXSTYLE      = -20
 _WS_EX_NOACTIVATE = 0x08000000
 
@@ -45,6 +56,7 @@ class GameOverlay:
                  tabs=None, on_tab=None):
         self._on_move = on_move
         self._on_tab = on_tab
+        fam = _ui_family()
         self._win = tk.Toplevel(master)
         self._win.withdraw()
         self._win.overrideredirect(True)
@@ -69,7 +81,7 @@ class GameOverlay:
             except Exception:
                 self._logo = None
         tk.Label(header, text="FAFE", bg=_HEADER_BG, fg=_TITLE_FG,
-                 font=("Segoe UI", 10, "bold")).pack(
+                 font=(fam,10, "bold")).pack(
                      side="left", pady=5, padx=(0 if self._logo else 10, 0))
 
         # Function switcher dropdown (right of FAFE). tabs = [(key, label), ...]
@@ -86,21 +98,21 @@ class GameOverlay:
                          activeforeground=_TITLE_FG, highlightthickness=1,
                          highlightbackground=_BORDER_LT, highlightcolor=_BORDER_LT,
                          bd=1, relief="solid",
-                         font=("Segoe UI", 9), cursor="hand2", width=7,
+                         font=(fam,9), cursor="hand2", width=7,
                          takefocus=0)
             # Bordered, slightly-lighter popup so it stands out over the game
             om["menu"].configure(bg=_MENU_BG, fg=_TITLE_FG,
                                   activebackground="#33405a",
                                   activeforeground=_TITLE_FG,
                                   borderwidth=2, relief="solid",
-                                  activeborderwidth=0, font=("Segoe UI", 9))
+                                  activeborderwidth=0, font=(fam,9))
             om.pack(side="right", padx=(0, 8), pady=2)
             self._tab_om = om
 
         # ── Status ──
         self._status = tk.Label(
             outer, text="", bg=_BG, fg=_STATUS_FG,
-            font=("Segoe UI", 11, "bold"), anchor="w", justify="left",
+            font=(fam,11, "bold"), anchor="w", justify="left",
             wraplength=_WIDTH - 20)
         self._status.pack(fill="x", padx=10, pady=(7, 2))
 
@@ -110,14 +122,14 @@ class GameOverlay:
         # later/newest lines get clipped off the bottom.
         self._log = tk.Label(
             outer, text="", bg=_BG, fg=_LOG_FG,
-            font=("Consolas", 9), anchor="nw", justify="left",
+            font=(fam, 9), anchor="nw", justify="left",
             height=5, width=1)
         self._log.pack(fill="both", expand=True, padx=10, pady=(0, 4))
 
         # ── Footer: start/stop key hint ──
         self._hint = tk.Label(
             outer, text="", bg=_BG, fg=_HINT_FG,
-            font=("Segoe UI", 9), anchor="w")
+            font=(fam,9), anchor="w")
         self._hint.pack(fill="x", padx=10, pady=(0, 8))
 
         # Whole box is a drag handle
@@ -140,6 +152,17 @@ class GameOverlay:
             u.SetWindowLongW(hwnd, _GWL_EXSTYLE, ex | _WS_EX_NOACTIVATE)
         except Exception:
             pass
+
+    def bounds(self):
+        """Absolute screen rect (x, y, w, h) of the overlay window, so the
+        capture layer can blank it out of detection frames (anti self-detection
+        without hiding the overlay from the user). None if not measurable."""
+        try:
+            self._win.update_idletasks()
+            return (self._win.winfo_rootx(), self._win.winfo_rooty(),
+                    self._win.winfo_width(), self._win.winfo_height())
+        except Exception:
+            return None
 
     def _drag_start(self, e):
         self._drag = (e.x_root, e.y_root,

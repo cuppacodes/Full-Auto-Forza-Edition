@@ -50,9 +50,11 @@ def generate_report(cfg: dict, monitor_index: int, logs: dict,
     os.makedirs(rdir, exist_ok=True)
     status(_at("report_generating", lang))
 
-    # 1) Game screenshot (the configured monitor)
+    # 1) Game screenshot (the configured monitor). mask_overlay=False so the
+    # report shows the REAL screen (incl. the overlay), not the detector's
+    # self-masked view with the overlay blanked to black.
     try:
-        frame = grab_frame(monitor_index)
+        frame = grab_frame(monitor_index, mask_overlay=False)
         _write_png(os.path.join(rdir, "screenshot.png"), frame)
     except Exception as e:
         with open(os.path.join(rdir, "screenshot_error.txt"), "w",
