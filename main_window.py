@@ -82,11 +82,15 @@ class Tooltip:
 class MainWindow(ctk.CTk):
 
     def __init__(self):
+        import config as _cfgmod
+        _had_config       = os.path.exists(_cfgmod.CONFIG_FILE)
         self._cfg         = load()
-        # First run = no language has been chosen yet (see config DEFAULTS
-        # lang_chosen). Detected before any UI is built so the picker can run
-        # first and the UI is built in the chosen language (no restart).
-        self._first_run   = not self._cfg.get('lang_chosen', True)
+        # First run = either no config existed yet, OR the config hasn't recorded
+        # a language choice (the shipped config.json sets lang_chosen=false).
+        # Either one shows the first-launch picker. Existing users (config
+        # present AND lang_chosen back-filled True) never see it. Detected before
+        # any UI is built so the UI comes up in the chosen language (no restart).
+        self._first_run   = (not _had_config) or (not self._cfg.get('lang_chosen', True))
         # Apply UI scaling BEFORE the Tk root is created so geometry + widgets
         # come up at the right size. Scales the whole UI (widgets + fonts) for
         # high-res displays where the app would otherwise be tiny.
@@ -105,12 +109,16 @@ class MainWindow(ctk.CTk):
 
         self._apply_theme()
         # First-launch language picker — runs before the UI is built so the UI
-        # comes up in the chosen language (no restart). The empty root is hidden
-        # during the picker; init_fonts('zh-tw') first so the picker's CJK option
+        # comes up in the chosen language (no restart). We do NOT withdraw the
+        # root here: building the UI on a withdrawn window and then deiconify()ing
+        # made CTk paint a blank/white window (its canvas isn't drawn while
+        # hidden). The root stays visible (empty) behind the modal picker, then
+        # _build_ui fills it. init_fonts('zh-tw') first so the picker's CJK option
         # labels (繁體中文 / 简体中文) render in a real CJK font.
         if self._first_run:
-            self.withdraw()
+            self._setup_window()   # size/title the (empty) root behind the modal
             theme.init_fonts('zh-tw', root=self)
+            self.update_idletasks()
             picked = self._ask_first_run_language()
             self._lang = picked
             self._cfg['lang'] = picked
@@ -130,8 +138,6 @@ class MainWindow(ctk.CTk):
         self._setup_window()
         self._build_ui()
         self._set_window_icon()
-        if self._first_run:
-            self.deiconify()   # reveal the fully-built window after the picker
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         # Start example window queue poller
         self._example_win = None
@@ -1193,6 +1199,25 @@ class MainWindow(ctk.CTk):
         if hasattr(self, '_active_log'):
             self._active_log.log(msg)
 
+    def report_callback_exception(self, exc, val, tb):
+        """Tk calls this for exceptions raised inside event/after callbacks —
+        which sys.excepthook does NOT see. Log them (the default just prints to
+        stderr, a void in a --windowed build) so a mid-mainloop crash is
+        captured, then keep running."""
+        import traceback as _tb
+        msg = ''.join(_tb.format_exception(exc, val, tb))
+        try:
+            self._diag('CALLBACK EXC:\n' + msg)
+        except Exception:
+            pass
+        try:
+            import config as _c, time as _t
+            with open(os.path.join(_c.BASE_DIR, 'fafe_crash.log'),
+                      'a', encoding='utf-8') as f:
+                f.write(_t.strftime('%H:%M:%S CALLBACK EXC\n') + msg + '\n')
+        except Exception:
+            pass
+
     def _diag(self, msg: str):
         """Append a line to a persistent diagnostics file next to the exe.
         Survives the bounded/trimmed UI log and works in a --windowed build
@@ -1999,20 +2024,33 @@ class MainWindow(ctk.CTk):
 
     def _ask_first_run_language(self):
         """First-launch modal: choose the UI language. Returns 'en'/'zh-tw'/
-        'zh-cn'. Built in a CJK-capable font so every option label renders."""
+        'zh-cn'.
+
+        Built with PLAIN Tk (not CTk): CTk multiplies CTkToplevel.geometry() by
+        the widget-scaling factor, which on multi-monitor / high-DPI setups put
+        the dialog off-screen (it rendered but the user never saw it). Plain Tk
+        geometry is real pixels, so centering is reliable. Uses the locked CJK
+        font so all three labels render."""
+        import tkinter as tk
         result = {'lang': 'en'}
         fam = theme.UI_FAMILY
-        win = ctk.CTkToplevel(self)
+        BG, FG, ACC, ACC2 = "#1b1b1b", "#f0f0f0", "#3B82F6", "#2563EB"
+        win = tk.Toplevel(self)
         win.title("Language  /  語言  /  语言")
+        win.configure(bg=BG)
         win.resizable(False, False)
         try:
             win.attributes('-topmost', True)
         except Exception:
             pass
 
-        ctk.CTkLabel(
-            win, text="Choose your language\n選擇您的語言\n选择您的语言",
-            font=(fam, 16, 'bold'), justify='center').pack(padx=36, pady=(26, 18))
+        W, H = 400, 360
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        win.geometry(f"{W}x{H}+{max(0, (sw - W) // 2)}+{max(0, (sh - H) // 2)}")
+
+        tk.Label(win, text="Choose your language\n選擇您的語言\n选择您的语言",
+                 bg=BG, fg=FG, font=(fam, 15, 'bold'),
+                 justify='center').pack(pady=(30, 20))
 
         def pick(code):
             result['lang'] = code
@@ -2020,29 +2058,28 @@ class MainWindow(ctk.CTk):
                 win.grab_release()
             except Exception:
                 pass
-            win.destroy()
+            # Defer the destroy: tearing the window down synchronously from
+            # inside the button's own click handler raises in Tk's event
+            # dispatch, and in a frozen --windowed build (sys.stderr is None)
+            # the default error handler then crashes the app while trying to
+            # print the traceback. after_idle runs it once the click is done.
+            win.after_idle(win.destroy)
 
         for code, label in (('en', 'English'),
                             ('zh-tw', '繁體中文'),
                             ('zh-cn', '简体中文')):
-            ctk.CTkButton(win, text=label, width=240, height=46,
-                          font=(fam, 15),
-                          command=lambda c=code: pick(c)).pack(padx=36, pady=6)
-        ctk.CTkLabel(win, text="", height=6).pack()
-        win.protocol("WM_DELETE_WINDOW", lambda: pick('en'))
+            tk.Button(win, text=label, font=(fam, 13), width=18,
+                      bg=ACC, fg="#ffffff", activebackground=ACC2,
+                      activeforeground="#ffffff", relief='flat', bd=0,
+                      cursor='hand2',
+                      command=lambda c=code: pick(c)).pack(pady=7, ipady=7)
 
-        # Center on screen. CTk multiplies geometry by the widget-scaling factor,
-        # so compute in *logical* units: divide the physical screen size by the
-        # scale before centering (mirrors _show_example_win's handling).
+        win.protocol("WM_DELETE_WINDOW", lambda: pick('en'))
         win.update_idletasks()
-        sc = getattr(self, '_ui_scale', 1.0) or 1.0
-        w, h = 340, 330
-        sw = win.winfo_screenwidth() / sc
-        sh = win.winfo_screenheight() / sc
-        win.geometry(f"{w}x{h}+{int((sw - w) / 2)}+{int((sh - h) / 2)}")
+        win.lift()
         try:
-            win.grab_set()       # modal
             win.focus_force()
+            win.grab_set()       # modal
         except Exception:
             pass
         self.wait_window(win)
