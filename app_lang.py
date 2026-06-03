@@ -255,6 +255,16 @@ STRINGS = {
         "zh-tw": "介面縮放：",
         "zh-cn": "界面缩放：",
     },
+    "setting_game_lang": {
+        "en":    "Game menu language:",
+        "zh-tw": "遊戲選單語言：",
+        "zh-cn": "游戏菜单语言：",
+    },
+    "game_lang_auto": {
+        "en":    "Auto (follow app)",
+        "zh-tw": "自動（跟隨介面）",
+        "zh-cn": "自动（跟随界面）",
+    },
     "setting_overlay": {
         "en":    "Game status overlay:",
         "zh-tw": "遊戲狀態浮層：",

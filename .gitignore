@@ -24,3 +24,6 @@ reports/
 
 # runtime diagnostics
 fafe_diag.log
+
+# User-captured custom templates (never commit — user data, any language)
+templates/**/custom/

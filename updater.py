@@ -159,17 +159,23 @@ def download_and_install(zip_url: str, progress_cb=None, done_cb=None):
 
             # Preset template folders to refresh (custom/ folders are
             # implicitly preserved — never written to).
+            # Templates are organised per game-menu language:
+            # templates/<lang>/<category>/<preset>. Refresh every preset under
+            # every language (custom/ folders are never in this list, so they're
+            # preserved). Missing source langs (e.g. an empty chs/en preset) just
+            # robocopy nothing — non-fatal.
             tpl_pairs: list[tuple[str, str]] = []
-            for category in ("race", "mastery_full"):
-                for preset in ("1080p", "1440p", "2160p"):
-                    tpl_pairs.append((
-                        os.path.join(src_dir, "templates", category, preset),
-                        os.path.join(exe_dir, "templates", category, preset),
-                    ))
-            tpl_pairs.append((
-                os.path.join(src_dir, "templates", "examples"),
-                os.path.join(exe_dir, "templates", "examples"),
-            ))
+            for lang in ("cht", "chs", "en"):
+                for category in ("race", "mastery_full"):
+                    for preset in ("1080p", "1440p", "2160p"):
+                        tpl_pairs.append((
+                            os.path.join(src_dir, "templates", lang, category, preset),
+                            os.path.join(exe_dir, "templates", lang, category, preset),
+                        ))
+                tpl_pairs.append((
+                    os.path.join(src_dir, "templates", lang, "examples"),
+                    os.path.join(exe_dir, "templates", lang, "examples"),
+                ))
             tpl_lines = "".join(
                 f'robocopy "{src}" "{dst}" /E /IS /IT /IM /PURGE >nul\n'
                 for src, dst in tpl_pairs

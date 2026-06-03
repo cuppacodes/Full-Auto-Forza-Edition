@@ -173,8 +173,9 @@ def run(cfg: dict, stop_event: threading.Event,
     # Always read resolution fresh from config.json at start
     import config as _cfg_mod
     _fresh = _cfg_mod.load()
-    res    = _fresh.get('mastery_resolution', 'custom')
-    folder = get_mastery_templates(res)
+    res      = _fresh.get('mastery_resolution', 'custom')
+    tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
+    folder   = get_mastery_templates(res, tpl_lang)
     detector = ScreenDetector(_fresh)
     log_cb(_at('log_template_set', lang, res=res, folder=folder))
     for key in TEMPLATE_KEYS:
@@ -190,7 +191,7 @@ def run(cfg: dict, stop_event: threading.Event,
 
     # Load nodes
     try:
-        nodes_file = get_nodes_file(res)
+        nodes_file = get_nodes_file(res, tpl_lang)
         nodes = load_nodes(nodes_file, current_w, current_h,
                            aspect_fix=_fresh.get("nodes_aspect_fix", True))
         log_cb(_at("log_nodes_loaded", lang, n=len(nodes)))

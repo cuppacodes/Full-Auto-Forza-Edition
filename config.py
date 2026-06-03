@@ -21,36 +21,102 @@ else:
 
 CONFIG_FILE       = os.path.join(BASE_DIR, "config.json")
 TEMPLATES_DIR     = os.path.join(BASE_DIR, "templates")
-RACE_TEMPLATES_BASE    = os.path.join(TEMPLATES_DIR, "race")
-MASTERY_FULL_BASE      = os.path.join(TEMPLATES_DIR, "mastery_full")
-EXAMPLES_DIR           = os.path.join(TEMPLATES_DIR, "examples")
 
 RESOLUTION_SETS = ["1080p", "1440p", "2160p", "custom"]
 
+# ── Template languages ───────────────────────────────────────
+# Templates are organised by the language of the GAME's on-screen menus (NOT
+# the app UI) — the captured images contain that text, so the set must match
+# what's rendered in-game. Layout: templates/<lang>/<category>/<res>/ plus
+# templates/<lang>/examples/.
+#   cht = Traditional Chinese · chs = Simplified Chinese · en = English
+TEMPLATE_LANGS = ["cht", "chs", "en"]
+DEFAULT_TEMPLATE_LANG = "cht"
 
-def get_race_templates(res: str = "custom") -> str:
-    path = os.path.join(RACE_TEMPLATES_BASE, res)
+# Default game-template language per app-UI language (used when the
+# `template_lang` setting is "auto").
+_APP_LANG_TO_TPL = {"zh-tw": "cht", "zh-cn": "chs", "en": "en"}
+
+
+def resolve_template_lang(cfg: dict) -> str:
+    """Which game-template language set to use.
+
+    `template_lang` config: "auto" (follow the app UI language) or an explicit
+    cht / chs / en. Defaults to auto."""
+    val = str(cfg.get("template_lang", "auto") or "auto").lower()
+    if val in TEMPLATE_LANGS:
+        return val
+    return _APP_LANG_TO_TPL.get(cfg.get("lang", "zh-tw"), DEFAULT_TEMPLATE_LANG)
+
+
+def _lang_dir(lang: str) -> str:
+    return os.path.join(TEMPLATES_DIR,
+                        lang if lang in TEMPLATE_LANGS else DEFAULT_TEMPLATE_LANG)
+
+
+def get_race_templates(res: str = "custom",
+                       lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    path = os.path.join(_lang_dir(lang), "race", res)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_mastery_templates(res: str = "custom") -> str:
-    path = os.path.join(MASTERY_FULL_BASE, res)
+def get_mastery_templates(res: str = "custom",
+                          lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    path = os.path.join(_lang_dir(lang), "mastery_full", res)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_nodes_file(res: str = "custom") -> str:
-    return os.path.join(get_mastery_templates(res), "mastery_nodes.json")
+def get_nodes_file(res: str = "custom",
+                   lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    return os.path.join(get_mastery_templates(res, lang), "mastery_nodes.json")
 
 
-# Ensure all resolution subfolders exist
-for _mode in ["race", "mastery_full"]:
-    for _res in RESOLUTION_SETS:
-        os.makedirs(os.path.join(TEMPLATES_DIR, _mode, _res), exist_ok=True)
-os.makedirs(EXAMPLES_DIR, exist_ok=True)
+def get_examples_dir(lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    path = os.path.join(_lang_dir(lang), "examples")
+    os.makedirs(path, exist_ok=True)
+    return path
 
-# Ensure template folders exist
+
+def _migrate_flat_templates():
+    """Move any pre-language flat layout (templates/{race,mastery_full,examples})
+    into templates/cht/, preserving the user's custom captures. The old presets
+    were all Traditional Chinese, so cht is the correct destination. Merges
+    rather than overwrites (so updater-installed cht presets aren't clobbered),
+    then removes the emptied old tree. Idempotent."""
+    import shutil
+    cht = _lang_dir("cht")
+    for sub in ("race", "mastery_full", "examples"):
+        old = os.path.join(TEMPLATES_DIR, sub)
+        if not os.path.isdir(old):
+            continue
+        new = os.path.join(cht, sub)
+        for root, _dirs, files in os.walk(old):
+            rel = os.path.relpath(root, old)
+            dst_root = new if rel == "." else os.path.join(new, rel)
+            os.makedirs(dst_root, exist_ok=True)
+            for fn in files:
+                dst_f = os.path.join(dst_root, fn)
+                if not os.path.exists(dst_f):
+                    try:
+                        shutil.move(os.path.join(root, fn), dst_f)
+                    except Exception:
+                        pass
+        try:
+            shutil.rmtree(old)
+        except Exception:
+            pass
+
+
+# Migrate any old flat layout, THEN ensure the per-language tree exists.
+_migrate_flat_templates()
+for _lang in TEMPLATE_LANGS:
+    for _mode in ("race", "mastery_full"):
+        for _res in RESOLUTION_SETS:
+            os.makedirs(os.path.join(TEMPLATES_DIR, _lang, _mode, _res),
+                        exist_ok=True)
+    os.makedirs(os.path.join(TEMPLATES_DIR, _lang, "examples"), exist_ok=True)
 
 # ── Defaults ─────────────────────────────────────────────────
 def _get_primary_monitor_index() -> int:
@@ -66,7 +132,12 @@ def _get_primary_monitor_index() -> int:
 
 
 DEFAULTS = {
-    "lang":              "zh-tw",
+    "lang":              "en",
+    # First-run language picker gate. DEFAULTS=True so existing users (whose
+    # config.json predates this key) are back-filled True and never see the
+    # picker. The SHIPPED config.json sets it false, so a fresh download shows
+    # the picker once, then sets it True.
+    "lang_chosen":       True,
     "theme":             "system",
     "toggle_key":        "f9",
     "capture_key":       "caps lock",
@@ -75,6 +146,8 @@ DEFAULTS = {
     "monitor_index":     _get_primary_monitor_index(),
     "race_resolution":    "1080p",
     "mastery_resolution": "1080p",
+    # Game-menu language for templates: "auto" (follow app UI lang) / cht / chs / en
+    "template_lang":      "auto",
     # Race settings
     "race_threshold":    0.60,
     # Per-template thresholds

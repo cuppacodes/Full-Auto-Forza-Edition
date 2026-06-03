@@ -91,7 +91,8 @@ xcopy /e /i /q dist\FAFE FAFE_dist >nul
 echo  [+]    Writing default config.json...
 (
   echo {
-  echo   "lang": "zh-tw",
+  echo   "lang": "en",
+  echo   "lang_chosen": false,
   echo   "theme": "system",
   echo   "toggle_key": "f9",
   echo   "capture_key": "caps lock",

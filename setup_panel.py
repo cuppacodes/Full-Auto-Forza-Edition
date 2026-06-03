@@ -10,7 +10,7 @@ from capture import (CaptureSession, NodeSession,
                       save_template, save_nodes,
                       template_exists, nodes_exist,
                       list_monitors, show_example, close_example)
-from config import (EXAMPLES_DIR, RESOLUTION_SETS,
+from config import (RESOLUTION_SETS, get_examples_dir,
                     get_race_templates, get_mastery_templates,
                     get_nodes_file)
 import config
@@ -128,11 +128,12 @@ class SetupPanel(ctk.CTkFrame):
                  nodes_file=None, log_cb=None, status_cb=None,
                  lang='en', capture_key='caps lock',
                  res_cfg_key='race_resolution', mode='race',
-                 main_cfg=None,
+                 main_cfg=None, tpl_lang='cht',
                  **kwargs):
         super().__init__(parent, **kwargs)
         self._res_cfg_key = res_cfg_key
         self._mode        = mode
+        self._tpl_lang    = tpl_lang   # game-menu template language (cht/chs/en)
         self._main_cfg    = main_cfg   # reference to main window cfg dict
         # Load saved resolution
         _saved_cfg = config.load()
@@ -160,12 +161,12 @@ class SetupPanel(ctk.CTkFrame):
 
     def _get_folder(self) -> str:
         if self._mode == 'race':
-            return get_race_templates(self._resolution)
-        return get_mastery_templates(self._resolution)
+            return get_race_templates(self._resolution, self._tpl_lang)
+        return get_mastery_templates(self._resolution, self._tpl_lang)
 
     def _get_nodes_file(self):
         if self._mode != 'mastery': return None
-        return get_nodes_file(self._resolution)
+        return get_nodes_file(self._resolution, self._tpl_lang)
 
     def _is_custom(self) -> bool:
         return self._resolution == 'custom'
@@ -380,7 +381,7 @@ class SetupPanel(ctk.CTkFrame):
             self._cap_label.configure(
                 text=_at("capture_nodes_instruction", self._lang))
             self.status_cb(f"Waiting for {self._capture_key.upper()} — node capture")
-            show_example('nodes', EXAMPLES_DIR)
+            show_example('nodes', get_examples_dir(self._tpl_lang))
             sess = NodeSession(
                 monitor_index=self._monitor_index,
                 callback=self._on_nodes_captured,
@@ -411,7 +412,7 @@ class SetupPanel(ctk.CTkFrame):
                 on_cancel=self._on_capture_cancel,
                 capture_key=self._capture_key,
                 template_key=next_key,
-                examples_dir=EXAMPLES_DIR,
+                examples_dir=get_examples_dir(self._tpl_lang),
             )
             self._session = sess
             sess.start()

@@ -48,6 +48,21 @@ _KEYEVENTF_SCANCODE    = 0x0008
 _EXTENDED_VKS = frozenset({0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
                            0x2D, 0x2E, 0xA3, 0xA5})
 
+def _vk_for_key(name: str):
+    """Virtual-key code for a toggle-key name (e.g. 'f9', 'enter'), for
+    GetAsyncKeyState polling. Handles F1–F24 and the keys in _VK_MAP."""
+    name = (name or "").strip().lower()
+    if name in _VK_MAP:
+        return _VK_MAP[name]
+    if name.startswith("f") and name[1:].isdigit():
+        n = int(name[1:])
+        if 1 <= n <= 24:
+            return 0x70 + (n - 1)   # VK_F1 = 0x70
+    if len(name) == 1:
+        return ord(name.upper())    # letters / digits
+    return None
+
+
 def _send_vk(key_name, key_up=False):
     vk = _VK_MAP.get(key_name.lower())
     if vk is None:
@@ -146,8 +161,12 @@ def run(cfg: dict, stop_event: threading.Event,
     # Always read resolution fresh from config.json at start
     import config as _cfg_mod
     _fresh = _cfg_mod.load()
-    res    = _fresh.get('race_resolution', 'custom')
-    folder = get_race_templates(res)
+    res      = _fresh.get('race_resolution', 'custom')
+    tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
+    folder   = get_race_templates(res, tpl_lang)
+    log_cb(f"  Templates: {tpl_lang} / {res}")
+    # VK of the stop hotkey, for the hook-independent stop poll in stop().
+    _toggle_vk = _vk_for_key(_fresh.get('toggle_key', 'f9'))
     detector = ScreenDetector(_fresh)
     for key in TEMPLATE_KEYS:
         try:
@@ -161,7 +180,23 @@ def run(cfg: dict, stop_event: threading.Event,
             return
 
     def stop():
-        return stop_event.is_set()
+        if stop_event.is_set():
+            return True
+        # Hook-independent stop. While holding W we inject ~33 keydowns/sec via
+        # SendInput; that flood goes through the same low-level keyboard hook the
+        # `keyboard` library uses for the F9 hotkey, and under it the hook can
+        # fail to deliver F9 — so the script "can't be stopped" mid-race. Reading
+        # the physical key state directly (GetAsyncKeyState, high bit = down)
+        # bypasses the hook entirely. The W-hold thread calls stop() at ~33Hz so
+        # even a quick tap is caught.
+        if _toggle_vk:
+            try:
+                if ctypes.windll.user32.GetAsyncKeyState(_toggle_vk) & 0x8000:
+                    stop_event.set()
+                    return True
+            except Exception:
+                pass
+        return False
 
     def wait_for(label, template, key, timeout=float('inf')):
         status_cb(_at("status_waiting_for", lang, label=label))

@@ -12,7 +12,7 @@ import sys
 import config
 import theme
 from app_lang import t as _at
-from config import (load, save, EXAMPLES_DIR,
+from config import (load, save, resolve_template_lang,
                     get_race_templates, get_mastery_templates, get_nodes_file)
 from log_widget import LogWidget
 from setup_panel import SetupPanel
@@ -83,12 +83,17 @@ class MainWindow(ctk.CTk):
 
     def __init__(self):
         self._cfg         = load()
+        # First run = no language has been chosen yet (see config DEFAULTS
+        # lang_chosen). Detected before any UI is built so the picker can run
+        # first and the UI is built in the chosen language (no restart).
+        self._first_run   = not self._cfg.get('lang_chosen', True)
         # Apply UI scaling BEFORE the Tk root is created so geometry + widgets
         # come up at the right size. Scales the whole UI (widgets + fonts) for
         # high-res displays where the app would otherwise be tiny.
         self._apply_scaling()
         super().__init__()
         self._lang        = self._cfg.get('lang', 'en')
+        self._tpl_lang    = resolve_template_lang(self._cfg)  # game-menu lang
         self._restarting   = False
         self._toggle_key   = self._cfg.get('toggle_key', 'f9')
         self._capture_key  = self._cfg.get('capture_key', 'caps lock')
@@ -99,6 +104,19 @@ class MainWindow(ctk.CTk):
         self._in_support  = False
 
         self._apply_theme()
+        # First-launch language picker — runs before the UI is built so the UI
+        # comes up in the chosen language (no restart). The empty root is hidden
+        # during the picker; init_fonts('zh-tw') first so the picker's CJK option
+        # labels (繁體中文 / 简体中文) render in a real CJK font.
+        if self._first_run:
+            self.withdraw()
+            theme.init_fonts('zh-tw', root=self)
+            picked = self._ask_first_run_language()
+            self._lang = picked
+            self._cfg['lang'] = picked
+            self._cfg['lang_chosen'] = True
+            self._tpl_lang = resolve_template_lang(self._cfg)
+            save(self._cfg)
         # Lock the UI font family to a guaranteed-installed Windows face for
         # this language (CJK UIs → JhengHei/YaHei, English → Segoe UI). MUST run
         # AFTER _apply_theme(): set_default_color_theme() reloads the theme JSON
@@ -112,6 +130,8 @@ class MainWindow(ctk.CTk):
         self._setup_window()
         self._build_ui()
         self._set_window_icon()
+        if self._first_run:
+            self.deiconify()   # reveal the fully-built window after the picker
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         # Start example window queue poller
         self._example_win = None
@@ -517,7 +537,7 @@ class MainWindow(ctk.CTk):
         self._race_setup = SetupPanel(
             frame,
             template_defs=[(k, _at(lk, self._lang)) for k, lk in RACE_TEMPLATE_KEYS],
-            folder=get_race_templates('custom'),
+            folder=get_race_templates('custom', self._tpl_lang),
             nodes_file=None,
             res_cfg_key='race_resolution',
             mode='race',
@@ -526,6 +546,7 @@ class MainWindow(ctk.CTk):
             lang=self._lang,
             capture_key=self._capture_key,
             main_cfg=self._cfg,
+            tpl_lang=self._tpl_lang,
         )
         self._race_setup.pack(fill="x", padx=8, pady=(4, 8))
 
@@ -552,8 +573,8 @@ class MainWindow(ctk.CTk):
         self._mastery_setup = SetupPanel(
             frame,
             template_defs=[(k, _at(lk, self._lang)) for k, lk in MASTERY_TEMPLATE_KEYS_MAP],
-            folder=get_mastery_templates('custom'),
-            nodes_file=get_nodes_file('custom'),
+            folder=get_mastery_templates('custom', self._tpl_lang),
+            nodes_file=get_nodes_file('custom', self._tpl_lang),
             res_cfg_key='mastery_resolution',
             mode='mastery',
             log_cb=self._log,
@@ -561,6 +582,7 @@ class MainWindow(ctk.CTk):
             lang=self._lang,
             capture_key=self._capture_key,
             main_cfg=self._cfg,
+            tpl_lang=self._tpl_lang,
         )
         self._mastery_setup.pack(fill="x", padx=8, pady=(4, 8))
 
@@ -1205,8 +1227,38 @@ class MainWindow(ctk.CTk):
     def _set_status(self, msg: str):
         self.after(0, lambda: self._status_var.set(f"  {msg}"))
 
+    def _key_is_down(self, keyname: str) -> bool:
+        """True if `keyname` is physically down right now (GetAsyncKeyState).
+
+        Used to reject SPURIOUS hotkey callbacks: while the race holds W (~33
+        injected keydowns/sec), the `keyboard` library's global hook can mis-fire
+        and invoke the WRONG handler — e.g. dispatch the F12 bug-report when F9
+        was the key actually pressed. Verifying the handler's own key is down
+        filters those cross-fires out. Fails OPEN (returns True) for unresolved
+        keys/errors so a genuine press is never blocked by a resolver gap."""
+        try:
+            import ctypes
+            name = (keyname or '').strip().lower()
+            vk = None
+            if name.startswith('f') and name[1:].isdigit():
+                n = int(name[1:])
+                if 1 <= n <= 24:
+                    vk = 0x70 + (n - 1)          # VK_F1..VK_F24
+            elif len(name) == 1:
+                vk = ord(name.upper())
+            else:
+                vk = {'enter': 0x0D, 'return': 0x0D, 'escape': 0x1B,
+                      'esc': 0x1B, 'space': 0x20, 'tab': 0x09}.get(name)
+            if vk is None:
+                return True
+            return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
+        except Exception:
+            return True
+
     def _trigger_report(self):
         """Hotkey handler: build a bug-report bundle in the background."""
+        if not self._key_is_down(self._report_key):
+            return   # spurious cross-fire (e.g. F9 during the race W-hold flood)
         if getattr(self, '_report_in_progress', False):
             return
         self._report_in_progress = True
@@ -1281,6 +1333,8 @@ class MainWindow(ctk.CTk):
     def _toggle_overlay(self):
         """Overlay-toggle hotkey (default F10). Runs on the keyboard thread, so
         marshal the actual state change onto the main thread."""
+        if not self._key_is_down(self._overlay_key):
+            return   # spurious cross-fire during the race W-hold flood
         new = not self._cfg.get('overlay_enabled', False)
         self.after(0, lambda: self._set_overlay_enabled(new))
 
@@ -1755,6 +1809,28 @@ class MainWindow(ctk.CTk):
             width=160)
         self._lang_menu.pack(side='left', padx=8)
 
+        # Game-menu language (which template set to use). Separate from the app
+        # UI language; defaults to "auto" (follow it).
+        _glang_row = ctk.CTkFrame(scroll, fg_color='transparent')
+        _glang_row.pack(fill='x', padx=12, pady=4)
+        ctk.CTkLabel(_glang_row, text=_at('setting_game_lang', self._lang),
+                     width=160, anchor='w').pack(side='left')
+        # display label -> stored template_lang value
+        self._glang_opts = {
+            _at('game_lang_auto', self._lang): 'auto',
+            '繁體中文': 'cht', '简体中文': 'chs', 'English': 'en',
+        }
+        _glang_rev = {v: k for k, v in self._glang_opts.items()}
+        self._glang_var = ctk.StringVar(
+            value=_glang_rev.get(self._cfg.get('template_lang', 'auto'),
+                                 list(self._glang_opts)[0]))
+        self._glang_menu = ctk.CTkOptionMenu(
+            _glang_row, variable=self._glang_var,
+            values=list(self._glang_opts.keys()),
+            command=self._on_game_lang_change,
+            width=160)
+        self._glang_menu.pack(side='left', padx=8)
+
         # UI scale
         _scale_row = ctk.CTkFrame(scroll, fg_color='transparent')
         _scale_row.pack(fill='x', padx=12, pady=4)
@@ -1921,6 +1997,57 @@ class MainWindow(ctk.CTk):
             btn.configure(border_width=2 if btn_name == name else 0)
         theme.apply_accent_to_tree(self, self._cfg)
 
+    def _ask_first_run_language(self):
+        """First-launch modal: choose the UI language. Returns 'en'/'zh-tw'/
+        'zh-cn'. Built in a CJK-capable font so every option label renders."""
+        result = {'lang': 'en'}
+        fam = theme.UI_FAMILY
+        win = ctk.CTkToplevel(self)
+        win.title("Language  /  語言  /  语言")
+        win.resizable(False, False)
+        try:
+            win.attributes('-topmost', True)
+        except Exception:
+            pass
+
+        ctk.CTkLabel(
+            win, text="Choose your language\n選擇您的語言\n选择您的语言",
+            font=(fam, 16, 'bold'), justify='center').pack(padx=36, pady=(26, 18))
+
+        def pick(code):
+            result['lang'] = code
+            try:
+                win.grab_release()
+            except Exception:
+                pass
+            win.destroy()
+
+        for code, label in (('en', 'English'),
+                            ('zh-tw', '繁體中文'),
+                            ('zh-cn', '简体中文')):
+            ctk.CTkButton(win, text=label, width=240, height=46,
+                          font=(fam, 15),
+                          command=lambda c=code: pick(c)).pack(padx=36, pady=6)
+        ctk.CTkLabel(win, text="", height=6).pack()
+        win.protocol("WM_DELETE_WINDOW", lambda: pick('en'))
+
+        # Center on screen. CTk multiplies geometry by the widget-scaling factor,
+        # so compute in *logical* units: divide the physical screen size by the
+        # scale before centering (mirrors _show_example_win's handling).
+        win.update_idletasks()
+        sc = getattr(self, '_ui_scale', 1.0) or 1.0
+        w, h = 340, 330
+        sw = win.winfo_screenwidth() / sc
+        sh = win.winfo_screenheight() / sc
+        win.geometry(f"{w}x{h}+{int((sw - w) / 2)}+{int((sh - h) / 2)}")
+        try:
+            win.grab_set()       # modal
+            win.focus_force()
+        except Exception:
+            pass
+        self.wait_window(win)
+        return result['lang']
+
     def _on_lang_change(self, val: str):
         if self._restarting:
             return   # already restarting, ignore
@@ -1934,6 +2061,22 @@ class MainWindow(ctk.CTk):
             self._lang_menu.configure(state="disabled")
         self._cfg["lang"] = new_lang
         self._lang = new_lang
+        save(self._cfg)
+        self._restart_app()
+
+    def _on_game_lang_change(self, val: str):
+        """Change which game-menu template set is used. Restarts the app so the
+        Setup panels rebuild against the new language's template folders (the
+        automation itself reads the value fresh at each run regardless)."""
+        if self._restarting:
+            return
+        new = self._glang_opts.get(val, 'auto')
+        if new == self._cfg.get('template_lang', 'auto'):
+            return
+        self._restarting = True
+        if hasattr(self, '_glang_menu'):
+            self._glang_menu.configure(state="disabled")
+        self._cfg['template_lang'] = new
         save(self._cfg)
         self._restart_app()
 
