@@ -184,14 +184,14 @@ STRINGS = {
         "zh-cn": "发现新版本：{tag}",
     },
     "update_prompt": {
-        "en":    "Would you like to download and install it now?",
-        "zh-tw": "是否立即下載並安裝？",
-        "zh-cn": "是否立即下载并安装？",
+        "en":    "Open the download page to get the latest version?",
+        "zh-tw": "是否開啟下載頁面取得最新版本？",
+        "zh-cn": "是否打开下载页面获取最新版本？",
     },
     "update_yes": {
-        "en":    "Update Now",
-        "zh-tw": "立即更新",
-        "zh-cn": "立即更新",
+        "en":    "Open download page",
+        "zh-tw": "開啟下載頁面",
+        "zh-cn": "打开下载页面",
     },
     "update_no": {
         "en":    "Later",

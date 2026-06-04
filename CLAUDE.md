@@ -21,7 +21,7 @@ New APP/
 ├── app_lang.py           # All UI strings in zh-tw / zh-cn / en
 ├── config.py             # Config load/save, path helpers
 ├── updater.py            # GitHub release auto-updater
-├── version.py            # VERSION = "1.4.0"
+├── version.py            # VERSION = "1.4.1"
 ├── build_app.bat         # PyInstaller build script
 ├── FAFE_icon.ico         # App icon (exe icon + runtime window/taskbar icon)
 ├── assets/               # Support panel images: support_jkopay.png, discord_logo.png, paypal_logo.png (see assets/README.txt)
@@ -135,13 +135,13 @@ New APP/
 - `report.generate_report` writes `reports/FAFE_report_<ts>/` with: **`screenshot.png`** (current monitor via `grab_frame`, written with `cv2.imencode`+file-write so non-ASCII/CJK paths work — *not* `cv2.imwrite`), **`log.txt`** (version + `platform` env + full config dump + all tab logs), **`dxdiag.txt`** (`dxdiag /t` with `CREATE_NO_WINDOW`, 120s timeout, basic `platform` fallback if it fails), then zips the folder → `FAFE_report_<ts>.zip` and opens the folder via `os.startfile`. Status/log messages are localized (`report_generating`/`report_specs`/`report_saved`). After saving, a localized **privacy notice** (`report_privacy`) is logged and a matching header line is written into `log.txt`, so the user knows the bundle contains their settings + system info (DxDiag includes username/hardware) before sharing. Reports save under `config.BASE_DIR/reports/` (gitignored; updater won't touch it).
 - **🐞 Report a Bug button → inline tutorial, NOT a direct capture.** The bottom-right overlay has a Report button (`_open_report_help`/`_close_report_help`/`_build_report_help_panel`, mirrors the support/settings inline pattern) that explains the F12 flow in 4 steps + a privacy note + a Discord button. It does **not** trigger capture itself: clicking a button foregrounds the FAFE window and (single-monitor) would screenshot FAFE instead of the game. The actual capture only happens via the **global hotkey**, pressed while the game is in focus. Step 2 shows the live `report_key` (`_at("report_help_step2", key=...)`).
 
-### Auto-updater (updater.py)
-- Checks GitHub API on startup (2s delay). `check_async(on_update_available, on_status)` — `on_status(msg)` reports the outcome (`checking…` / `up to date (latest vX)` / `update available` / `update check failed: <reason>`) so the check is never silent; `main_window._check_for_updates` logs it to the active tab log AND the persistent `fafe_diag.log`. `fetch_latest` records the failure reason in `updater._last_error`.
-- **HTTPS uses certifi's CA bundle** (`_SSL_CTX = ssl.create_default_context(cafile=certifi.where())`, passed to both the API check and the zip download). A frozen app's `ssl` falls back to the OS cert store, which on some Windows installs (notably handhelds whose root-cert store was never populated) lacks the issuer cert → `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate` (a real Xbox/ROG Ally bug report). certifi ships the Mozilla bundle with the app so verification is device-independent. Build bundles it via `--collect-all certifi` + `--hidden-import certifi`.
-- **`fafe_diag.log`** (`MainWindow._diag`/`_diag_init`, written to `config.BASE_DIR`): persistent diagnostics file (truncated each launch) capturing version/env, monitor enumeration, overlay create/show state (`mapped`/`viewable`/requested-pos vs actual bounds/exceptions), and updater outcome. Survives the bounded/trimmed UI log and works in `--windowed` (no stderr) — the tool that diagnosed the Ally overlay + SSL issues.
-- Downloads full zip, extracts to temp, bat replaces FAFE.exe + _internal/ + preset templates (1080p / 1440p / 2160p folders for both race and mastery_full, plus `templates/examples/`). Leaves `config.json` and `templates/.../custom/` folders untouched so user customisations persist across updates.
-- Bat uses a retry loop on `copy /y` and gates `robocopy /PURGE` on _internal behind copy success — a locked FAFE.exe falls through to a `:fail` branch that relaunches the existing install instead of bricking it
-- Template robocopy failures are non-fatal — the app is already updated before they run, so a missing/locked preset folder doesn't trigger the fail branch
+### Update check (updater.py) — CHECK-ONLY, no download/install
+- **FAFE does NOT download or install updates itself.** It only does a read-only **version check** against the GitHub API; if a newer release exists, the UI shows a notice and a button that **opens the releases page in the browser** (`webbrowser.open(RELEASES_PAGE)` — a browser handoff, NOT the exe downloading). **Why removed**: (1) the old self-updater (download zip → write a `.bat` → `subprocess` it → overwrite FAFE.exe + relaunch) was the single biggest **antivirus false-positive trigger** — Windows Defender began quarantining FAFE on users' machines (`病毒或潛在的垃圾軟體`); (2) **Nexus Mods prohibits** bundled executables that download/send files over the internet ("auto-update is not crucial"). Removing it fixes both. `updater.py` no longer imports `subprocess`/`zipfile`/`tempfile`.
+- `check_async(on_update_available, on_status)` runs the check in a daemon thread; `on_status(msg)` reports the outcome (`checking…` / `up to date (latest vX)` / `update available` / `update check failed: <reason>`) to the active tab log + persistent `fafe_diag.log`. `fetch_latest` returns `(tag, RELEASES_PAGE)` and records failures in `updater._last_error`.
+- **`update_check` config (default true)** gates the check. The check is still an outbound HTTPS request, which Nexus's policy technically also covers, so a **fully offline / Nexus-strict build sets `update_check=false`** (zero network — the exe makes no requests at all; users update manually from the page).
+- **HTTPS uses certifi's CA bundle** (`_SSL_CTX = ssl.create_default_context(cafile=certifi.where())`) so the check works on Windows installs whose OS root-cert store is incomplete (e.g. handhelds) — otherwise `CERTIFICATE_VERIFY_FAILED`. Bundled via `--collect-all certifi` + `--hidden-import certifi`.
+- **`fafe_diag.log`** (`MainWindow._diag`/`_diag_init`, written to `config.BASE_DIR`): persistent diagnostics file (truncated each launch) capturing version/env, monitor enumeration, overlay create/show state, and the update-check outcome. Survives the bounded/trimmed UI log and works in `--windowed` (no stderr).
+- **Distribution note**: because the app no longer self-updates, each release must be downloaded manually (GitHub releases page / Nexus). The detector/templates ship in the zip as before.
 
 ## Key Design Decisions
 - All UI strings go through `_at(key, lang, **kwargs)` in app_lang.py — never hardcode UI text
@@ -156,7 +156,7 @@ New APP/
 ## GitHub
 - Repo: https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition
 - Pages: https://leoncrispybacon.github.io/FAFE
-- Latest release: v1.4.0
+- Latest release: v1.4.1
 
 ## Build
 Run `build_app.bat` — produces `FAFE_dist/` with `FAFE.exe`, `_internal/`, `config.json`.

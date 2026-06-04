@@ -179,6 +179,10 @@ DEFAULTS = {
     "nodes_aspect_fix":       True,
     "auto_english_ime":       True,
     "overlay_enabled":        False,
+    # Read-only version check on startup (no download — opens the releases page
+    # if a newer version exists). Set false for a fully offline build that makes
+    # zero network requests (e.g. to satisfy Nexus's no-internet policy).
+    "update_check":           True,
 }
 
 

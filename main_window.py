@@ -16,7 +16,7 @@ from config import (load, save, resolve_template_lang,
                     get_race_templates, get_mastery_templates, get_nodes_file)
 from log_widget import LogWidget
 from setup_panel import SetupPanel
-from updater import check_async, download_and_install
+from updater import check_async, RELEASES_PAGE
 from version import VERSION
 
 
@@ -184,6 +184,10 @@ class MainWindow(ctk.CTk):
     # ── Update check ──────────────────────────────────────────
 
     def _check_for_updates(self):
+        # The check is a read-only version ping (no download). It can be turned
+        # off entirely for a fully offline / Nexus-safe build via update_check.
+        if not self._cfg.get('update_check', True):
+            return
         def _on_found(tag, url):
             self.after(0, lambda: self._show_update_dialog(tag, url))
         def _on_status(msg):
@@ -224,36 +228,25 @@ class MainWindow(ctk.CTk):
             text_color=("gray40", "gray60")
         ).pack(pady=(0, 20))
 
-        # Progress bar (hidden until download starts)
-        prog = ctk.CTkProgressBar(dialog, width=340)
-        prog.set(0)
-
         btn_row = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_row.pack()
 
-        def _start_update():
-            yes_btn.configure(state="disabled")
-            no_btn.configure(state="disabled")
-            prog.pack(pady=(10, 0))
-
-            def _progress(pct):
-                self.after(0, lambda: prog.set(pct / 100))
-
-            def _done(success, err=""):
-                if not success:
-                    self.after(0, lambda: ctk.CTkLabel(
-                        dialog,
-                        text=f"Error: {err}",
-                        text_color="red"
-                    ).pack())
-
-            download_and_install(url, progress_cb=_progress, done_cb=_done)
+        def _open_page():
+            # Hand the download page to the default browser. The app itself does
+            # NOT download/install anything (Nexus-compliant + avoids the AV
+            # false-positives that the old self-updater caused).
+            try:
+                import webbrowser
+                webbrowser.open(url or RELEASES_PAGE)
+            except Exception:
+                pass
+            dialog.destroy()
 
         yes_btn = ctk.CTkButton(
             btn_row,
             text=_at("update_yes", lang),
-            command=_start_update,
-            width=120
+            command=_open_page,
+            width=160
         )
         yes_btn.pack(side="left", padx=8)
 
