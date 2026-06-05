@@ -67,6 +67,71 @@ def force_english_ime() -> bool:
         return False
 
 
+def get_foreground_window():
+    """Handle of the current foreground window (the game, while it's focused),
+    or None. Returned as an opaque int — only ever passed back to
+    focus_window()."""
+    try:
+        u32 = ctypes.windll.user32
+        u32.GetForegroundWindow.restype = ctypes.c_void_p
+        return u32.GetForegroundWindow()
+    except Exception:
+        return None
+
+
+def focus_window(hwnd) -> bool:
+    """Best-effort bring `hwnd` to the foreground.
+
+    Why this exists: injected input (SendInput) goes to whatever window has
+    focus. When the user stops a script with the FAFE *UI button*, focus moves
+    to FAFE — so a key release sent afterwards lands on FAFE and the GAME keeps
+    the key (e.g. W) held. Refocusing the game before the release fixes that. On
+    the hotkey/normal path the game is already foreground, so this is a no-op
+    (returns True immediately).
+
+    Works around Windows' foreground-lock by briefly AttachThreadInput-ing to
+    the current foreground thread. Best-effort and non-fatal."""
+    if not hwnd:
+        return False
+    try:
+        u32 = ctypes.windll.user32
+        k32 = ctypes.windll.kernel32
+        u32.GetForegroundWindow.restype = ctypes.c_void_p
+        u32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        u32.GetWindowThreadProcessId.restype = ctypes.c_ulong
+        u32.AttachThreadInput.argtypes = [ctypes.c_ulong, ctypes.c_ulong, ctypes.c_int]
+        u32.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+        u32.SetForegroundWindow.restype = ctypes.c_int
+        u32.BringWindowToTop.argtypes = [ctypes.c_void_p]
+        u32.IsIconic.argtypes = [ctypes.c_void_p]
+        u32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+        fg = u32.GetForegroundWindow()
+        if fg == hwnd:
+            return True   # already focused (hotkey / normal-detection path)
+        cur_tid = k32.GetCurrentThreadId()
+        fg_tid  = u32.GetWindowThreadProcessId(fg, None) if fg else 0
+        tgt_tid = u32.GetWindowThreadProcessId(hwnd, None)
+        attached_fg = attached_tgt = False
+        if fg_tid and fg_tid != cur_tid:
+            attached_fg = bool(u32.AttachThreadInput(cur_tid, fg_tid, True))
+        if tgt_tid and tgt_tid != cur_tid and tgt_tid != fg_tid:
+            attached_tgt = bool(u32.AttachThreadInput(cur_tid, tgt_tid, True))
+        try:
+            if u32.IsIconic(hwnd):
+                u32.ShowWindow(hwnd, 9)   # SW_RESTORE (only if minimized)
+            u32.BringWindowToTop(hwnd)
+            ok = bool(u32.SetForegroundWindow(hwnd))
+        finally:
+            if attached_fg:
+                u32.AttachThreadInput(cur_tid, fg_tid, False)
+            if attached_tgt:
+                u32.AttachThreadInput(cur_tid, tgt_tid, False)
+        return ok
+    except Exception:
+        return False
+
+
 # ── mss screen capture ───────────────────────────────────────
 
 # An mss instance is bound to the thread that created it, so we keep one

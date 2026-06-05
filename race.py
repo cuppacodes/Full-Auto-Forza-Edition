@@ -14,7 +14,8 @@ from ctypes import wintypes
 import config
 from config import get_race_templates, get_nodes_file
 from app_lang import t as _at
-from capture import grab_frame, load_template, get_monitor_dims, force_english_ime
+from capture import (grab_frame, load_template, get_monitor_dims,
+                     force_english_ime, get_foreground_window, focus_window)
 from detector import ScreenDetector
 
 
@@ -233,6 +234,21 @@ def run(cfg: dict, stop_event: threading.Event,
         force_english_ime()
         time.sleep(0.2)
     loop_count = 0
+    # Foreground (game) window captured while racing, so W can be released to
+    # the GAME even if the user stopped via the FAFE UI button (which moves
+    # focus to FAFE). See _release_w / capture.focus_window.
+    game_hwnd = None
+
+    def _release_w():
+        # Restore game focus first: if stopped via the FAFE UI button, focus is
+        # now on FAFE, so a keyup sent now would go to FAFE and the game would
+        # keep W held (stuck throttle). Refocusing the game (a no-op on the
+        # hotkey/detection path, where it's already foreground) makes the
+        # release reach the game on BOTH scancode and VK paths.
+        if game_hwnd:
+            focus_window(game_hwnd)
+        key_up('w')
+        _send_scancode('w', key_up=True)
 
     while not stop():
         loop_count += 1
@@ -253,6 +269,7 @@ def run(cfg: dict, stop_event: threading.Event,
         # the car coasts/slows. Re-pressing keeps it at full throttle whether the
         # game reads key STATE or keydown EVENTS. A single key_up at the end
         # releases it (auto-repeat is many keydowns + one keyup).
+        game_hwnd = get_foreground_window()   # game is focused while racing
         _hold = threading.Event(); _hold.set()
         def _hold_w():
             while _hold.is_set() and not stop():
@@ -264,7 +281,7 @@ def run(cfg: dict, stop_event: threading.Event,
         wait_for("Restart menu", templates["restart_menu"], "restart_menu")
         _hold.clear()
         _ht.join(timeout=0.3)
-        _send_scancode('w', key_up=True)
+        _release_w()
         if stop(): break
         log_cb(_at("log_released_w", lang))
 
@@ -274,6 +291,6 @@ def run(cfg: dict, stop_event: threading.Event,
         if stop(): break
         press(CONFIRM_KEY, "Confirm")
 
-    key_up('w'); _send_scancode('w', key_up=True)   # safety release (both paths)
+    _release_w()   # safety release (focus game first, both VK + scancode paths)
     log_cb(_at("log_race_stopped", cfg.get("lang","en")))
     status_cb(_at("status_stopped", lang))
