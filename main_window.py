@@ -1245,38 +1245,48 @@ class MainWindow(ctk.CTk):
     def _set_status(self, msg: str):
         self.after(0, lambda: self._status_var.set(f"  {msg}"))
 
-    def _key_is_down(self, keyname: str) -> bool:
-        """True if `keyname` is physically down right now (GetAsyncKeyState).
+    @staticmethod
+    def _vk_for_keyname(keyname: str):
+        """Resolve a key name (e.g. 'f9', 'enter', 'a') to its Windows
+        virtual-key code, or None if it can't be resolved."""
+        name = (keyname or '').strip().lower()
+        if name.startswith('f') and name[1:].isdigit():
+            n = int(name[1:])
+            if 1 <= n <= 24:
+                return 0x70 + (n - 1)            # VK_F1..VK_F24
+        if len(name) == 1:
+            return ord(name.upper())             # letters / digits
+        return {'enter': 0x0D, 'return': 0x0D, 'escape': 0x1B, 'esc': 0x1B,
+                'space': 0x20, 'tab': 0x09}.get(name)
 
-        Used to reject SPURIOUS hotkey callbacks: while the race holds W (~33
-        injected keydowns/sec), the `keyboard` library's global hook can mis-fire
-        and invoke the WRONG handler — e.g. dispatch the F12 bug-report when F9
-        was the key actually pressed. Verifying the handler's own key is down
-        filters those cross-fires out. Fails OPEN (returns True) for unresolved
-        keys/errors so a genuine press is never blocked by a resolver gap."""
+    def _is_stopkey_crossfire(self) -> bool:
+        """True if THIS hotkey callback is almost certainly a cross-fire from the
+        stop/toggle key, not a genuine press of its own key.
+
+        Why: while the race holds W (~33 injected keydowns/sec), the `keyboard`
+        library's global hook can mis-dispatch the F9 STOP press to the wrong
+        handler — e.g. fire the F12 bug-report when F9 was the key actually
+        pressed. The reliable tell is that the stop/toggle key is physically DOWN
+        at that instant, so we check THAT — NOT "is my own key still down". The
+        old self-check was racy: the hotkey callback runs just after the key
+        event, so a normal quick F12 tap is already released by the time we'd
+        check, and it wrongly rejected genuine presses (F12 did nothing at all).
+
+        Fails CLOSED (returns False = not a cross-fire) on any error / unresolved
+        toggle key, so a genuine press is NEVER blocked by a resolver gap."""
         try:
             import ctypes
-            name = (keyname or '').strip().lower()
-            vk = None
-            if name.startswith('f') and name[1:].isdigit():
-                n = int(name[1:])
-                if 1 <= n <= 24:
-                    vk = 0x70 + (n - 1)          # VK_F1..VK_F24
-            elif len(name) == 1:
-                vk = ord(name.upper())
-            else:
-                vk = {'enter': 0x0D, 'return': 0x0D, 'escape': 0x1B,
-                      'esc': 0x1B, 'space': 0x20, 'tab': 0x09}.get(name)
+            vk = self._vk_for_keyname(self._toggle_key)
             if vk is None:
-                return True
+                return False
             return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
         except Exception:
-            return True
+            return False
 
     def _trigger_report(self):
         """Hotkey handler: build a bug-report bundle in the background."""
-        if not self._key_is_down(self._report_key):
-            return   # spurious cross-fire (e.g. F9 during the race W-hold flood)
+        if self._is_stopkey_crossfire():
+            return   # F9 stop mis-dispatched here during the race W-hold flood
         if getattr(self, '_report_in_progress', False):
             return
         self._report_in_progress = True
@@ -1351,8 +1361,8 @@ class MainWindow(ctk.CTk):
     def _toggle_overlay(self):
         """Overlay-toggle hotkey (default F10). Runs on the keyboard thread, so
         marshal the actual state change onto the main thread."""
-        if not self._key_is_down(self._overlay_key):
-            return   # spurious cross-fire during the race W-hold flood
+        if self._is_stopkey_crossfire():
+            return   # F9 stop mis-dispatched here during the race W-hold flood
         new = not self._cfg.get('overlay_enabled', False)
         self.after(0, lambda: self._set_overlay_enabled(new))
 
