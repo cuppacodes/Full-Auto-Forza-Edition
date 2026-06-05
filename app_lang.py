@@ -793,9 +793,9 @@ STRINGS = {
         "zh-cn": "  {label} 于 {t} 秒后超时",
     },
     "log_warn_not_detected": {
-        "en":    "⚠ WARNING: '{label}' not detected after 10s. If not detecting, try dragging the threshold slider to the left. You may also need to recapture this template.",
-        "zh-tw": "⚠ 警告：'{label}' 超過 10 秒未偵測到。若持續無法偵測，請將閾值滑桿向左拖動。也可以嘗試重新擷取此樣本。",
-        "zh-cn": "⚠ 警告：'{label}' 超过 10 秒未检测到。若持续无法检测,请将阈值滑块向左拖动。也可以尝试重新截取此模板。",
+        "en":    "⚠ WARNING: '{label}' not detected after 10s. If not detecting, try dragging the threshold slider to the left. You may also need to recapture this template. If the game ignores all input (car won't move / clicks do nothing), run FAFE as administrator.",
+        "zh-tw": "⚠ 警告：'{label}' 超過 10 秒未偵測到。若持續無法偵測，請將閾值滑桿向左拖動。也可以嘗試重新擷取此樣本。若遊戲完全不接受輸入（車子不動／點擊無效），請以系統管理員身分執行 FAFE。",
+        "zh-cn": "⚠ 警告：'{label}' 超过 10 秒未检测到。若持续无法检测,请将阈值滑块向左拖动。也可以尝试重新截取此模板。若游戏完全不接受输入（车子不动／点击无效），请以管理员身份运行 FAFE。",
     },
     "log_timed_out_retry": {
         "en":    "  Timed out — retrying.",
