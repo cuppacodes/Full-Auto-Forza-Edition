@@ -21,7 +21,7 @@ New APP/
 ├── app_lang.py           # All UI strings in zh-tw / zh-cn / en
 ├── config.py             # Config load/save, path helpers
 ├── updater.py            # GitHub release auto-updater
-├── version.py            # VERSION = "1.4.1"
+├── version.py            # VERSION = "1.4.2"
 ├── build_app.bat         # PyInstaller build script
 ├── FAFE_icon.ico         # App icon (exe icon + runtime window/taskbar icon)
 ├── assets/               # Support panel images: support_jkopay.png, discord_logo.png, paypal_logo.png (see assets/README.txt)
@@ -158,7 +158,7 @@ New APP/
 ## GitHub
 - Repo: https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition
 - Pages: https://leoncrispybacon.github.io/FAFE
-- Latest release: v1.4.1
+- Latest release: v1.4.2
 
 ## Build
 Run `build_app.bat` — produces `FAFE_dist/` with `FAFE.exe`, `_internal/`, `config.json`.
