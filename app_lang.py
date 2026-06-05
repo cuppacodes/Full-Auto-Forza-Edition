@@ -540,6 +540,11 @@ STRINGS = {
         "zh-tw": "浮層切換鍵",
         "zh-cn": "浮层切换键",
     },
+    "report_started": {
+        "en":    "🐞 Bug report started — capturing screenshot, logs & system info...",
+        "zh-tw": "🐞 已開始產生錯誤回報 — 擷取截圖、日誌與系統資訊中…",
+        "zh-cn": "🐞 已开始生成错误回报 — 截取截图、日志与系统信息中…",
+    },
     "report_generating": {
         "en":    "Generating bug report — capturing screenshot & log...",
         "zh-tw": "正在產生錯誤回報 — 擷取截圖與日誌中…",
@@ -551,9 +556,9 @@ STRINGS = {
         "zh-cn": "正在收集系统信息（DxDiag，约需 30 秒）…",
     },
     "report_saved": {
-        "en":    "Bug report saved: {path}",
-        "zh-tw": "錯誤回報已儲存：{path}",
-        "zh-cn": "错误回报已保存：{path}",
+        "en":    "✅ Bug report complete — saved to: {path}",
+        "zh-tw": "✅ 錯誤回報已完成 — 儲存於：{path}",
+        "zh-cn": "✅ 错误回报已完成 — 保存于：{path}",
     },
     "report_privacy": {
         "en":    "Note: this bundle includes your settings and system info (DxDiag — includes your Windows username & hardware). Fine to share for support; review before posting publicly.",

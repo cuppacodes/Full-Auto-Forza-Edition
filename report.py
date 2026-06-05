@@ -48,6 +48,9 @@ def generate_report(cfg: dict, monitor_index: int, logs: dict,
     reports = os.path.join(config.BASE_DIR, "reports")
     rdir = os.path.join(reports, f"FAFE_report_{ts}")
     os.makedirs(rdir, exist_ok=True)
+    # Surface the whole process in the LOG (not just the status bar) so the user
+    # sees it start, knows why it pauses on DxDiag, and gets the final path.
+    log(_at("report_started", lang))
     status(_at("report_generating", lang))
 
     # 1) Game screenshot (the configured monitor). mask_overlay=False so the
@@ -84,6 +87,7 @@ def generate_report(cfg: dict, monitor_index: int, logs: dict,
         log(f"report: log.txt failed: {e!r}")
 
     # 3) System info via DxDiag (slow; basic platform info as fallback)
+    log(_at("report_specs", lang))   # ~30s — log it so the pause is explained
     status(_at("report_specs", lang))
     dx = os.path.join(rdir, "dxdiag.txt")
     try:
