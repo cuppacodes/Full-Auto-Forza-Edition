@@ -203,7 +203,10 @@ def run(cfg: dict, stop_event: threading.Event,
     def stop():
         return stop_event.is_set()
 
-    def wait_for(label, template, key, timeout=float('inf')):
+    def wait_for(label, template, key, timeout=float('inf'), warn=True):
+        # warn=False suppresses the 10s "not detected" red warning for steps
+        # where a long wait is NORMAL (e.g. the ESC hint / My Cars screen can
+        # legitimately take a while to appear). Detection still continues.
         status_cb(_at("status_waiting_for", lang, label=label))
         def _warn(best):
             msg = _at("log_warn_not_detected", lang, label=label)
@@ -218,7 +221,7 @@ def run(cfg: dict, stop_event: threading.Event,
             stop_cb=stop,
             interval=check_iv,
             timeout=timeout,
-            on_warn=_warn,
+            on_warn=_warn if warn else None,
         )
         if result.matched:
             log_cb(_at("log_detected", lang, label=label,
@@ -301,7 +304,8 @@ def run(cfg: dict, stop_event: threading.Event,
         _mouse_click(loc[0], loc[1], mon_left, mon_top, post_cw)
 
         # ── Cutscene ──────────────────────────────────────────
-        ok = wait_for("ESC hint", templates["mastery_esc_hint"], "mastery_esc_hint")
+        ok = wait_for("ESC hint", templates["mastery_esc_hint"], "mastery_esc_hint",
+                      warn=False)
         if stop(): break
         if not ok:
             log_cb(_at("log_cutscene_continuing", lang))
@@ -339,7 +343,8 @@ def run(cfg: dict, stop_event: threading.Event,
         _key_press('esc', post_wait=1.0)
         _key_press('esc', post_wait=1.0)
 
-        wait_for("My Cars", templates["mastery_my_cars"], "mastery_my_cars")
+        wait_for("My Cars", templates["mastery_my_cars"], "mastery_my_cars",
+                 warn=False)
         if stop(): break
         click_template("My Cars", templates["mastery_my_cars"], "mastery_my_cars")
         time.sleep(0.8)

@@ -201,7 +201,11 @@ def run(cfg: dict, stop_event: threading.Event,
                 pass
         return False
 
-    def wait_for(label, template, key, timeout=float('inf')):
+    def wait_for(label, template, key, timeout=float('inf'), warn=True):
+        # warn=False suppresses the 10s "not detected" red warning for steps
+        # where a long wait is NORMAL — e.g. waiting for the Restart menu, which
+        # only appears once the whole race finishes (far more than 10s).
+        # Detection still continues; only the noisy warning is silenced.
         status_cb(_at("status_waiting_for", lang, label=label))
         def _warn(best):
             msg = _at("log_warn_not_detected", lang, label=label)
@@ -216,7 +220,7 @@ def run(cfg: dict, stop_event: threading.Event,
             stop_cb=stop,
             interval=check_iv,
             timeout=timeout,
-            on_warn=_warn,
+            on_warn=_warn if warn else None,
         )
         if result.matched:
             log_cb(_at("log_detected", lang, label=label,
@@ -282,7 +286,8 @@ def run(cfg: dict, stop_event: threading.Event,
         _ht = threading.Thread(target=_hold_w, daemon=True)
         _ht.start()
 
-        wait_for("Restart menu", templates["restart_menu"], "restart_menu")
+        wait_for("Restart menu", templates["restart_menu"], "restart_menu",
+                 warn=False)
         _hold.clear()
         _ht.join(timeout=0.3)
         _release_w()
