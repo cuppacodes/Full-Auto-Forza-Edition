@@ -132,13 +132,15 @@ TEMPLATE_KEYS = ["start_menu", "racing", "restart_menu", "confirm"]
 
 
 def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb, warn_cb=None, section_cb=None):
+        log_cb, status_cb, max_loops: int = 0,
+        warn_cb=None, section_cb=None):
     """
     Main race automation loop.
     cfg: config dict
     stop_event: set this to stop
     log_cb(msg): append a line to the log
     status_cb(msg): update the status bar
+    max_loops: stop after this many completed races (0 = unlimited)
     section_cb(msg): start a new (bounded) log section; falls back to log_cb
     """
     section = section_cb or log_cb
@@ -227,6 +229,8 @@ def run(cfg: dict, stop_event: threading.Event,
         key_press(key, post_wait=post_kw)
 
     log_cb(_at("log_race_started", cfg.get("lang","en")))
+    if max_loops > 0:
+        log_cb(_at("log_race_started_count", lang, n=max_loops))
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable entirely with auto_english_ime=false
     # for users who manage their IME themselves.
@@ -284,6 +288,13 @@ def run(cfg: dict, stop_event: threading.Event,
         _release_w()
         if stop(): break
         log_cb(_at("log_released_w", lang))
+
+        # One full race completed. Stop here (on the results/restart screen)
+        # when the requested number of races is reached, rather than kicking
+        # off another race we'd immediately abandon.
+        if max_loops > 0 and loop_count >= max_loops:
+            log_cb(_at("log_race_limit_reached", lang, n=max_loops))
+            break
 
         press(RESTART_KEY, "Restart Race")
 

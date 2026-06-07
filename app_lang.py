@@ -151,6 +151,11 @@ STRINGS = {
         "zh-tw": "要處理的車輛數量：",
         "zh-cn": "要处理的车辆数量：",
     },
+    "race_count_label": {
+        "en":    "Number of races to run:",
+        "zh-tw": "要跑的場數：",
+        "zh-cn": "要跑的场数：",
+    },
     "log_mastery_started_count": {
         "en":    "Auto Mastery started — will process {n} cars.",
         "zh-tw": "自動熟練度已啟動 — 將處理 {n} 輛車。",
@@ -160,6 +165,16 @@ STRINGS = {
         "en":    "Reached target of {n} cars. Stopping.",
         "zh-tw": "已完成目標 {n} 輛，自動停止。",
         "zh-cn": "已完成目标 {n} 辆，自动停止。",
+    },
+    "log_race_started_count": {
+        "en":    "Race Auto started — will run {n} races.",
+        "zh-tw": "自動跑圖已啟動 — 將跑 {n} 場。",
+        "zh-cn": "自动跑图已启动 — 将跑 {n} 场。",
+    },
+    "log_race_limit_reached": {
+        "en":    "Reached target of {n} races. Stopping.",
+        "zh-tw": "已完成目標 {n} 場，自動停止。",
+        "zh-cn": "已完成目标 {n} 场，自动停止。",
     },
     "log_delete_stopped": {
         "en":    "Auto Delete stopped.",

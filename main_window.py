@@ -549,6 +549,18 @@ class MainWindow(ctk.CTk):
         )
         self._race_setup.pack(fill="x", padx=8, pady=(4, 8))
 
+        # Race count row (0 = unlimited)
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(4, 0))
+        ctk.CTkLabel(count_row, text=_at("race_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._race_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._race_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+        ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
+
         # Run controls
         self._build_run_controls(frame, mode="race")
 
@@ -884,8 +896,13 @@ class MainWindow(ctk.CTk):
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
                 log_cb(_at('startup_running', lang))
+                try:
+                    max_loops = int(self._race_count_var.get())
+                except ValueError:
+                    max_loops = 0
                 race_run(cfg, self._stop_event,
                          self._race_log.log, self._set_status,
+                         max_loops=max_loops,
                          warn_cb=self._race_log.log_warning,
                          section_cb=self._race_log.log_section)
             except Exception as e:
