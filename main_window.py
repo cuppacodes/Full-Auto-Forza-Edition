@@ -646,6 +646,25 @@ class MainWindow(ctk.CTk):
                      font=("Arial", 11),
                      text_color=("gray40", "gray60")).pack(side="left")
 
+        # Keys-mode testing aid: start the first car from a given step. Only
+        # shown in Keyboard mode (toggled in _on_mastery_mode_change).
+        self._mkeys_step_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        ctk.CTkLabel(self._mkeys_step_frame,
+                     text=_at("mastery_keys_step_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._mkeys_step_var = ctk.StringVar(
+            value=str(self._cfg.get("mastery_keys_start_step", 1)))
+        ctk.CTkEntry(self._mkeys_step_frame, textvariable=self._mkeys_step_var,
+                     width=60, justify="center").pack(side="left", padx=8)
+        self._mkeys_step_var.trace_add("write", self._on_mkeys_step_change)
+        ctk.CTkLabel(self._mkeys_step_frame,
+                     text=_at("mastery_keys_step_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=("gray40", "gray60")).pack(side="left")
+        # Show it now only if keys mode is the saved mode.
+        if str(self._cfg.get("mastery_mode", "detect")).lower() == "keys":
+            self._mkeys_step_frame.pack(fill="x", padx=12, pady=(8, 0))
+
         # Run controls
         self._build_run_controls(frame, mode="mastery")
 
@@ -752,6 +771,11 @@ class MainWindow(ctk.CTk):
     def _build_run_controls(self, parent, mode: str):
         row = ctk.CTkFrame(parent, fg_color="transparent")
         row.pack(fill="x", padx=8, pady=(4, 0))
+        # Remember the row so other widgets can pack relative to it (e.g. the
+        # mastery keys-mode step field, shown/hidden above the run controls).
+        if not hasattr(self, "_runctl_rows"):
+            self._runctl_rows = {}
+        self._runctl_rows[mode] = row
 
         if mode == "race":
             self._race_start_btn = ctk.CTkButton(
@@ -2005,9 +2029,22 @@ class MainWindow(ctk.CTk):
             tpl_lang=self._tpl_lang,
         )
 
+    def _on_mkeys_step_change(self, *_):
+        """Persist the keys-mode testing step. run_keys reads it fresh from
+        config.json on each Start, so no restart is needed."""
+        raw = self._mkeys_step_var.get().strip()
+        if not raw:
+            return   # mid-edit (empty field) — don't clobber/crash
+        try:
+            self._cfg["mastery_keys_start_step"] = max(1, int(raw))
+            save(self._cfg)
+        except ValueError:
+            pass     # non-numeric mid-edit — ignore until valid
+
     def _on_mastery_mode_change(self, val: str):
         rev = {v: k for k, v in self._mastery_mode_labels.items()}
-        self._cfg["mastery_mode"] = rev.get(val, "detect")
+        mode = rev.get(val, "detect")
+        self._cfg["mastery_mode"] = mode
         save(self._cfg)
         # Rebuild the Setup panel in place so its contents match the new mode.
         old = self._mastery_setup
@@ -2015,6 +2052,15 @@ class MainWindow(ctk.CTk):
         new.pack(fill="x", padx=8, pady=(4, 8), before=old)
         old.destroy()
         self._mastery_setup = new
+        # Show the keys-mode step field only in keys mode, positioned just
+        # above the run controls.
+        if hasattr(self, "_mkeys_step_frame"):
+            if mode == "keys":
+                self._mkeys_step_frame.pack(
+                    fill="x", padx=12, pady=(8, 0),
+                    before=self._runctl_rows.get("mastery"))
+            else:
+                self._mkeys_step_frame.pack_forget()
         self._apply_ui_fonts()   # re-lock CJK-capable fonts on the new widgets
 
     def _on_theme_change(self, val: str):
