@@ -150,11 +150,9 @@ DEFAULTS = {
     "template_lang":      "auto",
     # Race settings
     "race_threshold":    0.60,
-    # Per-template thresholds
-    "thresh_start_menu":           0.60,
-    "thresh_racing":               0.60,
+    # Per-template thresholds. Race Auto is a single-detection flow, so only
+    # thresh_restart_menu is used (start_menu/racing/confirm are blind timing).
     "thresh_restart_menu":         0.60,
-    "thresh_confirm":              0.60,
     "thresh_mastery_ride_car":     0.60,
     "thresh_mastery_esc_hint":     0.60,
     "thresh_mastery_upgrade_item": 0.60,
@@ -164,6 +162,9 @@ DEFAULTS = {
     "thresh_mastery_sort_recent":  0.60,
     "race_check_interval":    0.5,
     "race_post_key_wait":     0.75,
+    # Fixed wait (s) for the race to reload before pressing Start each loop
+    # (skipped on the first loop). Settings slider; step 1 of the race flow.
+    "race_reload_wait":       5.0,
     # Mastery settings
     "mastery_threshold":      0.85,
     "mastery_post_click_wait":0.8,

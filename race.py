@@ -128,7 +128,15 @@ def _capture_frame(monitor_index):
 
 # ── Main runner ───────────────────────────────────────────────
 
-TEMPLATE_KEYS = ["start_menu", "racing", "restart_menu", "confirm"]
+# Single-detection flow: only the race-END screen (restart_menu) is detected.
+# Start / racing / confirm are blind timing, so restart_menu is the ONLY
+# template this mode loads or needs captured.
+TEMPLATE_KEYS = ["restart_menu"]
+
+# Fixed step waits (seconds). The race-reload wait (step 1) is a Setting
+# (race_reload_wait); these two are fixed constants.
+_PRE_W_WAIT   = 4.0    # step 3: after pressing Enter, wait before holding W
+_CONFIRM_WAIT = 1.25   # step 6: after pressing X, wait before Enter (confirm)
 
 
 def run(cfg: dict, stop_event: threading.Event,
@@ -153,6 +161,7 @@ def run(cfg: dict, stop_event: threading.Event,
 
     check_iv      = cfg.get("race_check_interval", 0.5)
     post_kw       = cfg.get("race_post_key_wait", 0.75)
+    reload_wait   = cfg.get("race_reload_wait", 5.0)   # step 1 (Settings)
 
     START_RACE_KEY = 'enter'
     RESTART_KEY    = 'x'
@@ -232,6 +241,20 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_pressing", lang, key=key.upper(), label=label))
         key_press(key, post_wait=post_kw)
 
+    def wait(seconds):
+        """Stop-aware sleep so F9/Stop isn't blocked by the fixed timing waits."""
+        end = time.time() + seconds
+        while time.time() < end:
+            if stop():
+                return
+            time.sleep(0.1)
+
+    def announce(msg):
+        """Log a step AND reflect it in the status bar / overlay (the fixed
+        waits have no detection to drive status, so set it explicitly)."""
+        log_cb(msg)
+        status_cb(msg)
+
     log_cb(_at("log_race_started", cfg.get("lang","en")))
     if max_loops > 0:
         log_cb(_at("log_race_started_count", lang, n=max_loops))
@@ -262,11 +285,20 @@ def run(cfg: dict, stop_event: threading.Event,
         loop_count += 1
         section(f"-- {_at('log_loop', lang)} #{loop_count} --")
 
-        wait_for("Start Race menu", templates["start_menu"], "start_menu")
-        if stop(): break
-        press(START_RACE_KEY, "Start Race")
+        # ── 1. Wait for the race to reload (skip on the first loop — the user
+        #       starts already on the Start Race screen) ──────────────────
+        if loop_count > 1:
+            announce(_at("log_race_reload_wait", lang))
+            wait(reload_wait)
+            if stop(): break
 
-        wait_for("Race HUD", templates["racing"], "racing")
+        # ── 2. Press Enter to start the race ──────────────────────────
+        press(START_RACE_KEY, "Start Race")
+        if stop(): break
+
+        # ── 3. Wait for the race to begin, then hold W ────────────────
+        announce(_at("log_race_wait_start", lang))
+        wait(_PRE_W_WAIT)
         if stop(): break
 
         log_cb(_at("log_holding_w", lang))
@@ -286,6 +318,9 @@ def run(cfg: dict, stop_event: threading.Event,
         _ht = threading.Thread(target=_hold_w, daemon=True)
         _ht.start()
 
+        # ── 4. Hold W until the Restart menu appears (ONLY detection) ─
+        # The race lasts minutes, so the "not detected" warning is suppressed
+        # (warn=False) — a long wait here is normal, not a detection problem.
         wait_for("Restart menu", templates["restart_menu"], "restart_menu",
                  warn=False)
         _hold.clear()
@@ -301,9 +336,11 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_race_limit_reached", lang, n=max_loops))
             break
 
+        # ── 5. Release W (done above), press X to restart ─────────────
         press(RESTART_KEY, "Restart Race")
 
-        wait_for("Confirmation", templates["confirm"], "confirm")
+        # ── 6. Wait, then press Enter to confirm the restart ──────────
+        wait(_CONFIRM_WAIT)
         if stop(): break
         press(CONFIRM_KEY, "Confirm")
 

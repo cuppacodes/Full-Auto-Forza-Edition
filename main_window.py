@@ -22,11 +22,11 @@ from version import VERSION
 
 # ── Race template definitions ─────────────────────────────────
 # Template label keys looked up via app_lang at runtime
+# Race Auto is a single-detection flow: only the race-END screen (restart_menu)
+# is detected; start/racing/confirm are blind timing. So only restart_menu needs
+# capturing — hence the one-row Setup panel + the single threshold slider.
 RACE_TEMPLATE_KEYS = [
-    ("start_menu",   "race_tpl_start_menu"),
-    ("racing",       "race_tpl_racing"),
     ("restart_menu", "race_tpl_restart_menu"),
-    ("confirm",      "race_tpl_confirm"),
 ]
 
 MASTERY_TEMPLATE_KEYS_MAP = [
@@ -1954,6 +1954,7 @@ class MainWindow(ctk.CTk):
             fields=[
                 (_at('setting_race_check_interval', self._lang), 'race_check_interval', 0.1, 2.0, 0.1, 'tip_race_check_interval'),
                 (_at('setting_race_post_key_wait',  self._lang), 'race_post_key_wait',  0.75, 3.0, 0.05, 'tip_race_post_key_wait'),
+                (_at('setting_race_reload_wait',    self._lang), 'race_reload_wait',    0.0, 15.0, 0.5, 'tip_race_reload_wait'),
             ])
 
         # ── Mastery settings ──────────────────────────────
