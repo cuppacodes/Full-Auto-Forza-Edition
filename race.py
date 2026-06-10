@@ -128,13 +128,13 @@ def _capture_frame(monitor_index):
 
 # ── Main runner ───────────────────────────────────────────────
 
-# Single-detection flow: only the race-END screen (restart_menu) is detected.
-# Start / racing / confirm are blind timing, so restart_menu is the ONLY
-# template this mode loads or needs captured.
-TEMPLATE_KEYS = ["restart_menu"]
+# Two detections: the Start Race screen (start_menu) and the race-END screen
+# (restart_menu). start_menu is detected — NOT timed — because the load time
+# between finishing a race and the next Start Race screen varies. racing /
+# confirm remain blind timing.
+TEMPLATE_KEYS = ["start_menu", "restart_menu"]
 
-# Fixed step waits (seconds). The race-reload wait (step 1) is a Setting
-# (race_reload_wait); these two are fixed constants.
+# Fixed step waits (seconds) for the timed steps.
 _PRE_W_WAIT   = 4.0    # step 3: after pressing Enter, wait before holding W
 _CONFIRM_WAIT = 1.25   # step 6: after pressing X, wait before Enter (confirm)
 
@@ -161,7 +161,6 @@ def run(cfg: dict, stop_event: threading.Event,
 
     check_iv      = cfg.get("race_check_interval", 0.5)
     post_kw       = cfg.get("race_post_key_wait", 0.75)
-    reload_wait   = cfg.get("race_reload_wait", 5.0)   # step 1 (Settings)
 
     START_RACE_KEY = 'enter'
     RESTART_KEY    = 'x'
@@ -285,12 +284,11 @@ def run(cfg: dict, stop_event: threading.Event,
         loop_count += 1
         section(f"-- {_at('log_loop', lang)} #{loop_count} --")
 
-        # ── 1. Wait for the race to reload (skip on the first loop — the user
-        #       starts already on the Start Race screen) ──────────────────
-        if loop_count > 1:
-            announce(_at("log_race_reload_wait", lang))
-            wait(reload_wait)
-            if stop(): break
+        # ── 1. Wait for the Start Race screen (DETECTED, not timed — the
+        #       load time after a restart varies). On loop 1 the user is
+        #       already here, so it detects immediately. ──────────────────
+        wait_for("Start Race menu", templates["start_menu"], "start_menu")
+        if stop(): break
 
         # ── 2. Press Enter to start the race ──────────────────────────
         press(START_RACE_KEY, "Start Race")

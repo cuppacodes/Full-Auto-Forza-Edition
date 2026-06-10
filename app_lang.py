@@ -54,9 +54,9 @@ STRINGS = {
         "zh-cn": "🏁  自动挂机刷技术点",
     },
     "race_description": {
-        "en":    "Before starting, enter the race you want to grind and stop at the Start Race screen. Only the race-end (Restart) screen is detected — the rest is timed; tune the waits in Settings if needed.",
-        "zh-tw": "開始之前請進入到想刷的地圖中並停在開始賽事的介面上。本模式只偵測賽事結束（重新開始）畫面，其餘以定時操作；如有需要可在設定中調整等待時間。",
-        "zh-cn": "开始之前请进入到想刷的地图中并停在开始赛事的界面上。本模式只检测赛事结束（重新开始）画面，其余以定时操作；如有需要可在设置中调整等待时间。",
+        "en":    "Before starting, enter the race you want to grind and stop at the Start Race screen. The Start Race and race-end (Restart) screens are detected; the rest is timed.",
+        "zh-tw": "開始之前請進入到想刷的地圖中並停在開始賽事的介面上。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
+        "zh-cn": "开始之前请进入到想刷的地图中并停在开始赛事的界面上。本模式会检测开始赛事与赛事结束（重新开始）画面，其余以定时操作。",
     },
     "tab_mastery": {
         "en":    "⭐  Auto Unlock 22B",
@@ -481,11 +481,6 @@ STRINGS = {
         "zh-tw": "觸發與開始輸入之間的間隔（秒）",
         "zh-cn": "触发与开始输入之间的间隔（秒）",
     },
-    "setting_race_reload_wait": {
-        "en":    "Race reload wait (s)",
-        "zh-tw": "賽事重新載入等待（秒）",
-        "zh-cn": "赛事重新加载等待（秒）",
-    },
     "setting_mastery_threshold": {
         "en":    "Minimum required similarity",
         "zh-tw": "最低所需相似度",
@@ -827,11 +822,6 @@ STRINGS = {
         "zh-tw": "  按下 {key}【{label}】",
         "zh-cn": "  按下 {key}【{label}】",
     },
-    "log_race_reload_wait": {
-        "en":    "  Waiting for the race to reload...",
-        "zh-tw": "  等待賽事重新載入...",
-        "zh-cn": "  等待赛事重新加载...",
-    },
     "log_race_wait_start": {
         "en":    "  Race starting — waiting before holding W...",
         "zh-tw": "  賽事開始中 — 按住 W 前先等待...",
@@ -977,11 +967,6 @@ STRINGS = {
         "en":    "How long to wait after pressing a key before the next action (in seconds).\nIncrease if the game misses key presses.",
         "zh-tw": "按下按鍵後，等待下一個動作的時間（秒）。\n若遊戲漏接按鍵，請增加此數值。",
         "zh-cn": "按下按键后，等待下一个动作的时间（秒）。\n若游戏漏接按键，请增加此数值。",
-    },
-    "tip_race_reload_wait": {
-        "en":    "After each race, how long to wait for the next race to reload before pressing Start (in seconds).\nIncrease if Start is pressed before the Start Race screen is ready. Skipped on the first race.",
-        "zh-tw": "每場賽事後，按下開始前等待下一場重新載入的時間（秒）。\n若在開始賽事畫面就緒前就按下開始，請增加此數值。第一場會略過。",
-        "zh-cn": "每场赛事后，按下开始前等待下一场重新加载的时间（秒）。\n若在开始赛事画面就绪前就按下开始，请增加此数值。第一场会跳过。",
     },
     "tip_mastery_threshold": {
         "en":    "How closely the screen must match the template to count as detected.\nHigher = stricter. Lower = more lenient but may cause false detections.",
