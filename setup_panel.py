@@ -216,10 +216,11 @@ class SetupPanel(ctk.CTkFrame):
             command=lambda v, opts=_res_options: self._on_resolution_change(v, opts),
             width=240).pack(side='left', padx=8)
 
-        # Template rows
-        ctk.CTkLabel(c, text=_at("label_templates", self._lang),
-                     anchor="w",
-                     font=("Arial", 11)).pack(fill="x", pady=(4, 2))
+        # Template rows (none in mastery keys mode — nodes are the only capture)
+        if template_defs:
+            ctk.CTkLabel(c, text=_at("label_templates", self._lang),
+                         anchor="w",
+                         font=("Arial", 11)).pack(fill="x", pady=(4, 2))
 
         for key, label in template_defs:
             row = TemplateRow(c, label, lambda: self.folder, key,

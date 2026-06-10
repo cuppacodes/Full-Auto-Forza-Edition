@@ -171,6 +171,10 @@ DEFAULTS = {
     "mastery_check_interval": 0.5,
     "mastery_node_click_wait":0.8,
     "mastery_start_loop":     1,
+    # Mastery flow mode: "detect" (template detection, the original flow) or
+    # "keys" (blind timed key sequences — no detection, only node capture
+    # needed). "keys" is the experimental second mode; "detect" is default.
+    "mastery_mode":           "detect",
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,

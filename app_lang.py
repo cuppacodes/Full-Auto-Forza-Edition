@@ -917,6 +917,11 @@ STRINGS = {
         "zh-tw": "  未偵測到動作選單 — 跳過。",
         "zh-cn": "  未检测到动作菜单 — 跳过。",
     },
+    "log_esc_back": {
+        "en":    "  Pressing ESC ×2 to exit...",
+        "zh-tw": "  按下 ESC ×2 返回...",
+        "zh-cn": "  按下 ESC ×2 返回...",
+    },
     "log_buy_key": {
         "en":    "  Pressing [{key}]",
         "zh-tw": "  按下 [{key}]",
@@ -1013,6 +1018,68 @@ STRINGS = {
         "en":    "(which row is your first car on?)",
         "zh-tw": "（你的第一台車在哪一排？）",
         "zh-cn": "（你的第一台车在哪一排？）",
+    },
+
+    # ── Mastery mode toggle (detect / keys) ───────────────────
+    "mastery_mode_label": {
+        "en":    "Mode",
+        "zh-tw": "模式",
+        "zh-cn": "模式",
+    },
+    "mastery_mode_detect": {
+        "en":    "Detection",
+        "zh-tw": "偵測模式",
+        "zh-cn": "检测模式",
+    },
+    "mastery_mode_keys": {
+        "en":    "Keyboard",
+        "zh-tw": "按鍵模式",
+        "zh-cn": "按键模式",
+    },
+    "mastery_mode_hint": {
+        "en":    "(Keyboard = timed key presses, no detection — only node capture needed)",
+        "zh-tw": "（按鍵模式＝定時按鍵、不偵測畫面 — 只需擷取節點座標）",
+        "zh-cn": "（按键模式＝定时按键、不检测画面 — 只需截取节点坐标）",
+    },
+    "log_mastery_mode_keys": {
+        "en":    "Keyboard mode — menu steps are timed key presses (no screen detection).",
+        "zh-tw": "按鍵模式 — 選單步驟使用定時按鍵（不偵測畫面）。",
+        "zh-cn": "按键模式 — 菜单步骤使用定时按键（不检测画面）。",
+    },
+    "log_mkeys_ride": {
+        "en":    "Pressing Enter — Ride This Car",
+        "zh-tw": "按下 Enter — 駕駛這輛車",
+        "zh-cn": "按下 Enter — 驾驶这辆车",
+    },
+    "log_mkeys_cutscene": {
+        "en":    "Waiting 11s for the cutscene, then pressing ESC...",
+        "zh-tw": "等待過場動畫 11 秒後按 ESC…",
+        "zh-cn": "等待过场动画 11 秒后按 ESC…",
+    },
+    "log_mkeys_upgrade": {
+        "en":    "Pressing Down + Enter — Upgrade & Tuning",
+        "zh-tw": "按下 ↓ + Enter — 升級與調校",
+        "zh-cn": "按下 ↓ + Enter — 升级与调校",
+    },
+    "log_mkeys_mastery": {
+        "en":    "Pressing Down ×7 + Enter — Car Mastery",
+        "zh-tw": "按下 ↓ ×7 + Enter — 車輛熟練度",
+        "zh-cn": "按下 ↓ ×7 + Enter — 车辆熟练度",
+    },
+    "log_mkeys_wait_mastery": {
+        "en":    "Waiting 2s for the Mastery screen...",
+        "zh-tw": "等待熟練度畫面 2 秒…",
+        "zh-cn": "等待熟练度画面 2 秒…",
+    },
+    "log_mkeys_mycars": {
+        "en":    "Pressing Up + Enter — My Cars",
+        "zh-tw": "按下 ↑ + Enter — 我的車輛",
+        "zh-cn": "按下 ↑ + Enter — 我的车辆",
+    },
+    "log_mkeys_sort": {
+        "en":    "Pressing X + Down ×6 + Enter — sort by Recently Added",
+        "zh-tw": "按下 X + ↓ ×6 + Enter — 依最近新增排序",
+        "zh-cn": "按下 X + ↓ ×6 + Enter — 按最近添加排序",
     },
 }
 

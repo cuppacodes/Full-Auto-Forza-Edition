@@ -93,6 +93,13 @@ New APP/
 - On the first car (`car_num == 1`) navigation is always skipped — user is already positioned there
 - `max_cars` limit and log messages use `car_num` (1, 2, 3…), not `loop_count`
 
+#### mastery.py — keyboard-sequence mode (`mastery_mode: "keys"`, experimental)
+- **Two flows, toggled per-tab**: `run()` dispatches on `cfg["mastery_mode"]` — `"detect"` (default, the original template-detection flow) or `"keys"` → `run_keys()`. The mastery tab has a segmented toggle (Detection / Keyboard, `_on_mastery_mode_change`) that saves the config and **rebuilds the Setup panel in place** (`_make_mastery_setup`; `pack(before=old)` then destroy old, then `_apply_ui_fonts()` to re-lock CJK fonts).
+- **`run_keys` = blind timed key presses** — the menu layout is fixed, so each step is a known key sequence + wait. No detection at all: no templates loaded, no `ScreenDetector`, no red "not detected" warning possible. Per car: snake nav (unchanged) → Enter, 1s, Enter (Ride This Car) → **11s fixed** cutscene wait, ESC → Down+Enter (Upgrade & Tuning) → Down×7+Enter (Car Mastery) → **2s fixed** → click 6 nodes (unchanged, `mastery_node_click_wait`) → ESC×2 → Up+Enter (My Cars) → X, Down×6, Enter (sort Recently Added) → loop. The 1s/11s/2s waits are fixed by design; `mastery_post_key_wait` paces the screen-transition Enters; `_TAP_WAIT` (0.25s) paces repeated Down/Up cursor taps. Long waits use a stop-aware `wait()` (0.1s slices) so F9/Stop isn't blocked.
+- **Node positions are the ONLY capture keys mode needs** — `_make_mastery_setup` passes `template_defs=[]` so the Setup panel shows only the resolution selector + node capture (no template rows → no threshold sliders; `setup_panel._build_content` hides the "Templates" header when defs are empty; `is_complete()` is nodes-only).
+- Arrow keys: `'up'/'down'` added to mastery's `_VK_MAP` — they're in `_EXTENDED_VKS`, so `_send_vk` sets `KEYEVENTF_EXTENDEDKEY` (without it Down collides with numpad-2).
+- New log strings: `log_mastery_mode_keys`, `log_mkeys_*` (ride/cutscene/upgrade/mastery/wait_mastery/mycars/sort), plus mode-toggle UI strings `mastery_mode_*` — all trilingual.
+
 ### Capture (capture.py)
 - `CaptureSession`: listens for CAPS LOCK, opens fullscreen region selector, shows preview
 - `NodeSession`: waits for CAPS LOCK, opens full screenshot for clicking 6 node positions
@@ -109,6 +116,7 @@ New APP/
 - Keys include: lang, theme, toggle_key, capture_key, report_key, overlay_key, monitor_index, race_resolution, mastery_resolution, all thresh_* values, all *_wait values
 - Mastery-specific timing keys: `mastery_check_interval` (min 0.3), `mastery_post_click_wait` (min 0.5), `mastery_post_key_wait` (min 0.8), `mastery_node_click_wait` (min 0.7)
 - `mastery_start_loop` (int 1–3): which row the first car is on for Auto Unlock 22B
+- `mastery_mode` (str, default `"detect"`): mastery flow — `"detect"` (template detection, original) or `"keys"` (blind timed key sequences, experimental; only node capture needed). See mastery.py → keyboard-sequence mode
 - `nodes_aspect_fix` (bool, default true): aspect-aware mastery node click remapping via the centred 16:9 content box (see Capture → Node click rescaling)
 - `ui_scale` (str, default `"auto"`): UI scale factor — `"auto"` (resolution-derived) or a percentage like `"150%"`. Resolved by `config.resolve_ui_scale`; applied via CTk widget/window scaling (see UI → UI scale)
 - `overlay_enabled` (bool, default false): show the translucent game-status overlay over a borderless game while a script runs (see Game status overlay)

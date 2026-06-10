@@ -25,6 +25,9 @@ _VK_MAP = {
     'enter':  0x0D, 'return': 0x0D,
     'esc':    0x1B, 'escape': 0x1B,
     'x':      0x58,
+    # Arrows (keys mode): in _EXTENDED_VKS, so _send_vk sets
+    # KEYEVENTF_EXTENDEDKEY — without it Down collides with numpad-2.
+    'up':     0x26, 'down':   0x28,
 }
 
 class _KEYBDINPUT(ctypes.Structure):
@@ -153,6 +156,12 @@ def _nav_keys_for_loop(loop: int) -> list:
 
 def run(cfg: dict, stop_event: threading.Event,
         log_cb, status_cb, max_cars: int = 0, warn_cb=None, section_cb=None):
+    # Mode dispatch: "keys" = blind timed key sequences (run_keys, experimental),
+    # anything else = the original detection flow below. Toggled per-tab in the
+    # UI; saved as mastery_mode in config.
+    if str(cfg.get("mastery_mode", "detect")).strip().lower() == "keys":
+        return run_keys(cfg, stop_event, log_cb, status_cb,
+                        max_cars=max_cars, section_cb=section_cb)
     section       = section_cb or log_cb
     lang          = cfg.get("lang", "en")
     monitor_index = cfg.get("monitor_index", 1)
@@ -379,6 +388,168 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_sort_not_found", lang))
 
         time.sleep(0.8)
+
+        if max_cars > 0 and car_num >= max_cars:
+            log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
+            break
+
+    log_cb(_at("log_mastery_stopped", lang))
+    status_cb(_at("status_stopped", lang))
+
+
+# ── Keyboard-sequence mode ("keys") ──────────────────────────
+# Blind timed key presses instead of screen detection. The menu layout is
+# fixed, so each step is a known key sequence + wait; nothing is detected,
+# no templates are needed, and the red "not detected" warning can't occur.
+# Only the 6 mastery-node positions remain coordinate-driven (mouse clicks).
+# Explicit 1s / 11s / 2s waits are fixed by design; mastery_post_key_wait
+# still paces the screen-transition Enters and mastery_node_click_wait the
+# node clicks. Toggled via the mastery_mode config ("detect" = original).
+
+# Cursor-move tap interval inside a menu (no screen transition → no need for
+# the full mastery_post_key_wait between repeated Down/Up presses).
+_TAP_WAIT = 0.25
+
+
+def run_keys(cfg: dict, stop_event: threading.Event,
+             log_cb, status_cb, max_cars: int = 0, section_cb=None):
+    section       = section_cb or log_cb
+    lang          = cfg.get("lang", "en")
+    monitor_index = cfg.get("monitor_index", 1)
+
+    # Always read settings fresh from config.json at start (same as detect mode)
+    import config as _cfg_mod
+    _fresh = _cfg_mod.load()
+    post_kw    = _fresh.get("mastery_post_key_wait", 1.2)
+    post_cw    = _fresh.get("mastery_post_click_wait", 0.8)
+    post_ncw   = _fresh.get("mastery_node_click_wait", post_cw)
+    start_loop = max(1, min(3, int(_fresh.get("mastery_start_loop", 1))))
+
+    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
+
+    # Nodes are the ONLY capture this mode needs (no templates).
+    res      = _fresh.get('mastery_resolution', 'custom')
+    tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
+    try:
+        nodes_file = get_nodes_file(res, tpl_lang)
+        nodes = load_nodes(nodes_file, current_w, current_h,
+                           aspect_fix=_fresh.get("nodes_aspect_fix", True))
+        log_cb(_at("log_nodes_loaded", lang, n=len(nodes)))
+    except Exception:
+        log_cb(_at("log_nodes_missing", lang))
+        status_cb(_at("status_setup_incomplete", lang))
+        return
+
+    def stop():
+        return stop_event.is_set()
+
+    def wait(seconds):
+        """Stop-aware sleep so F9/Stop isn't blocked by the long fixed waits."""
+        end = time.time() + seconds
+        while time.time() < end:
+            if stop():
+                return
+            time.sleep(0.1)
+
+    def taps(key, n):
+        """n quick presses of a menu-cursor key (Down/Up)."""
+        for _ in range(n):
+            if stop():
+                return
+            _key_press(key, post_wait=_TAP_WAIT)
+
+    if max_cars > 0:
+        log_cb(_at("log_mastery_started_count", lang, n=max_cars))
+    else:
+        log_cb(_at("log_mastery_started", lang))
+    log_cb(_at("log_mastery_mode_keys", lang))
+    # Switch the game to English input only if it isn't already (see
+    # capture.force_english_ime). Disable with auto_english_ime=false.
+    if _fresh.get("auto_english_ime", True):
+        force_english_ime()
+        time.sleep(0.2)
+
+    loop_count = start_loop - 1
+    car_num    = 0
+
+    while not stop():
+        loop_count += 1
+        car_num    += 1
+        is_first   = (car_num == 1)
+
+        # ── 1. Navigate to next car (snake, unchanged) ────────
+        nav_keys = [] if is_first else _nav_keys_for_loop(loop_count)
+        section(_at("log_car", lang, n=car_num) +
+                (f" / {max_cars}" if max_cars > 0 else ""))
+
+        if nav_keys:
+            log_cb(_at("log_navigating", lang,
+                       keys=' '.join(k.upper() for k in nav_keys)))
+            for key in nav_keys:
+                pydirectinput.press(key)
+                time.sleep(0.4)
+            time.sleep(0.3)
+        else:
+            log_cb(_at("log_loop1_start", lang, row=start_loop))
+
+        # ── 2-3. Enter (action menu) → 1s → Enter (Ride This Car)
+        log_cb(_at("log_open_action_menu", lang))
+        _key_press('enter', post_wait=1.0)
+        if stop(): break
+        log_cb(_at("log_mkeys_ride", lang))
+        _key_press('enter', post_wait=0.0)
+
+        # ── 4. Timed cutscene skip: 11s → ESC ─────────────────
+        log_cb(_at("log_mkeys_cutscene", lang))
+        status_cb(_at("log_mkeys_cutscene", lang))
+        wait(11.0)
+        if stop(): break
+        _key_press('esc', post_wait=post_kw)
+
+        # ── 5. Down ×1 + Enter → Upgrade & Tuning ─────────────
+        log_cb(_at("log_mkeys_upgrade", lang))
+        taps('down', 1)
+        if stop(): break
+        _key_press('enter', post_wait=post_kw)
+
+        # ── 6. Down ×7 + Enter → Car Mastery ──────────────────
+        log_cb(_at("log_mkeys_mastery", lang))
+        taps('down', 7)
+        if stop(): break
+        _key_press('enter', post_wait=0.0)
+
+        # ── 7. Fixed 2s for the mastery screen to load ────────
+        log_cb(_at("log_mkeys_wait_mastery", lang))
+        wait(2.0)
+        if stop(): break
+
+        # ── 8. Click 6 nodes (unchanged) ──────────────────────
+        log_cb(_at("log_clicking_nodes", lang, n=len(nodes)))
+        for i, (nx, ny) in enumerate(nodes, start=1):
+            if stop(): break
+            log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
+            _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
+            time.sleep(0.3)
+        if stop(): break
+
+        # ── 9. ESC ×2 to exit (unchanged) ─────────────────────
+        log_cb(_at("log_esc_back", lang))
+        _key_press('esc', post_wait=1.0)
+        _key_press('esc', post_wait=1.0)
+        if stop(): break
+
+        # ── 10. Up ×1 + Enter → My Cars ───────────────────────
+        log_cb(_at("log_mkeys_mycars", lang))
+        taps('up', 1)
+        if stop(): break
+        _key_press('enter', post_wait=post_kw)
+
+        # ── 11. X + Down ×6 + Enter → sort by Recently Added ──
+        log_cb(_at("log_mkeys_sort", lang))
+        _key_press('x', post_wait=1.2)
+        taps('down', 6)
+        if stop(): break
+        _key_press('enter', post_wait=0.8)
 
         if max_cars > 0 and car_num >= max_cars:
             log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
