@@ -1963,18 +1963,7 @@ class MainWindow(ctk.CTk):
             fields=[
                 (_at('setting_mastery_check_interval',  self._lang), 'mastery_check_interval',  0.3, 2.0, 0.1, 'tip_mastery_check_interval'),
                 (_at('setting_mastery_post_click_wait', self._lang), 'mastery_post_click_wait', 0.5, 2.0, 0.1, 'tip_mastery_post_click_wait'),
-                (_at('setting_mastery_post_key_wait',   self._lang), 'mastery_post_key_wait',   0.8, 3.0, 0.1, 'tip_mastery_post_key_wait'),
                 (_at('setting_mastery_node_click_wait', self._lang), 'mastery_node_click_wait', 0.7, 2.0, 0.1, 'tip_mastery_node_click_wait'),
-            ])
-
-        # Keyboard-mode step waits (only used when mastery_mode == "keys").
-        section('settings_mastery_keys_section')
-        self._build_settings_fields(
-            scroll,
-            fields=[
-                (_at('setting_mastery_keys_cutscene_wait', self._lang), 'mastery_keys_cutscene_wait', 3.0, 20.0, 0.5, 'tip_mastery_keys_cutscene_wait'),
-                (_at('setting_mastery_keys_screen_wait',   self._lang), 'mastery_keys_screen_wait',   0.5, 6.0,  0.5, 'tip_mastery_keys_screen_wait'),
-                (_at('setting_mastery_keys_tap_wait',      self._lang), 'mastery_keys_tap_wait',      0.1, 1.0,  0.05, 'tip_mastery_keys_tap_wait'),
             ])
 
         section('settings_buy_section')
