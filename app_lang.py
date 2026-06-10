@@ -235,6 +235,26 @@ STRINGS = {
         "zh-tw": "自動解鎖22B轉輪",
         "zh-cn": "自动解锁22B转轮",
     },
+    "settings_mastery_keys_section": {
+        "en":    "Auto Unlock 22B — Keyboard mode",
+        "zh-tw": "自動解鎖22B轉輪 — 按鍵模式",
+        "zh-cn": "自动解锁22B转轮 — 按键模式",
+    },
+    "setting_mastery_keys_cutscene_wait": {
+        "en":    "Cutscene wait (s)",
+        "zh-tw": "過場動畫等待（秒）",
+        "zh-cn": "过场动画等待（秒）",
+    },
+    "setting_mastery_keys_screen_wait": {
+        "en":    "Mastery screen wait (s)",
+        "zh-tw": "熟練度畫面等待（秒）",
+        "zh-cn": "熟练度画面等待（秒）",
+    },
+    "setting_mastery_keys_tap_wait": {
+        "en":    "Cursor move delay (s)",
+        "zh-tw": "游標移動間隔（秒）",
+        "zh-cn": "光标移动间隔（秒）",
+    },
     "settings_buy_section": {
         "en":    "Auto Buy 22B-STi",
         "zh-tw": "自動購買22B-STi",
@@ -997,6 +1017,21 @@ STRINGS = {
         "en":    "How long to wait after pressing a key before the next action (in seconds).\nIncrease if the game misses key presses.",
         "zh-tw": "按下按鍵後，等待下一個動作的時間（秒）。\n若遊戲漏接按鍵，請增加此數值。",
         "zh-cn": "按下按键后，等待下一个动作的时间（秒）。\n若游戏漏接按键，请增加此数值。",
+    },
+    "tip_mastery_keys_cutscene_wait": {
+        "en":    "Keyboard mode: how long to wait for the 'Ride This Car' cutscene before pressing ESC (in seconds).\nIncrease if ESC fires before the cutscene is skippable.",
+        "zh-tw": "按鍵模式：等待「駕駛這輛車」過場動畫多久後再按 ESC（秒）。\n若 ESC 在動畫可略過前就按下，請增加此數值。",
+        "zh-cn": "按键模式：等待「驾驶这辆车」过场动画多久后再按 ESC（秒）。\n若 ESC 在动画可跳过前就按下，请增加此数值。",
+    },
+    "tip_mastery_keys_screen_wait": {
+        "en":    "Keyboard mode: how long to wait for the Car Mastery screen to load before clicking nodes (in seconds).\nIncrease if node clicks land before the screen is ready.",
+        "zh-tw": "按鍵模式：等待車輛熟練度畫面載入多久後再點擊節點（秒）。\n若在畫面就緒前就點擊節點，請增加此數值。",
+        "zh-cn": "按键模式：等待车辆熟练度画面加载多久后再点击节点（秒）。\n若在画面就绪前就点击节点，请增加此数值。",
+    },
+    "tip_mastery_keys_tap_wait": {
+        "en":    "Keyboard mode: delay between repeated cursor moves (Down/Up presses) within a menu (in seconds).\nIncrease if the menu cursor skips or misses steps.",
+        "zh-tw": "按鍵模式：選單內連續移動游標（按 ↓/↑）之間的間隔（秒）。\n若選單游標跳格或漏接，請增加此數值。",
+        "zh-cn": "按键模式：菜单内连续移动光标（按 ↓/↑）之间的间隔（秒）。\n若菜单光标跳格或漏接，请增加此数值。",
     },
     "setting_mastery_check_interval": {
         "en":    "Detection scan interval (s)",

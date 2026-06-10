@@ -179,6 +179,11 @@ DEFAULTS = {
     # of run_keys (1 = normal full run). Lets you start mid-sequence with the
     # game already on the matching screen. Later cars always run all steps.
     "mastery_keys_start_step": 1,
+    # Keys-mode step waits (seconds). The two fixed animation pauses + the
+    # cursor-move tap interval; menu-step transitions use mastery_post_key_wait.
+    "mastery_keys_cutscene_wait": 11.0,   # step 4: wait for the ride cutscene
+    "mastery_keys_screen_wait":   2.0,    # step 7: wait for the Mastery screen
+    "mastery_keys_tap_wait":      0.25,   # gap between repeated Down/Up taps
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,

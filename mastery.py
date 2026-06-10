@@ -402,12 +402,15 @@ def run(cfg: dict, stop_event: threading.Event,
 # fixed, so each step is a known key sequence + wait; nothing is detected,
 # no templates are needed, and the red "not detected" warning can't occur.
 # Only the 6 mastery-node positions remain coordinate-driven (mouse clicks).
-# Explicit 1s / 11s / 2s waits are fixed by design; mastery_post_key_wait
-# still paces the screen-transition Enters and mastery_node_click_wait the
-# node clicks. Toggled via the mastery_mode config ("detect" = original).
+# All waits are adjustable in Settings: menu-step transitions use
+# mastery_post_key_wait; the two animation pauses use mastery_keys_cutscene_wait
+# (step 4) and mastery_keys_screen_wait (step 7); repeated cursor taps use
+# mastery_keys_tap_wait; node clicks use mastery_node_click_wait. Toggled via
+# the mastery_mode config ("detect" = original).
 
-# Cursor-move tap interval inside a menu (no screen transition → no need for
-# the full mastery_post_key_wait between repeated Down/Up presses).
+# Default cursor-move tap interval inside a menu (no screen transition → no
+# need for the full mastery_post_key_wait between repeated Down/Up presses).
+# Overridable via mastery_keys_tap_wait.
 _TAP_WAIT = 0.25
 
 
@@ -424,6 +427,11 @@ def run_keys(cfg: dict, stop_event: threading.Event,
     post_cw    = _fresh.get("mastery_post_click_wait", 0.8)
     post_ncw   = _fresh.get("mastery_node_click_wait", post_cw)
     start_loop = max(1, min(3, int(_fresh.get("mastery_start_loop", 1))))
+    # Keys-mode step waits (all adjustable in Settings). Menu-step transitions
+    # use post_kw; these are the two fixed animation pauses + the tap interval.
+    cut_wait    = _fresh.get("mastery_keys_cutscene_wait", 11.0)
+    screen_wait = _fresh.get("mastery_keys_screen_wait", 2.0)
+    tap_wait    = _fresh.get("mastery_keys_tap_wait", _TAP_WAIT)
     # TESTING AID: on the first car only, skip ahead to this step (1 = normal).
     try:
         start_step = max(1, int(_fresh.get("mastery_keys_start_step", 1)))
@@ -461,7 +469,7 @@ def run_keys(cfg: dict, stop_event: threading.Event,
         for _ in range(n):
             if stop():
                 return
-            _key_press(key, post_wait=_TAP_WAIT)
+            _key_press(key, post_wait=tap_wait)
 
     if max_cars > 0:
         log_cb(_at("log_mastery_started_count", lang, n=max_cars))
@@ -508,7 +516,7 @@ def run_keys(cfg: dict, stop_event: threading.Event,
         # ── 2. Enter → open action menu ───────────────────────
         if _step(2):
             log_cb(_at("log_open_action_menu", lang))
-            _key_press('enter', post_wait=1.0)
+            _key_press('enter', post_wait=post_kw)
             if stop(): break
 
         # ── 3. Enter → Ride This Car ──────────────────────────
@@ -516,11 +524,11 @@ def run_keys(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_mkeys_ride", lang))
             _key_press('enter', post_wait=0.0)
 
-        # ── 4. Timed cutscene skip: 11s → ESC ─────────────────
+        # ── 4. Timed cutscene skip → ESC ──────────────────────
         if _step(4):
             log_cb(_at("log_mkeys_cutscene", lang))
             status_cb(_at("log_mkeys_cutscene", lang))
-            wait(11.0)
+            wait(cut_wait)
             if stop(): break
             _key_press('esc', post_wait=post_kw)
 
@@ -538,10 +546,10 @@ def run_keys(cfg: dict, stop_event: threading.Event,
             if stop(): break
             _key_press('enter', post_wait=0.0)
 
-        # ── 7. Fixed 2s for the mastery screen to load ────────
+        # ── 7. Wait for the Mastery screen to load ────────────
         if _step(7):
             log_cb(_at("log_mkeys_wait_mastery", lang))
-            wait(2.0)
+            wait(screen_wait)
             if stop(): break
 
         # ── 8. Click 6 nodes (unchanged) ──────────────────────
@@ -554,11 +562,11 @@ def run_keys(cfg: dict, stop_event: threading.Event,
                 time.sleep(0.3)
             if stop(): break
 
-        # ── 9. ESC ×2 to exit (unchanged) ─────────────────────
+        # ── 9. ESC ×2 to exit ─────────────────────────────────
         if _step(9):
             log_cb(_at("log_esc_back", lang))
-            _key_press('esc', post_wait=1.0)
-            _key_press('esc', post_wait=1.0)
+            _key_press('esc', post_wait=post_kw)
+            _key_press('esc', post_wait=post_kw)
             if stop(): break
 
         # ── 10. Up ×1 + Enter → My Cars ───────────────────────
@@ -571,10 +579,10 @@ def run_keys(cfg: dict, stop_event: threading.Event,
         # ── 11. X + Down ×6 + Enter → sort by Recently Added ──
         if _step(11):
             log_cb(_at("log_mkeys_sort", lang))
-            _key_press('x', post_wait=1.2)
+            _key_press('x', post_wait=post_kw)
             taps('down', 6)
             if stop(): break
-            _key_press('enter', post_wait=0.8)
+            _key_press('enter', post_wait=post_kw)
 
         if max_cars > 0 and car_num >= max_cars:
             log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
