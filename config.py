@@ -175,6 +175,10 @@ DEFAULTS = {
     # "keys" (blind timed key sequences — no detection, only node capture
     # needed). "keys" is the experimental second mode; "detect" is default.
     "mastery_mode":           "detect",
+    # TESTING AID (keys mode): on the FIRST car only, skip ahead to this step
+    # of run_keys (1 = normal full run). Lets you start mid-sequence with the
+    # game already on the matching screen. Later cars always run all steps.
+    "mastery_keys_start_step": 1,
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,

@@ -424,6 +424,11 @@ def run_keys(cfg: dict, stop_event: threading.Event,
     post_cw    = _fresh.get("mastery_post_click_wait", 0.8)
     post_ncw   = _fresh.get("mastery_node_click_wait", post_cw)
     start_loop = max(1, min(3, int(_fresh.get("mastery_start_loop", 1))))
+    # TESTING AID: on the first car only, skip ahead to this step (1 = normal).
+    try:
+        start_step = max(1, int(_fresh.get("mastery_keys_start_step", 1)))
+    except (TypeError, ValueError):
+        start_step = 1
 
     current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
 
@@ -463,6 +468,8 @@ def run_keys(cfg: dict, stop_event: threading.Event,
     else:
         log_cb(_at("log_mastery_started", lang))
     log_cb(_at("log_mastery_mode_keys", lang))
+    if start_step > 1:
+        log_cb(f"  [TEST] First car: starting from step {start_step}.")
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable with auto_english_ime=false.
     if _fresh.get("auto_english_ime", True):
@@ -477,79 +484,97 @@ def run_keys(cfg: dict, stop_event: threading.Event,
         car_num    += 1
         is_first   = (car_num == 1)
 
+        # TESTING AID: on the first car, skip steps before start_step. Later
+        # cars always run every step (start_step only affects car #1).
+        def _step(n):
+            return (not is_first) or (n >= start_step)
+
         # ── 1. Navigate to next car (snake, unchanged) ────────
         nav_keys = [] if is_first else _nav_keys_for_loop(loop_count)
         section(_at("log_car", lang, n=car_num) +
                 (f" / {max_cars}" if max_cars > 0 else ""))
 
-        if nav_keys:
-            log_cb(_at("log_navigating", lang,
-                       keys=' '.join(k.upper() for k in nav_keys)))
-            for key in nav_keys:
-                pydirectinput.press(key)
-                time.sleep(0.4)
-            time.sleep(0.3)
-        else:
-            log_cb(_at("log_loop1_start", lang, row=start_loop))
+        if _step(1):
+            if nav_keys:
+                log_cb(_at("log_navigating", lang,
+                           keys=' '.join(k.upper() for k in nav_keys)))
+                for key in nav_keys:
+                    pydirectinput.press(key)
+                    time.sleep(0.4)
+                time.sleep(0.3)
+            else:
+                log_cb(_at("log_loop1_start", lang, row=start_loop))
 
-        # ── 2-3. Enter (action menu) → 1s → Enter (Ride This Car)
-        log_cb(_at("log_open_action_menu", lang))
-        _key_press('enter', post_wait=1.0)
-        if stop(): break
-        log_cb(_at("log_mkeys_ride", lang))
-        _key_press('enter', post_wait=0.0)
+        # ── 2. Enter → open action menu ───────────────────────
+        if _step(2):
+            log_cb(_at("log_open_action_menu", lang))
+            _key_press('enter', post_wait=1.0)
+            if stop(): break
+
+        # ── 3. Enter → Ride This Car ──────────────────────────
+        if _step(3):
+            log_cb(_at("log_mkeys_ride", lang))
+            _key_press('enter', post_wait=0.0)
 
         # ── 4. Timed cutscene skip: 11s → ESC ─────────────────
-        log_cb(_at("log_mkeys_cutscene", lang))
-        status_cb(_at("log_mkeys_cutscene", lang))
-        wait(11.0)
-        if stop(): break
-        _key_press('esc', post_wait=post_kw)
+        if _step(4):
+            log_cb(_at("log_mkeys_cutscene", lang))
+            status_cb(_at("log_mkeys_cutscene", lang))
+            wait(11.0)
+            if stop(): break
+            _key_press('esc', post_wait=post_kw)
 
         # ── 5. Down ×1 + Enter → Upgrade & Tuning ─────────────
-        log_cb(_at("log_mkeys_upgrade", lang))
-        taps('down', 1)
-        if stop(): break
-        _key_press('enter', post_wait=post_kw)
+        if _step(5):
+            log_cb(_at("log_mkeys_upgrade", lang))
+            taps('down', 1)
+            if stop(): break
+            _key_press('enter', post_wait=post_kw)
 
         # ── 6. Down ×7 + Enter → Car Mastery ──────────────────
-        log_cb(_at("log_mkeys_mastery", lang))
-        taps('down', 7)
-        if stop(): break
-        _key_press('enter', post_wait=0.0)
+        if _step(6):
+            log_cb(_at("log_mkeys_mastery", lang))
+            taps('down', 7)
+            if stop(): break
+            _key_press('enter', post_wait=0.0)
 
         # ── 7. Fixed 2s for the mastery screen to load ────────
-        log_cb(_at("log_mkeys_wait_mastery", lang))
-        wait(2.0)
-        if stop(): break
+        if _step(7):
+            log_cb(_at("log_mkeys_wait_mastery", lang))
+            wait(2.0)
+            if stop(): break
 
         # ── 8. Click 6 nodes (unchanged) ──────────────────────
-        log_cb(_at("log_clicking_nodes", lang, n=len(nodes)))
-        for i, (nx, ny) in enumerate(nodes, start=1):
+        if _step(8):
+            log_cb(_at("log_clicking_nodes", lang, n=len(nodes)))
+            for i, (nx, ny) in enumerate(nodes, start=1):
+                if stop(): break
+                log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
+                _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
+                time.sleep(0.3)
             if stop(): break
-            log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
-            _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
-            time.sleep(0.3)
-        if stop(): break
 
         # ── 9. ESC ×2 to exit (unchanged) ─────────────────────
-        log_cb(_at("log_esc_back", lang))
-        _key_press('esc', post_wait=1.0)
-        _key_press('esc', post_wait=1.0)
-        if stop(): break
+        if _step(9):
+            log_cb(_at("log_esc_back", lang))
+            _key_press('esc', post_wait=1.0)
+            _key_press('esc', post_wait=1.0)
+            if stop(): break
 
         # ── 10. Up ×1 + Enter → My Cars ───────────────────────
-        log_cb(_at("log_mkeys_mycars", lang))
-        taps('up', 1)
-        if stop(): break
-        _key_press('enter', post_wait=post_kw)
+        if _step(10):
+            log_cb(_at("log_mkeys_mycars", lang))
+            taps('up', 1)
+            if stop(): break
+            _key_press('enter', post_wait=post_kw)
 
         # ── 11. X + Down ×6 + Enter → sort by Recently Added ──
-        log_cb(_at("log_mkeys_sort", lang))
-        _key_press('x', post_wait=1.2)
-        taps('down', 6)
-        if stop(): break
-        _key_press('enter', post_wait=0.8)
+        if _step(11):
+            log_cb(_at("log_mkeys_sort", lang))
+            _key_press('x', post_wait=1.2)
+            taps('down', 6)
+            if stop(): break
+            _key_press('enter', post_wait=0.8)
 
         if max_cars > 0 and car_num >= max_cars:
             log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
