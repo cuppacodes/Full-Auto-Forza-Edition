@@ -214,7 +214,11 @@ class SetupPanel(ctk.CTkFrame):
             variable=self._res_var,
             values=list(_res_options.values()),
             command=lambda v, opts=_res_options: self._on_resolution_change(v, opts),
-            width=240).pack(side='left', padx=8)
+            width=240, height=30, corner_radius=theme.token("corner_sm"),
+            # Distinct body so it doesn't blend into the surface_alt setup card.
+            fg_color=theme.token("surface"), text_color=theme.token("text"),
+            button_color=theme.token("accent"),
+            button_hover_color=theme.token("accent_hover")).pack(side='left', padx=8)
 
         # Template rows (none in mastery keys mode — nodes are the only capture)
         if template_defs:

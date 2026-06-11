@@ -1671,7 +1671,9 @@ class MainWindow(ctk.CTk):
         ctk.CTkButton(
             header, text="← " + _at("settings_back", self._lang),
             width=90, command=self._close_support,
-            fg_color="transparent", border_width=1).pack(side="left")
+            fg_color="transparent", border_width=1,
+            border_color=self._t("border"), text_color=self._t("text"),
+            hover_color=self._t("surface_alt")).pack(side="left")
 
         body = ctk.CTkScrollableFrame(self._support_frame, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=12, pady=8)
@@ -1735,7 +1737,9 @@ class MainWindow(ctk.CTk):
         ctk.CTkButton(
             header, text="← " + _at("settings_back", self._lang),
             width=90, command=self._close_report_help,
-            fg_color="transparent", border_width=1).pack(side="left")
+            fg_color="transparent", border_width=1,
+            border_color=self._t("border"), text_color=self._t("text"),
+            hover_color=self._t("surface_alt")).pack(side="left")
 
         body = ctk.CTkScrollableFrame(self._report_help_frame, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=16, pady=8)
@@ -1789,6 +1793,8 @@ class MainWindow(ctk.CTk):
             width=90, height=28,
             fg_color='transparent',
             border_width=1,
+            border_color=self._t("border"), text_color=self._t("text"),
+            hover_color=self._t("surface_alt"),
             font=('Segoe UI', 12),
             command=self._close_settings
         ).pack(side='left')
