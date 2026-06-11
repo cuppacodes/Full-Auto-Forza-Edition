@@ -109,19 +109,19 @@ STRINGS = {
     },
     # Sidebar nav labels (emoji-free, short — the header shows the full page title)
     "nav_race": {
-        "en":    "Race Auto",
-        "zh-tw": "自動跑圖",
-        "zh-cn": "自动跑图",
+        "en":    "AFK Races",
+        "zh-tw": "賽事掛機",
+        "zh-cn": "赛事挂机",
     },
     "nav_mastery": {
-        "en":    "Unlock 22B",
-        "zh-tw": "解鎖22B",
-        "zh-cn": "解锁22B",
+        "en":    "Unlock Spin Wheel",
+        "zh-tw": "解鎖轉輪",
+        "zh-cn": "解锁转轮",
     },
     "nav_buy": {
-        "en":    "Buy 22B-STi",
-        "zh-tw": "購買22B-STi",
-        "zh-cn": "购买22B-STi",
+        "en":    "Buy Cars",
+        "zh-tw": "購買車輛",
+        "zh-cn": "购买车辆",
     },
     "nav_delete": {
         "en":    "Delete Cars",
