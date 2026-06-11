@@ -1948,6 +1948,7 @@ class MainWindow(ctk.CTk):
             scroll,
             fields=[
                 (_at('setting_mastery_node_click_wait', self._lang), 'mastery_node_click_wait', 0.7, 2.0, 0.1, 'tip_mastery_node_click_wait'),
+                (_at('setting_mastery_cutscene_wait', self._lang), 'mastery_cutscene_wait', 11.0, 25.0, 0.5, 'tip_mastery_cutscene_wait'),
             ])
 
         section('settings_buy_section')

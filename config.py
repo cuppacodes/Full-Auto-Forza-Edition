@@ -160,8 +160,10 @@ DEFAULTS = {
     # Mastery settings (keyboard-driven; no detection)
     "mastery_node_click_wait":0.8,
     "mastery_start_loop":     1,
-    # NOTE: mastery step waits (cutscene/screen/tap + menu-transition delay)
-    # are FIXED constants in mastery.py (no UI/config option by design).
+    # Cutscene ("Ride This Car") wait before ESC — default 11, user-raisable
+    # via a Settings slider (min 11). The other mastery step waits
+    # (screen/tap + menu-transition delays) stay FIXED constants in mastery.py.
+    "mastery_cutscene_wait":  11.0,
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,

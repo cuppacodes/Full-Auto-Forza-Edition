@@ -127,16 +127,19 @@ def _nav_keys_for_loop(loop: int) -> list:
 # coordinate-driven (mouse clicks). This is the ONLY mastery mode (the old
 # detection flow was removed).
 #
-# Step waits are FIXED constants (no UI option, baked from tuning):
-#   _POST_KEY_WAIT      menu-step transitions (action-menu Enter, ESC×2, X/Enter)
-#   _KEYS_CUTSCENE_WAIT step 4: wait for the "Ride This Car" cutscene before ESC
-#   _KEYS_SCREEN_WAIT   step 7: wait for the Car Mastery screen before clicking
-#   _TAP_WAIT           gap between repeated Down/Up cursor taps within a menu
+# Step waits are FIXED constants (no UI option, baked from tuning) EXCEPT the
+# cutscene wait, which is user-raisable via the mastery_cutscene_wait Setting:
+#   _POST_KEY_WAIT          menu-step transitions (action-menu Enter, ESC×2, X/Enter)
+#   _POST_CUTSCENE_ESC_WAIT step 4: gap after the post-cutscene ESC before Down
+#   _KEYS_CUTSCENE_WAIT     step 4: default cutscene wait (overridable in Settings)
+#   _KEYS_SCREEN_WAIT       step 7: wait for the Car Mastery screen before clicking
+#   _TAP_WAIT               gap between repeated Down/Up cursor taps within a menu
 # Node clicks still use the mastery_node_click_wait Setting.
-_POST_KEY_WAIT      = 1.25
-_KEYS_CUTSCENE_WAIT = 11.0
-_KEYS_SCREEN_WAIT   = 1.5
-_TAP_WAIT           = 0.25
+_POST_KEY_WAIT          = 1.25
+_POST_CUTSCENE_ESC_WAIT = 1.75
+_KEYS_CUTSCENE_WAIT     = 11.0
+_KEYS_SCREEN_WAIT       = 1.5
+_TAP_WAIT               = 0.25
 
 
 def run(cfg: dict, stop_event: threading.Event,
@@ -153,8 +156,10 @@ def run(cfg: dict, stop_event: threading.Event,
     post_kw    = _POST_KEY_WAIT          # fixed (menu-step transitions)
     post_ncw   = _fresh.get("mastery_node_click_wait", 0.8)
     start_loop = max(1, min(3, int(_fresh.get("mastery_start_loop", 1))))
-    # Step waits — fixed constants (see top of section).
-    cut_wait    = _KEYS_CUTSCENE_WAIT
+    # Step waits — fixed constants (see top of section), except the cutscene
+    # wait which is user-raisable (default 11, floor 11) via Settings.
+    cut_wait    = max(_KEYS_CUTSCENE_WAIT,
+                      float(_fresh.get("mastery_cutscene_wait", _KEYS_CUTSCENE_WAIT)))
     screen_wait = _KEYS_SCREEN_WAIT
     tap_wait    = _TAP_WAIT
 
@@ -244,7 +249,7 @@ def run(cfg: dict, stop_event: threading.Event,
         announce(_at("log_mkeys_cutscene", lang))
         wait(cut_wait)
         if stop(): break
-        _key_press('esc', post_wait=post_kw)
+        _key_press('esc', post_wait=_POST_CUTSCENE_ESC_WAIT)
 
         # ── 5. Down ×1 + Enter → Upgrade & Tuning ─────────────
         announce(_at("log_mkeys_upgrade", lang))

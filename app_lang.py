@@ -528,6 +528,11 @@ STRINGS = {
         "zh-tw": "點擊熟練度間隔（秒）",
         "zh-cn": "点击熟练度间隔（秒）",
     },
+    "setting_mastery_cutscene_wait": {
+        "en":    "Cutscene wait (s)",
+        "zh-tw": "過場動畫等待（秒）",
+        "zh-cn": "过场动画等待（秒）",
+    },
     "setting_buy_post_key_wait": {
         "en":    "Key interval (s)",
         "zh-tw": "按鍵間隔（秒）",
@@ -934,6 +939,11 @@ STRINGS = {
         "en":    "How long to wait after each mastery node click (in seconds).\nIncrease if the game misses node clicks.",
         "zh-tw": "每次點擊熟練度節點後的等待時間（秒）。\n若遊戲漏接節點點擊，請增加此數值。",
         "zh-cn": "每次点击熟练度节点后的等待时间（秒）。\n若游戏漏接节点点击，请增加此数值。",
+    },
+    "tip_mastery_cutscene_wait": {
+        "en":    "How long to wait for the 'Ride This Car' cutscene before pressing ESC (in seconds).\nDefault 11. Increase if the cutscene runs longer on your machine.",
+        "zh-tw": "按下 ESC 前等待「乘坐這輛車」過場動畫的時間（秒）。\n預設 11。若你的電腦過場動畫較長，請增加此數值。",
+        "zh-cn": "按下 ESC 前等待「乘坐这辆车」过场动画的时间（秒）。\n默认 11。若你的电脑过场动画较长，请增加此数值。",
     },
     "tip_buy_post_key_wait": {
         "en":    "How long to wait between each key press during purchase (in seconds).",
