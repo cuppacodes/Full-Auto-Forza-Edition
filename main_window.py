@@ -503,7 +503,7 @@ class MainWindow(ctk.CTk):
                     self._t("text"), self._t("surface"))
         discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(15, 15))
         self._discord_img = discord_img   # keep a ref so it isn't GC'd
-        _bottom_btn("  Discord", lambda: __import__("webbrowser").open(
+        _bottom_btn("Discord", lambda: __import__("webbrowser").open(
             "https://discord.com/invite/MNg2g9Pp6K"),
             "#5865F2", "#ffffff", "#4752c4", image=discord_img)
         _bottom_btn("☕  " + _at("support_btn", self._lang), self._open_support,
