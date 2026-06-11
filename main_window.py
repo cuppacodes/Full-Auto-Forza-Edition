@@ -29,16 +29,8 @@ RACE_TEMPLATE_KEYS = [
     ("start_menu",   "race_tpl_start_menu"),
     ("restart_menu", "race_tpl_restart_menu"),
 ]
-
-MASTERY_TEMPLATE_KEYS_MAP = [
-    ("mastery_ride_car",     "mastery_tpl_ride_car"),
-    ("mastery_esc_hint",     "mastery_tpl_esc_hint"),
-    ("mastery_upgrade_item", "mastery_tpl_upgrade_item"),
-    ("mastery_mastery_item", "mastery_tpl_mastery_item"),
-    ("mastery_anchor",       "mastery_tpl_anchor"),
-    ("mastery_my_cars",      "mastery_tpl_my_cars"),
-    ("mastery_sort_recent",  "mastery_tpl_sort_recent"),
-]
+# Mastery is keyboard-driven (no detection), so it has no template list — the
+# Setup panel shows node capture only.
 
 
 
@@ -555,35 +547,8 @@ class MainWindow(ctk.CTk):
                      anchor="w", wraplength=480, justify="left",
                      font=("Arial", 12)).pack(fill="x", padx=12, pady=(8, 0))
 
-        # Mode toggle: Detection (template detection, the original flow) vs
-        # Keyboard (blind timed key sequences — experimental). Switching
-        # rebuilds the Setup panel below, since keys mode only needs nodes.
-        mode_row = ctk.CTkFrame(frame, fg_color="transparent")
-        mode_row.pack(fill="x", padx=12, pady=(8, 0))
-        ctk.CTkLabel(mode_row, text=_at("mastery_mode_label", self._lang),
-                     font=("Arial", 12)).pack(side="left")
-        self._mastery_mode_labels = {
-            "detect": _at("mastery_mode_detect", self._lang),
-            "keys":   _at("mastery_mode_keys", self._lang),
-        }
-        saved_mode = str(self._cfg.get("mastery_mode", "detect")).lower()
-        if saved_mode not in self._mastery_mode_labels:
-            saved_mode = "detect"
-        self._mastery_mode_var = ctk.StringVar(
-            value=self._mastery_mode_labels[saved_mode])
-        ctk.CTkSegmentedButton(
-            mode_row,
-            values=list(self._mastery_mode_labels.values()),
-            variable=self._mastery_mode_var,
-            command=self._on_mastery_mode_change,
-            height=32,
-            **theme.segbtn_kwargs(self._cfg),
-        ).pack(side="left", padx=theme.PAD_INLINE)
-        ctk.CTkLabel(mode_row, text=_at("mastery_mode_hint", self._lang),
-                     font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
-
-        # Setup panel (contents depend on the mode — see _make_mastery_setup)
+        # Setup panel — mastery is keyboard-driven, so it only needs node
+        # capture (no templates, no threshold sliders).
         self._mastery_setup = self._make_mastery_setup(frame)
         self._mastery_setup.pack(fill="x", padx=8, pady=(4, 8))
 
@@ -1912,8 +1877,6 @@ class MainWindow(ctk.CTk):
         self._build_settings_fields(
             scroll,
             fields=[
-                (_at('setting_mastery_check_interval',  self._lang), 'mastery_check_interval',  0.3, 2.0, 0.1, 'tip_mastery_check_interval'),
-                (_at('setting_mastery_post_click_wait', self._lang), 'mastery_post_click_wait', 0.5, 2.0, 0.1, 'tip_mastery_post_click_wait'),
                 (_at('setting_mastery_node_click_wait', self._lang), 'mastery_node_click_wait', 0.7, 2.0, 0.1, 'tip_mastery_node_click_wait'),
             ])
 
@@ -1954,19 +1917,13 @@ class MainWindow(ctk.CTk):
         save(self._cfg)
 
     def _make_mastery_setup(self, parent) -> SetupPanel:
-        """Build the mastery Setup panel for the current mastery_mode.
-
-        Keyboard ("keys") mode needs NO templates — menu steps are blind timed
-        key presses — so the panel gets an empty template_defs and shows only
-        the resolution selector + node capture (no template rows, and therefore
-        no per-template threshold sliders). Detection mode gets the full panel."""
-        keys_mode = (str(self._cfg.get("mastery_mode", "detect")).lower()
-                     == "keys")
+        """Build the mastery Setup panel. Mastery is keyboard-driven, so it
+        needs NO templates — only node capture. The panel gets an empty
+        template_defs, showing just the resolution selector + node capture (no
+        template rows, hence no per-template threshold sliders)."""
         return SetupPanel(
             parent,
-            template_defs=([] if keys_mode else
-                           [(k, _at(lk, self._lang))
-                            for k, lk in MASTERY_TEMPLATE_KEYS_MAP]),
+            template_defs=[],
             folder=get_mastery_templates('custom', self._tpl_lang),
             nodes_file=get_nodes_file('custom', self._tpl_lang),
             res_cfg_key='mastery_resolution',
@@ -1978,19 +1935,6 @@ class MainWindow(ctk.CTk):
             main_cfg=self._cfg,
             tpl_lang=self._tpl_lang,
         )
-
-    def _on_mastery_mode_change(self, val: str):
-        rev = {v: k for k, v in self._mastery_mode_labels.items()}
-        mode = rev.get(val, "detect")
-        self._cfg["mastery_mode"] = mode
-        save(self._cfg)
-        # Rebuild the Setup panel in place so its contents match the new mode.
-        old = self._mastery_setup
-        new = self._make_mastery_setup(old.master)
-        new.pack(fill="x", padx=8, pady=(4, 8), before=old)
-        old.destroy()
-        self._mastery_setup = new
-        self._apply_ui_fonts()   # re-lock CJK-capable fonts on the new widgets
 
     def _on_theme_change(self, val: str):
         # Map display label (any language) back to ctk English value

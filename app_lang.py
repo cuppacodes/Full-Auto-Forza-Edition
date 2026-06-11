@@ -471,11 +471,6 @@ STRINGS = {
         "zh-tw": "最低所需相似度",
         "zh-cn": "最低所需相似度",
     },
-    "setting_mastery_post_click_wait": {
-        "en":    "Click wait (s)",
-        "zh-tw": "點擊等待（秒）",
-        "zh-cn": "点击等待（秒）",
-    },
     "setting_mastery_node_click_wait": {
         "en":    "Mastery node click interval (s)",
         "zh-tw": "點擊熟練度間隔（秒）",
@@ -695,41 +690,6 @@ STRINGS = {
     },
 
     # ── Mastery template labels ───────────────────────────────
-    "mastery_tpl_ride_car": {
-        "en":    "Ride This Car option",
-        "zh-tw": "駕駛車輛選項",
-        "zh-cn": "驾驶车辆选项",
-    },
-    "mastery_tpl_esc_hint": {
-        "en":    "ESC hint at screen bottom",
-        "zh-tw": "畫面底部 ESC 提示",
-        "zh-cn": "画面底部 ESC 提示",
-    },
-    "mastery_tpl_upgrade_item": {
-        "en":    "Upgrade & Tuning menu item",
-        "zh-tw": "升級套件與調校選項",
-        "zh-cn": "升级套件与调校选项",
-    },
-    "mastery_tpl_mastery_item": {
-        "en":    "Car Mastery list item",
-        "zh-tw": "車輛熟練度列表項目",
-        "zh-cn": "车辆熟练度列表项目",
-    },
-    "mastery_tpl_anchor": {
-        "en":    "Car Mastery screen header",
-        "zh-tw": "車輛熟練度畫面標題",
-        "zh-cn": "车辆熟练度画面标题",
-    },
-    "mastery_tpl_my_cars": {
-        "en":    "My Cars button",
-        "zh-tw": "我的車輛按鈕",
-        "zh-cn": "我的车辆按钮",
-    },
-    "mastery_tpl_sort_recent": {
-        "en":    "Recently Added sort option",
-        "zh-tw": "最近新增排序選項",
-        "zh-cn": "最近新增排序选项",
-    },
 
     # ── Automation log messages ───────────────────────────────
     "log_template_loaded": {
@@ -827,20 +787,10 @@ STRINGS = {
         "zh-tw": "  1 小時後仍未偵測到比賽結束 — 釋放 W。",
         "zh-cn": "  1 小时后仍未检测到比赛结束 — 释放 W。",
     },
-    "log_clicking": {
-        "en":    "  Clicking {label} ({conf})",
-        "zh-tw": "  點擊 {label}（{conf}）",
-        "zh-cn": "  点击 {label}（{conf}）",
-    },
     "log_not_found_retry": {
         "en":    "  {label} not found — retrying loop.",
         "zh-tw": "  找不到 {label} — 重試循環。",
         "zh-cn": "  找不到 {label} — 重试循环。",
-    },
-    "log_pressing_esc": {
-        "en":    "  Pressing ESC...",
-        "zh-tw": "  按下 ESC...",
-        "zh-cn": "  按下 ESC...",
     },
     "log_esc_x2": {
         "en":    "  Pressing ESC x2 to return...",
@@ -856,26 +806,6 @@ STRINGS = {
         "en":    "    Node {i}/{n} at ({x},{y})",
         "zh-tw": "    節點 {i}/{n} 位於 ({x},{y})",
         "zh-cn": "    节点 {i}/{n} 位于 ({x},{y})",
-    },
-    "log_sort_pressing_x": {
-        "en":    "  Pressing X — sort menu (attempt {n}/2)...",
-        "zh-tw": "  按下 X — 排序選單（第 {n}/2 次）...",
-        "zh-cn": "  按下 X — 排序菜单（第 {n}/2 次）...",
-    },
-    "log_sort_not_detected": {
-        "en":    "  Sort menu not detected — retrying...",
-        "zh-tw": "  未偵測到排序選單 — 重試中...",
-        "zh-cn": "  未检测到排序菜单 — 重试中...",
-    },
-    "log_sort_not_found": {
-        "en":    "  Sort menu not found after 2 attempts — continuing.",
-        "zh-tw": "  兩次嘗試後仍未找到排序選單 — 繼續執行。",
-        "zh-cn": "  两次尝试后仍未找到排序菜单 — 继续执行。",
-    },
-    "log_cutscene_continuing": {
-        "en":    "  ESC hint not detected — continuing anyway.",
-        "zh-tw": "  未偵測到 ESC 提示 — 仍繼續執行。",
-        "zh-cn": "  未检测到 ESC 提示 — 仍继续执行。",
     },
     "log_loop": {
         "en":    "Loop",
@@ -897,11 +827,6 @@ STRINGS = {
         "zh-tw": "  按下 Enter 開啟動作選單...",
         "zh-cn": "  按下 Enter 打开动作菜单...",
     },
-    "log_action_menu_not_found": {
-        "en":    "  Action menu not detected — skipping.",
-        "zh-tw": "  未偵測到動作選單 — 跳過。",
-        "zh-cn": "  未检测到动作菜单 — 跳过。",
-    },
     "log_esc_back": {
         "en":    "  Pressing ESC ×2 to exit...",
         "zh-tw": "  按下 ESC ×2 返回...",
@@ -911,11 +836,6 @@ STRINGS = {
         "en":    "  Pressing [{key}]",
         "zh-tw": "  按下 [{key}]",
         "zh-cn": "  按下 [{key}]",
-    },
-    "log_template_set": {
-        "en":    "  Template set: {res} → {folder}",
-        "zh-tw": "  樣本組：{res} → {folder}",
-        "zh-cn": "  模板组：{res} → {folder}",
     },
     "status_user_select": {
         "en":    "Please select a new 22B-STI and open the action menu.",
@@ -958,11 +878,6 @@ STRINGS = {
         "zh-tw": "畫面與樣本的相符程度，達到此值才視為偵測成功。\n數值越高越嚴格，越低則越寬鬆但可能誤判。",
         "zh-cn": "画面与模板的匹配程度，达到此值才视为检测成功。\n数值越高越严格，越低则越宽松但可能误判。",
     },
-    "tip_mastery_post_click_wait": {
-        "en":    "How long to wait after each mouse click (in seconds).\nIncrease if the game misses clicks or menus open too slowly.",
-        "zh-tw": "每次滑鼠點擊後的等待時間（秒）。\n若遊戲漏接點擊或選單開啟太慢，請增加此數值。",
-        "zh-cn": "每次鼠标点击后的等待时间（秒）。\n若游戏漏接点击或菜单打开太慢，请增加此数值。",
-    },
     "tip_mastery_node_click_wait": {
         "en":    "How long to wait after each mastery node click (in seconds).\nIncrease if the game misses node clicks.",
         "zh-tw": "每次點擊熟練度節點後的等待時間（秒）。\n若遊戲漏接節點點擊，請增加此數值。",
@@ -978,16 +893,6 @@ STRINGS = {
         "zh-tw": "每次刪除按鍵之間的等待時間（秒）。",
         "zh-cn": "每次删除按键之间的等待时间（秒）。",
     },
-    "setting_mastery_check_interval": {
-        "en":    "Detection scan interval (s)",
-        "zh-tw": "偵測掃描間隔（秒）",
-        "zh-cn": "检测扫描间隔（秒）",
-    },
-    "tip_mastery_check_interval": {
-        "en":    "How often the screen is checked for each state (in seconds).\nLower = faster response but uses more CPU.",
-        "zh-tw": "每次偵測畫面狀態的間隔時間（秒）。\n數值越低反應越快，但 CPU 使用率越高。",
-        "zh-cn": "每次检测画面状态的间隔时间（秒）。\n数值越低响应越快，但 CPU 占用越高。",
-    },
 
     "mastery_start_row_label": {
         "en":    "Start from row",
@@ -1001,31 +906,6 @@ STRINGS = {
     },
 
     # ── Mastery mode toggle (detect / keys) ───────────────────
-    "mastery_mode_label": {
-        "en":    "Mode",
-        "zh-tw": "模式",
-        "zh-cn": "模式",
-    },
-    "mastery_mode_detect": {
-        "en":    "Detection",
-        "zh-tw": "偵測模式",
-        "zh-cn": "检测模式",
-    },
-    "mastery_mode_keys": {
-        "en":    "Keyboard",
-        "zh-tw": "按鍵模式",
-        "zh-cn": "按键模式",
-    },
-    "mastery_mode_hint": {
-        "en":    "(Keyboard = timed key presses, no detection — only node capture needed)",
-        "zh-tw": "（按鍵模式＝定時按鍵、不偵測畫面 — 只需擷取節點座標）",
-        "zh-cn": "（按键模式＝定时按键、不检测画面 — 只需截取节点坐标）",
-    },
-    "log_mastery_mode_keys": {
-        "en":    "Keyboard mode — menu steps are timed key presses (no screen detection).",
-        "zh-tw": "按鍵模式 — 選單步驟使用定時按鍵（不偵測畫面）。",
-        "zh-cn": "按键模式 — 菜单步骤使用定时按键（不检测画面）。",
-    },
     "log_mkeys_ride": {
         "en":    "Pressing Enter — Ride This Car",
         "zh-tw": "按下 Enter — 駕駛這輛車",

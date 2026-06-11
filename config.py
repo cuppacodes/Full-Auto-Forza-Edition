@@ -151,30 +151,17 @@ DEFAULTS = {
     # Race settings
     "race_threshold":    0.60,
     # Per-template thresholds. Race Auto detects start_menu + restart_menu
-    # (racing/confirm are blind timing); the mastery keys use the rest.
+    # (racing/confirm are blind timing). Mastery is keyboard-driven — no
+    # templates, so no mastery thresholds.
     "thresh_start_menu":           0.60,
     "thresh_restart_menu":         0.60,
-    "thresh_mastery_ride_car":     0.60,
-    "thresh_mastery_esc_hint":     0.60,
-    "thresh_mastery_upgrade_item": 0.60,
-    "thresh_mastery_mastery_item": 0.60,
-    "thresh_mastery_anchor":       0.60,
-    "thresh_mastery_my_cars":      0.60,
-    "thresh_mastery_sort_recent":  0.60,
     "race_check_interval":    0.5,
     "race_post_key_wait":     0.75,
-    # Mastery settings
-    "mastery_threshold":      0.85,
-    "mastery_post_click_wait":0.8,
-    "mastery_check_interval": 0.5,
+    # Mastery settings (keyboard-driven; no detection)
     "mastery_node_click_wait":0.8,
     "mastery_start_loop":     1,
-    # Mastery flow mode: "detect" (template detection, the original flow) or
-    # "keys" (blind timed key sequences — no detection, only node capture
-    # needed). "keys" is the experimental second mode; "detect" is default.
-    "mastery_mode":           "detect",
-    # NOTE: keys-mode step waits (cutscene/screen/tap) and the menu-transition
-    # delay are FIXED constants in mastery.py (no UI/config option by design).
+    # NOTE: mastery step waits (cutscene/screen/tap + menu-transition delay)
+    # are FIXED constants in mastery.py (no UI/config option by design).
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,

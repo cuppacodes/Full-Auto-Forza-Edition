@@ -4,8 +4,6 @@
 #  All output via log_cb / status_cb instead of print()
 # ============================================================
 
-import cv2
-import numpy as np
 import time
 import threading
 import ctypes
@@ -14,9 +12,8 @@ import pydirectinput
 
 from app_lang import t as _at
 import config
-from config import get_mastery_templates, get_nodes_file
-from capture import grab_frame, load_template, load_nodes, get_monitor_dims, force_english_ime
-from detector import ScreenDetector
+from config import get_nodes_file
+from capture import load_nodes, get_monitor_dims, force_english_ime
 
 
 
@@ -97,37 +94,6 @@ def _mouse_click(x, y, mon_left=0, mon_top=0, post_wait=0.8):
     time.sleep(post_wait)
 
 
-def _capture_frame(monitor_index):
-    return grab_frame(monitor_index)
-
-
-def _screen_matches(screen, template, threshold):
-    if template.shape[0] > screen.shape[0] or template.shape[1] > screen.shape[1]:
-        return False, 0.0, (0, 0)
-    result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
-    _, best_conf, _, best_loc = cv2.minMaxLoc(result)
-    return best_conf >= threshold, best_conf, best_loc
-
-
-def _find_on_screen(screen, template, threshold):
-    matched, conf, loc = _screen_matches(screen, template, threshold)
-    if matched:
-        cx = loc[0] + template.shape[1] // 2
-        cy = loc[1] + template.shape[0] // 2
-        return True, conf, (cx, cy)
-    return False, conf, (0, 0)
-
-
-TEMPLATE_KEYS = [
-    "mastery_ride_car",
-    "mastery_esc_hint",
-    "mastery_upgrade_item",
-    "mastery_mastery_item",
-    "mastery_anchor",
-    "mastery_my_cars",
-    "mastery_sort_recent",
-]
-
 def _nav_keys_for_loop(loop: int) -> list:
     """
     Infinite snake navigation.
@@ -154,262 +120,14 @@ def _nav_keys_for_loop(loop: int) -> list:
 
 
 
-def run(cfg: dict, stop_event: threading.Event,
-        log_cb, status_cb, max_cars: int = 0, warn_cb=None, section_cb=None):
-    # Mode dispatch: "keys" = blind timed key sequences (run_keys, experimental),
-    # anything else = the original detection flow below. Toggled per-tab in the
-    # UI; saved as mastery_mode in config.
-    if str(cfg.get("mastery_mode", "detect")).strip().lower() == "keys":
-        return run_keys(cfg, stop_event, log_cb, status_cb,
-                        max_cars=max_cars, section_cb=section_cb)
-    section       = section_cb or log_cb
-    lang          = cfg.get("lang", "en")
-    monitor_index = cfg.get("monitor_index", 1)
-    # Per-template thresholds
-    def _thresh(key):
-        return _fresh.get(f'thresh_{key}', 0.80)
-
-    post_kw       = _POST_KEY_WAIT   # fixed (was mastery_post_key_wait slider)
-    post_cw       = cfg.get("mastery_post_click_wait", 0.8)
-    post_ncw      = cfg.get("mastery_node_click_wait", post_cw)
-    check_iv      = cfg.get("mastery_check_interval", 0.5)
-    start_loop    = max(1, min(3, int(cfg.get("mastery_start_loop", 1))))
-
-    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
-
-    # Load templates
-    templates = {}
-    # Always read resolution fresh from config.json at start
-    import config as _cfg_mod
-    _fresh = _cfg_mod.load()
-    res      = _fresh.get('mastery_resolution', 'custom')
-    tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
-    folder   = get_mastery_templates(res, tpl_lang)
-    # Detection mode follows the template type automatically (no manual toggle):
-    # preset resolutions use the robust OCR-confirm "default" detection; custom
-    # templates use the pixel-only "custom" method. See ScreenDetector.
-    _fresh['detector_ocr_primary'] = (res != 'custom')
-    detector = ScreenDetector(_fresh)
-    log_cb(_at('log_template_set', lang, res=res, folder=folder))
-    for key in TEMPLATE_KEYS:
-        try:
-            img, scale = load_template(folder, key,
-                                       current_w, current_h, grayscale=True)
-            templates[key] = img
-            log_cb(_at("log_template_loaded", lang, key=key, scale=f"{scale:.2f}"))
-        except FileNotFoundError:
-            log_cb(_at("log_template_missing", lang, key=key))
-            status_cb(_at("status_setup_incomplete", lang))
-            return
-
-    # Load nodes
-    try:
-        nodes_file = get_nodes_file(res, tpl_lang)
-        nodes = load_nodes(nodes_file, current_w, current_h,
-                           aspect_fix=_fresh.get("nodes_aspect_fix", True))
-        log_cb(_at("log_nodes_loaded", lang, n=len(nodes)))
-    except Exception:
-        log_cb(_at("log_nodes_missing", lang))
-        status_cb(_at("status_setup_incomplete", lang))
-        return
-
-    def stop():
-        return stop_event.is_set()
-
-    def wait_for(label, template, key, timeout=float('inf'), warn=True):
-        # warn=False suppresses the 10s "not detected" red warning for steps
-        # where a long wait is NORMAL (e.g. the ESC hint / My Cars screen can
-        # legitimately take a while to appear). Detection still continues.
-        status_cb(_at("status_waiting_for", lang, label=label))
-        def _warn(best):
-            msg = _at("log_warn_not_detected", lang, label=label)
-            msg += f" (best {best.source}: {best.score:.0%})"
-            (warn_cb or log_cb)(msg)
-
-        result = detector.wait_for(
-            frame_cb=lambda: _capture_frame(monitor_index),
-            key=key,
-            template=template,
-            threshold=_thresh(key),
-            stop_cb=stop,
-            interval=check_iv,
-            timeout=timeout,
-            on_warn=_warn if warn else None,
-        )
-        if result.matched:
-            log_cb(_at("log_detected", lang, label=label,
-                       conf=f"{result.score:.0%}"))
-            return True
-        return False
-
-    def click_template(label, template, key):
-        result = detector.detect(
-            _capture_frame(monitor_index), key, template, _thresh(key),
-            stable=False)
-        if result.matched:
-            log_cb(_at("log_clicking", lang, label=label,
-                       conf=f"{result.score:.0%}"))
-            _mouse_click(result.location[0], result.location[1],
-                         mon_left, mon_top, post_cw)
-            return True
-        return False
-
-    if max_cars > 0:
-        log_cb(_at("log_mastery_started_count", lang, n=max_cars))
-    else:
-        log_cb(_at("log_mastery_started", lang))
-    # Switch the game to English input only if it isn't already (see
-    # capture.force_english_ime). Disable with auto_english_ime=false.
-    if _fresh.get("auto_english_ime", True):
-        force_english_ime()
-        time.sleep(0.2)
-    loop_count = start_loop - 1
-    car_num    = 0
-
-    while not stop():
-        loop_count += 1
-        car_num    += 1
-        is_first   = (car_num == 1)
-
-        # ── Navigate to next car ──────────────────────────────
-        # Skip navigation on the first car — the user is already positioned there.
-        nav_keys = [] if is_first else _nav_keys_for_loop(loop_count)
-        section(_at("log_car", lang, n=car_num) +
-                (f" / {max_cars}" if max_cars > 0 else ""))
-
-        if nav_keys:
-            log_cb(_at("log_navigating", lang, keys=' '.join(k.upper() for k in nav_keys)))
-            for key in nav_keys:
-                pydirectinput.press(key)
-                time.sleep(0.4)
-            time.sleep(0.3)
-        else:
-            log_cb(_at("log_loop1_start", lang, row=start_loop))
-
-        # ── Open action menu ──────────────────────────────────
-        log_cb(_at("log_open_action_menu", lang))
-        _send_vk('enter', key_up=False); time.sleep(0.05)
-        _send_vk('enter', key_up=True)
-        time.sleep(1.5)
-
-        # ── Detect and click Ride This Car ────────────────────
-        status_cb(_at("status_waiting_for", lang, label="Ride This Car"))
-        matched, conf, loc = False, 0.0, (0, 0)
-        for _ in range(10):
-            if stop(): break
-            result = detector.detect(
-                _capture_frame(monitor_index),
-                "mastery_ride_car",
-                templates["mastery_ride_car"],
-                _thresh("mastery_ride_car"),
-                stable=False)
-            matched = result.matched
-            conf = result.score
-            loc = result.location
-            if matched: break
-            time.sleep(0.5)
-
-        if not matched:
-            log_cb(_at("log_action_menu_not_found", lang))
-            continue
-
-        log_cb(_at("log_clicking", lang, label="Ride This Car", conf=f"{conf:.0%}"))
-        _mouse_click(loc[0], loc[1], mon_left, mon_top, post_cw)
-
-        # ── Cutscene ──────────────────────────────────────────
-        ok = wait_for("ESC hint", templates["mastery_esc_hint"], "mastery_esc_hint",
-                      warn=False)
-        if stop(): break
-        if not ok:
-            log_cb(_at("log_cutscene_continuing", lang))
-
-        # ── ESC → Upgrade & Tuning ────────────────────────────
-        log_cb(_at("log_pressing_esc", lang))
-        _key_press('esc', post_wait=post_kw)
-
-        wait_for("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item")
-        if stop(): break
-        click_template("Upgrade & Tuning", templates["mastery_upgrade_item"], "mastery_upgrade_item")
-
-        time.sleep(0.8)
-
-        # ── Car Mastery ───────────────────────────────────────
-        wait_for("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item")
-        if stop(): break
-        click_template("Car Mastery", templates["mastery_mastery_item"], "mastery_mastery_item")
-
-        wait_for("Mastery screen", templates["mastery_anchor"], "mastery_anchor")
-        if stop(): break
-
-        # ── Click 6 nodes ─────────────────────────────────────
-        log_cb(_at("log_clicking_nodes", lang, n=len(nodes)))
-        for i, (nx, ny) in enumerate(nodes, start=1):
-            if stop(): break
-            log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
-            _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
-            time.sleep(0.3)
-
-        if stop(): break
-
-        # ── ESC x2 → My Cars ─────────────────────────────────
-        log_cb(_at("log_esc_back", lang))
-        _key_press('esc', post_wait=1.0)
-        _key_press('esc', post_wait=1.0)
-
-        wait_for("My Cars", templates["mastery_my_cars"], "mastery_my_cars",
-                 warn=False)
-        if stop(): break
-        click_template("My Cars", templates["mastery_my_cars"], "mastery_my_cars")
-        time.sleep(0.8)
-
-        # ── Sort by Recently Added ────────────────────────────
-        matched_sort = False
-        for attempt in range(1, 3):
-            if stop(): break
-            log_cb(_at("log_sort_pressing_x", lang, n=attempt))
-            pydirectinput.press('x')
-            time.sleep(1.2)
-            result = detector.detect(
-                _capture_frame(monitor_index),
-                "mastery_sort_recent",
-                templates["mastery_sort_recent"],
-                _thresh("mastery_sort_recent"),
-                stable=False)
-            matched_sort = result.matched
-            conf = result.score
-            loc = result.location
-            if matched_sort:
-                break
-            log_cb(_at("log_sort_not_detected", lang))
-
-        if stop(): break
-
-        if matched_sort:
-            log_cb(_at("log_clicking", lang, label="Recently Added",
-                        conf=f"{conf:.0%}"))
-            _mouse_click(loc[0], loc[1], mon_left, mon_top, post_cw)
-        else:
-            log_cb(_at("log_sort_not_found", lang))
-
-        time.sleep(0.8)
-
-        if max_cars > 0 and car_num >= max_cars:
-            log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
-            break
-
-    log_cb(_at("log_mastery_stopped", lang))
-    status_cb(_at("status_stopped", lang))
-
-
-# ── Keyboard-sequence mode ("keys") ──────────────────────────
-# Blind timed key presses instead of screen detection. The menu layout is
-# fixed, so each step is a known key sequence + wait; nothing is detected,
-# no templates are needed, and the red "not detected" warning can't occur.
-# Only the 6 mastery-node positions remain coordinate-driven (mouse clicks).
-# Step waits are FIXED constants below (no UI option); node clicks use the
-# mastery_node_click_wait Setting. Toggled via mastery_mode ("detect" = original).
-
-# Keys-mode step waits — FIXED constants (no UI option, baked from tuning).
+# ── Mastery automation (keyboard-driven) ─────────────────────
+# Blind timed key presses — NO screen detection. The menu layout is fixed, so
+# each step is a known key sequence + wait; no templates are loaded and the red
+# "not detected" warning can't occur. Only the 6 mastery-node positions remain
+# coordinate-driven (mouse clicks). This is the ONLY mastery mode (the old
+# detection flow was removed).
+#
+# Step waits are FIXED constants (no UI option, baked from tuning):
 #   _POST_KEY_WAIT      menu-step transitions (action-menu Enter, ESC×2, X/Enter)
 #   _KEYS_CUTSCENE_WAIT step 4: wait for the "Ride This Car" cutscene before ESC
 #   _KEYS_SCREEN_WAIT   step 7: wait for the Car Mastery screen before clicking
@@ -421,20 +139,21 @@ _KEYS_SCREEN_WAIT   = 1.5
 _TAP_WAIT           = 0.25
 
 
-def run_keys(cfg: dict, stop_event: threading.Event,
-             log_cb, status_cb, max_cars: int = 0, section_cb=None):
+def run(cfg: dict, stop_event: threading.Event,
+        log_cb, status_cb, max_cars: int = 0, warn_cb=None, section_cb=None):
+    # warn_cb is accepted for call-site compatibility but unused — this flow
+    # never detects, so there's no "not detected" warning to raise.
     section       = section_cb or log_cb
     lang          = cfg.get("lang", "en")
     monitor_index = cfg.get("monitor_index", 1)
 
-    # Always read settings fresh from config.json at start (same as detect mode)
+    # Always read settings fresh from config.json at start.
     import config as _cfg_mod
     _fresh = _cfg_mod.load()
     post_kw    = _POST_KEY_WAIT          # fixed (menu-step transitions)
-    post_cw    = _fresh.get("mastery_post_click_wait", 0.8)
-    post_ncw   = _fresh.get("mastery_node_click_wait", post_cw)
+    post_ncw   = _fresh.get("mastery_node_click_wait", 0.8)
     start_loop = max(1, min(3, int(_fresh.get("mastery_start_loop", 1))))
-    # Keys-mode step waits — fixed constants (see top of section).
+    # Step waits — fixed constants (see top of section).
     cut_wait    = _KEYS_CUTSCENE_WAIT
     screen_wait = _KEYS_SCREEN_WAIT
     tap_wait    = _TAP_WAIT
@@ -483,7 +202,6 @@ def run_keys(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_mastery_started_count", lang, n=max_cars))
     else:
         log_cb(_at("log_mastery_started", lang))
-    log_cb(_at("log_mastery_mode_keys", lang))
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable with auto_english_ime=false.
     if _fresh.get("auto_english_ime", True):
