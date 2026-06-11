@@ -440,17 +440,18 @@ class MainWindow(ctk.CTk):
                 hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
                 command=lambda k=key: self._switch_tab(k))
             btn.place(x=0, y=0, relwidth=1, relheight=1)
-            # CTk centres the label symmetrically, but on high UI-scale displays
-            # the CJK line-box rounds low (more gap above than below). Nudge the
-            # text up, proportional to the scale factor — 0 at 1× (already
-            # centred there, so normal-DPI users are untouched), ~6px at 2×.
-            _nudge = max(0, round((getattr(self, "_ui_scale", 1.0) - 1.0) * 6))
-            if _nudge:
-                try:
-                    btn.update_idletasks()
-                    btn._text_label.grid_configure(pady=(0, _nudge))
-                except Exception:
-                    pass
+            # Inset the label so the first glyph clears the rounded corner and
+            # the accent left-bar (logical x 4–8); without this the leading
+            # character is clipped (default corner_sm=4). Also nudge the CJK
+            # line-box up on high-DPI displays where it rounds low (0 at 1×).
+            S = getattr(self, "_ui_scale", 1.0) or 1.0
+            _padx = round(10 * S)
+            _nudge = max(0, round((S - 1.0) * 6))
+            try:
+                btn.update_idletasks()
+                btn._text_label.grid_configure(padx=(_padx, 0), pady=(0, _nudge))
+            except Exception:
+                pass
             bar = ctk.CTkFrame(item, width=4, corner_radius=2,
                                fg_color="transparent")
             bar.place(x=4, rely=0.5, anchor="w", relheight=0.6)
@@ -465,16 +466,36 @@ class MainWindow(ctk.CTk):
         # NOTE: compound is always "left" — compound="center" hides the label
         # text in CustomTkinter (it's meant for image-over-text), which left the
         # text-only buttons looking empty.
+        # Left-aligned (matching the nav above) with a uniform leading inset,
+        # so all four labels start at the same x. Each button carries a leading
+        # icon (gear/bug/Discord-logo/cup) so the words line up in a column.
         def _bottom_btn(text, cmd, fill, txt, hover, image=None, pady=2):
-            ctk.CTkButton(
-                sb, text=text, image=image, compound="left",
+            S = getattr(self, "_ui_scale", 1.0) or 1.0
+            b = ctk.CTkButton(
+                sb, text=text, image=image, compound="left", anchor="w",
                 height=30, corner_radius=self._t("corner_sm"),
                 fg_color=fill, text_color=txt, hover_color=hover,
                 border_width=2, border_color=self._t("accent"),
-                font=theme.LABEL_FONT, command=cmd).pack(
-                fill="x", padx=12, pady=pady)
+                font=theme.LABEL_FONT, command=cmd)
+            b.pack(fill="x", padx=12, pady=pady)
+            b.update_idletasks()
+            _lead = round(14 * S)
+            _ny = max(0, round((S - 1.0) * 3))
+            try:
+                # Inset the leading element (icon if present, else text) so the
+                # content starts at the same x on every button.
+                if image is not None:
+                    b._image_label.grid_configure(padx=(_lead, 0))
+                    if _ny:
+                        b._text_label.grid_configure(pady=(0, _ny))
+                else:
+                    b._text_label.grid_configure(padx=(_lead, 0), pady=(0, _ny))
+            except Exception:
+                pass
+            return b
 
-        _bottom_btn(_at("settings_window_title", self._lang), self._open_settings,
+        _bottom_btn("⚙  " + _at("settings_window_title", self._lang),
+                    self._open_settings,
                     self._t("surface_alt"), self._t("text"), self._t("surface"),
                     pady=(2, 2))
         _bottom_btn("🐞  " + _at("report_help_btn", self._lang),
