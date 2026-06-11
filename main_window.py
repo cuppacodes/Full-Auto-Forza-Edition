@@ -440,6 +440,17 @@ class MainWindow(ctk.CTk):
                 hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
                 command=lambda k=key: self._switch_tab(k))
             btn.place(x=0, y=0, relwidth=1, relheight=1)
+            # CTk centres the label symmetrically, but on high UI-scale displays
+            # the CJK line-box rounds low (more gap above than below). Nudge the
+            # text up, proportional to the scale factor — 0 at 1× (already
+            # centred there, so normal-DPI users are untouched), ~6px at 2×.
+            _nudge = max(0, round((getattr(self, "_ui_scale", 1.0) - 1.0) * 6))
+            if _nudge:
+                try:
+                    btn.update_idletasks()
+                    btn._text_label.grid_configure(pady=(0, _nudge))
+                except Exception:
+                    pass
             bar = ctk.CTkFrame(item, width=4, corner_radius=2,
                                fg_color="transparent")
             bar.place(x=4, rely=0.5, anchor="w", relheight=0.6)
