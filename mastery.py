@@ -185,6 +185,10 @@ def run(cfg: dict, stop_event: threading.Event,
     res      = _fresh.get('mastery_resolution', 'custom')
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
     folder   = get_mastery_templates(res, tpl_lang)
+    # Detection mode follows the template type automatically (no manual toggle):
+    # preset resolutions use the robust OCR-confirm "default" detection; custom
+    # templates use the pixel-only "custom" method. See ScreenDetector.
+    _fresh['detector_ocr_primary'] = (res != 'custom')
     detector = ScreenDetector(_fresh)
     log_cb(_at('log_template_set', lang, res=res, folder=folder))
     for key in TEMPLATE_KEYS:

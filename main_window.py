@@ -483,33 +483,11 @@ class MainWindow(ctk.CTk):
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.pack(side="right")
 
-        # ── Detection mode toggle (Default / Custom) ──────────────────────
-        # Default = OCR-primary (text confirmation, robust across hardware).
-        # Custom  = pixel-only (for user-captured templates that differ from
-        #           defaults — different language, non-text content, etc.)
-        self._det_default_label = _at("det_mode_default", self._lang)
-        self._det_custom_label  = _at("det_mode_custom",  self._lang)
-        self._det_mode_var = ctk.StringVar(
-            value=self._det_default_label
-            if self._cfg.get("detector_ocr_primary", True)
-            else self._det_custom_label)
-        ctk.CTkSegmentedButton(
-            right,
-            values=[self._det_default_label, self._det_custom_label],
-            variable=self._det_mode_var,
-            command=self._on_detection_mode_change,
-            width=140, height=28,
-            **theme.segbtn_kwargs(self._cfg),
-        ).pack(side="left", padx=(0, theme.PAD_TIGHT))
-
-        # ? icon — tooltip explains when to use Custom mode
-        det_q_lbl = ctk.CTkLabel(
-            right, text="?", width=18,
-            font=theme.HINT_FONT,
-            text_color=("gray50", "gray60"),
-            cursor="question_arrow")
-        det_q_lbl.pack(side="left", padx=(0, theme.PAD_INLINE))
-        Tooltip(det_q_lbl, _at("det_mode_tip", self._lang))
+        # Detection mode is no longer a manual toggle — it's chosen
+        # automatically per run from the template type: preset resolutions use
+        # the robust OCR-confirm "default" detection, custom templates use the
+        # pixel-only "custom" method (set in race.run / mastery.run). This
+        # removes a setting most users found confusing.
 
         ctk.CTkButton(
             right, text="⚙", width=36,
@@ -519,10 +497,6 @@ class MainWindow(ctk.CTk):
             hover_color=("gray80", "gray30"),
             text_color=("gray20", "gray90")
         ).pack(side="left", padx=(theme.PAD_INLINE, 0))
-
-    def _on_detection_mode_change(self, val: str):
-        """Toggle detector_ocr_primary in config.json based on segmented button."""
-        self._cfg["detector_ocr_primary"] = (val == self._det_default_label)
         save(self._cfg)
 
     def _build_race_tab(self) -> ctk.CTkFrame:

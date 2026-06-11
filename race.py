@@ -176,6 +176,10 @@ def run(cfg: dict, stop_event: threading.Event,
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
     folder   = get_race_templates(res, tpl_lang)
     log_cb(f"  Templates: {tpl_lang} / {res}")
+    # Detection mode follows the template type automatically (no manual toggle):
+    # preset resolutions use the robust OCR-confirm "default" detection; custom
+    # templates use the pixel-only "custom" method. See ScreenDetector.
+    _fresh['detector_ocr_primary'] = (res != 'custom')
     # VK of the stop hotkey, for the hook-independent stop poll in stop().
     _toggle_vk = _vk_for_key(_fresh.get('toggle_key', 'f9'))
     detector = ScreenDetector(_fresh)
