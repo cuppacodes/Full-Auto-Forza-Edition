@@ -720,13 +720,13 @@ class MainWindow(ctk.CTk):
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_race,
                 width=120, font=theme.BUTTON_FONT,
-                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER, text_color=self._t("start_text"))
             self._race_start_btn.pack(side="left", padx=(0, 8))
 
             self._race_stop_btn = ctk.CTkButton(
                 row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER, text_color=self._t("stop_text"),
                 width=100, font=theme.BUTTON_FONT, state="disabled")
             self._race_stop_btn.pack(side="left")
 
@@ -743,13 +743,13 @@ class MainWindow(ctk.CTk):
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_mastery,
                 width=120, font=theme.BUTTON_FONT,
-                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER, text_color=self._t("start_text"))
             self._mastery_start_btn.pack(side="left", padx=(0, 8))
 
             self._mastery_stop_btn = ctk.CTkButton(
                 row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER, text_color=self._t("stop_text"),
                 width=100, font=theme.BUTTON_FONT, state="disabled")
             self._mastery_stop_btn.pack(side="left")
 
@@ -766,13 +766,13 @@ class MainWindow(ctk.CTk):
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_buy,
                 width=120, font=theme.BUTTON_FONT,
-                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER, text_color=self._t("start_text"))
             self._buy_start_btn.pack(side="left", padx=(0, 8))
 
             self._buy_stop_btn = ctk.CTkButton(
                 row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER, text_color=self._t("stop_text"),
                 width=100, font=theme.BUTTON_FONT, state="disabled")
             self._buy_stop_btn.pack(side="left")
 
@@ -789,13 +789,13 @@ class MainWindow(ctk.CTk):
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_delete,
                 width=120, font=theme.BUTTON_FONT,
-                fg_color=theme.START_FG, hover_color=theme.START_HOVER)
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER, text_color=self._t("start_text"))
             self._delete_start_btn.pack(side="left", padx=(0, 8))
 
             self._delete_stop_btn = ctk.CTkButton(
                 row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
                 command=self._stop_auto,
-                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER, text_color=self._t("stop_text"),
                 width=100, font=theme.BUTTON_FONT, state="disabled")
             self._delete_stop_btn.pack(side="left")
 

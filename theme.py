@@ -323,6 +323,14 @@ def list_themes() -> list[str]:
     return list(THEME_PRESETS.keys())
 
 
+def token(key: str, default=None):
+    """Read a single token from the ACTIVE preset (set by apply_preset). Lets
+    modules without a MainWindow handle (e.g. setup_panel) read theme colors.
+    Falls back to the default preset, then `default`."""
+    t = _ACTIVE_THEME if _ACTIVE_THEME is not None else get_theme(DEFAULT_PRESET)
+    return t.get(key, default)
+
+
 def get_theme(name: str) -> dict:
     """Resolve a preset name to its full token dict (falls back to default).
     Font tokens are injected from the locked, CJK-safe font tokens so they're
@@ -360,6 +368,7 @@ def _apply_ctk_overrides(t: dict) -> None:
     setc("CTkButton", "fg_color", t["accent"])
     setc("CTkButton", "hover_color", t["accent_hover"])
     setc("CTkButton", "text_color", t["accent_text"])
+    setc("CTkButton", "text_color_disabled", t["text_muted"])
     setc("CTkButton", "border_color", t["border"])
     setc("CTkLabel", "text_color", t["text"])
     for w in ("CTkEntry", "CTkOptionMenu", "CTkComboBox", "CTkTextbox"):
