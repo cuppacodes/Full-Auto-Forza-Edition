@@ -449,32 +449,34 @@ class MainWindow(ctk.CTk):
         # Spacer — pushes the bottom group down.
         ctk.CTkFrame(sb, fg_color="transparent").pack(fill="both", expand=True)
 
-        # Bottom group: filled buttons sharing the accent border, stacked
-        # Settings → Report a Bug → Discord → Support Me.
-        def _bottom_btn(text, cmd, fill, txt, hover, image=None, pady=3):
+        # Bottom group: compact filled buttons sharing the accent border,
+        # stacked Settings → Report a Bug → Discord → Support Me.
+        # NOTE: compound is always "left" — compound="center" hides the label
+        # text in CustomTkinter (it's meant for image-over-text), which left the
+        # text-only buttons looking empty.
+        def _bottom_btn(text, cmd, fill, txt, hover, image=None, pady=2):
             ctk.CTkButton(
-                sb, text=text, image=image,
-                compound="left" if image else "center",
-                height=38, corner_radius=self._t("corner_sm"),
+                sb, text=text, image=image, compound="left",
+                height=30, corner_radius=self._t("corner_sm"),
                 fg_color=fill, text_color=txt, hover_color=hover,
                 border_width=2, border_color=self._t("accent"),
-                font=theme.BUTTON_FONT, command=cmd).pack(
+                font=theme.LABEL_FONT, command=cmd).pack(
                 fill="x", padx=12, pady=pady)
 
         _bottom_btn(_at("settings_window_title", self._lang), self._open_settings,
                     self._t("surface_alt"), self._t("text"), self._t("surface"),
-                    pady=(2, 3))
+                    pady=(2, 2))
         _bottom_btn("🐞  " + _at("report_help_btn", self._lang),
                     self._open_report_help, self._t("surface_alt"),
                     self._t("text"), self._t("surface"))
-        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(16, 16))
+        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(15, 15))
         self._discord_img = discord_img   # keep a ref so it isn't GC'd
         _bottom_btn("  Discord", lambda: __import__("webbrowser").open(
             "https://discord.com/invite/MNg2g9Pp6K"),
             "#5865F2", "#ffffff", "#4752c4", image=discord_img)
         _bottom_btn("☕  " + _at("support_btn", self._lang), self._open_support,
                     self._t("support_fill"), self._t("support_text"),
-                    self._t("support_hover"), pady=(3, 16))
+                    self._t("support_hover"), pady=(2, 12))
 
         return sb
 
