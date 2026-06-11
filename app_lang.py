@@ -88,24 +88,24 @@ STRINGS = {
     },
     # Main-header page titles (emoji-free; the sidebar nav reuses the tab_* labels)
     "page_title_race": {
-        "en":    "Race Auto",
-        "zh-tw": "自動掛機刷技術點",
-        "zh-cn": "自动挂机刷技术点",
+        "en":    "AFK Races",
+        "zh-tw": "賽事掛機",
+        "zh-cn": "赛事挂机",
     },
     "page_title_mastery": {
-        "en":    "Auto Unlock 22B",
-        "zh-tw": "自動解鎖22B轉輪",
-        "zh-cn": "自动解锁22B转轮",
+        "en":    "Unlock Spin Wheel",
+        "zh-tw": "解鎖轉輪",
+        "zh-cn": "解锁转轮",
     },
     "page_title_buy": {
-        "en":    "Auto Buy 22B-STi",
-        "zh-tw": "自動購買22B-STi",
-        "zh-cn": "自动购买22B-STi",
+        "en":    "Buy Cars",
+        "zh-tw": "購買車輛",
+        "zh-cn": "购买车辆",
     },
     "page_title_delete": {
-        "en":    "Delete Used Cars",
-        "zh-tw": "刪除已使用車輛",
-        "zh-cn": "删除已使用车辆",
+        "en":    "Delete Cars",
+        "zh-tw": "刪除車輛",
+        "zh-cn": "删除车辆",
     },
     # Sidebar nav labels (emoji-free, short — the header shows the full page title)
     "nav_race": {
