@@ -143,14 +143,16 @@ ACCENT_PRESETS: dict[str, tuple[str, str]] = {
 DEFAULT_ACCENT_NAME = "Blue"
 
 
-def get_accent(cfg: dict) -> tuple[str, str, str]:
-    """Returns (name, fg, hover) for the current accent.  Falls back to default
-    on unknown / missing config values."""
-    name = cfg.get("accent_color", DEFAULT_ACCENT_NAME)
-    if name not in ACCENT_PRESETS:
-        name = DEFAULT_ACCENT_NAME
-    fg, hover = ACCENT_PRESETS[name]
-    return name, fg, hover
+def get_accent(cfg: dict | None = None) -> tuple[str, str, str]:
+    """Returns (name, fg, hover) for the current accent.
+
+    The accent now comes from the active THEME PRESET (set via apply_preset);
+    the old per-user accent-colour picker was replaced by theme presets. Falls
+    back to the default preset's accent before a preset has been applied."""
+    if _ACTIVE_THEME is not None:
+        return ("preset", _ACTIVE_THEME["accent"], _ACTIVE_THEME["accent_hover"])
+    d = THEME_PRESETS[DEFAULT_PRESET]
+    return ("default", d["accent"], d["accent_hover"])
 
 
 def slider_kwargs(cfg: dict) -> dict:
@@ -212,6 +214,201 @@ def apply_accent_to_tree(root, cfg: dict) -> None:
             pass
 
     walk(root)
+
+
+# ══════════════════════════════════════════════════════════════
+#  Theme presets (full color schemes, picked in Settings → Appearance)
+# ══════════════════════════════════════════════════════════════
+# Each preset is a flat dict of design tokens. Colors are single dark-only hex
+# strings (CTk also accepts (light,dark) tuples, but our presets are dark). The
+# font_* tokens are NOT stored here — get_theme() injects them from the locked,
+# CJK-safe font tokens above, so fonts stay correct per UI language regardless
+# of preset. corner/corner_sm are ints (corner radius in px).
+#
+# "default" reproduces the current look (so existing users see no change) and is
+# the only preset that leaves CustomTkinter's own appearance/colors untouched.
+# Other presets override the CTk ThemeManager defaults (see apply_preset) so the
+# whole surface palette changes, not just the few explicitly-tokened widgets.
+#
+# NOTE: bundling custom TTF fonts for fancier presets is a LATER task — for now
+# every preset uses the locked Windows family (Segoe UI / JhengHei / YaHei).
+
+THEME_TOKENS = [
+    "bg", "surface", "surface_alt", "sidebar_bg", "border",
+    "accent", "accent_hover", "accent_text",
+    "text", "text_muted",
+    "start", "start_hover", "start_text",   # Start button (distinct green)
+    "stop", "stop_hover", "stop_text",
+    "warn", "log_text", "log_accent", "status_dot",
+    "support_fill", "support_hover", "support_text",
+    "corner", "corner_sm",
+]
+
+THEME_PRESETS: dict[str, dict] = {
+    # Current look — dark, blue accent, CTk-default surfaces. Values match the
+    # existing hardcoded colors so nothing regresses.
+    "default": {
+        "bg":           "#242424",
+        "surface":      "#2b2b2b",
+        "surface_alt":  "#333333",
+        "sidebar_bg":   "#1e1e1e",
+        "border":       "#404040",
+        "accent":       "#3B82F6",
+        "accent_hover": "#2563EB",
+        "accent_text":  "#ffffff",
+        "text":         "#e5e5e5",
+        "text_muted":   "#9aa0a6",
+        "start":        "#10B981",
+        "start_hover":  "#059669",
+        "start_text":   "#ffffff",
+        "stop":         "#EF4444",
+        "stop_hover":   "#DC2626",
+        "stop_text":    "#ffffff",
+        "warn":         "#ff4444",
+        "log_text":     "#dcdcdc",
+        "log_accent":   "#3B82F6",
+        "status_dot":   "#22c55e",
+        "support_fill": "#0070ba",
+        "support_hover": "#005ea6",
+        "support_text": "#ffffff",
+        "corner":       6,
+        "corner_sm":    4,
+    },
+    # Showcase — dark navy/purple with a cyan accent and rounder corners.
+    "midnight_neon": {
+        "bg":           "#0f1020",
+        "surface":      "#1a1b2e",
+        "surface_alt":  "#23244a",
+        "sidebar_bg":   "#141527",
+        "border":       "#2d2f55",
+        "accent":       "#22d3ee",
+        "accent_hover": "#06b6d4",
+        "accent_text":  "#06121a",
+        "text":         "#e6e8ff",
+        "text_muted":   "#8b8fc7",
+        "start":        "#34d399",
+        "start_hover":  "#10b981",
+        "start_text":   "#06121a",
+        "stop":         "#f43f5e",
+        "stop_hover":   "#e11d48",
+        "stop_text":    "#ffffff",
+        "warn":         "#fb7185",
+        "log_text":     "#cdd0f5",
+        "log_accent":   "#22d3ee",
+        "status_dot":   "#34d399",
+        "support_fill": "#8b5cf6",
+        "support_hover": "#7c3aed",
+        "support_text": "#ffffff",
+        "corner":       12,
+        "corner_sm":    6,
+    },
+}
+
+DEFAULT_PRESET = "default"
+
+# Display names for the Settings dropdown (preset key -> label). Kept ASCII so
+# they read the same in every language; could be localized later if wanted.
+THEME_PRESET_LABELS = {
+    "default":       "Default (Blue)",
+    "midnight_neon": "Midnight Neon",
+}
+
+# The active resolved theme dict (set by apply_preset). Accent helpers read
+# their accent from here so sliders/segmented buttons/switches match the preset.
+_ACTIVE_THEME: dict | None = None
+
+
+def list_themes() -> list[str]:
+    """Preset keys, for the settings dropdown."""
+    return list(THEME_PRESETS.keys())
+
+
+def get_theme(name: str) -> dict:
+    """Resolve a preset name to its full token dict (falls back to default).
+    Font tokens are injected from the locked, CJK-safe font tokens so they're
+    always correct for the current UI language."""
+    preset = THEME_PRESETS.get(name) or THEME_PRESETS[DEFAULT_PRESET]
+    t = dict(preset)
+    # Locked-family fonts (never hardcode a family — would break CJK rendering).
+    t["font_title"]  = TITLE_FONT
+    t["font_body"]   = BODY_FONT
+    t["font_mono"]   = LABEL_FONT   # logs: keep the CJK-safe family, not Consolas
+    t["font_button"] = BUTTON_FONT
+    return t
+
+
+def _apply_ctk_overrides(t: dict) -> None:
+    """Push a preset's colors into CustomTkinter's ThemeManager so EXISTING
+    widgets (transparent frames, default buttons, etc.) pick up the preset
+    palette without per-widget edits. Only called for non-default presets;
+    'default' leaves CTk's own defaults alone so it looks exactly as before."""
+    import customtkinter as ctk
+    th = ctk.ThemeManager.theme
+
+    def setc(widget, key, value):
+        try:
+            th[widget][key] = [value, value]   # [light, dark]; we run dark
+        except Exception:
+            pass
+
+    setc("CTk", "fg_color", t["bg"])
+    for w in ("CTkToplevel",):
+        setc(w, "fg_color", t["bg"])
+    setc("CTkFrame", "fg_color", t["surface"])
+    setc("CTkFrame", "top_fg_color", t["surface_alt"])
+    setc("CTkFrame", "border_color", t["border"])
+    setc("CTkButton", "fg_color", t["accent"])
+    setc("CTkButton", "hover_color", t["accent_hover"])
+    setc("CTkButton", "text_color", t["accent_text"])
+    setc("CTkButton", "border_color", t["border"])
+    setc("CTkLabel", "text_color", t["text"])
+    for w in ("CTkEntry", "CTkOptionMenu", "CTkComboBox", "CTkTextbox"):
+        setc(w, "fg_color", t["surface_alt"])
+        setc(w, "text_color", t["text"])
+        setc(w, "border_color", t["border"])
+    setc("CTkOptionMenu", "button_color", t["accent"])
+    setc("CTkOptionMenu", "button_hover_color", t["accent_hover"])
+    setc("CTkComboBox", "button_color", t["accent"])
+    setc("CTkComboBox", "button_hover_color", t["accent_hover"])
+    setc("CTkScrollableFrame", "label_fg_color", t["surface_alt"])
+    setc("CTkSegmentedButton", "fg_color", t["surface_alt"])
+    setc("CTkSegmentedButton", "selected_color", t["accent"])
+    setc("CTkSegmentedButton", "selected_hover_color", t["accent_hover"])
+    setc("CTkSegmentedButton", "unselected_color", t["surface_alt"])
+    setc("CTkSegmentedButton", "text_color", t["text"])
+    setc("CTkSlider", "button_color", t["accent"])
+    setc("CTkSlider", "button_hover_color", t["accent_hover"])
+    setc("CTkSlider", "progress_color", t["accent"])
+    setc("CTkSwitch", "progress_color", t["accent"])
+    setc("CTkCheckBox", "fg_color", t["accent"])
+
+
+def apply_preset(name: str, root=None) -> dict:
+    """Activate a theme preset: stash the resolved tokens (so accent helpers use
+    them) and, for non-default presets, push colors into CTk's ThemeManager.
+    Presets are dark-only, so the appearance mode is forced to dark for them.
+    'default' is left untouched (caller's existing light/dark handling stands).
+    Returns the resolved token dict. Call BEFORE building widgets."""
+    global _ACTIVE_THEME, START_FG, START_HOVER, STOP_FG, STOP_HOVER, \
+        STATUS_RUNNING
+    t = get_theme(name)
+    _ACTIVE_THEME = t
+    # Reassign the semantic color constants from the preset so every existing
+    # `theme.START_FG` / `theme.STOP_FG` reference (attribute access) themes
+    # automatically — same propagation trick init_fonts() uses for fonts.
+    START_FG       = t["start"]
+    START_HOVER    = t["start_hover"]
+    STOP_FG        = t["stop"]
+    STOP_HOVER     = t["stop_hover"]
+    STATUS_RUNNING = t["status_dot"]
+    if name != DEFAULT_PRESET:
+        try:
+            import customtkinter as ctk
+            ctk.set_appearance_mode("dark")
+        except Exception:
+            pass
+        _apply_ctk_overrides(t)
+    return t
 
 
 def apply_font_family_to_tree(root, family: str | None = None) -> None:

@@ -128,6 +128,10 @@ class MainWindow(ctk.CTk):
         # _apply_ui_fonts() walk then also fixes widgets with hardcoded
         # ('Arial'/'Segoe UI', N) font tuples.
         theme.init_fonts(self._lang, root=self)
+        # Resolve the active theme tokens now that fonts are locked, so
+        # self._t("font_*") returns the CJK-correct family. self._t(key) is the
+        # single lookup used in place of hardcoded colors/corners across the UI.
+        self._theme = theme.get_theme(self._cfg.get("theme_preset", "default"))
         self._setup_window()
         self._build_ui()
         self._set_window_icon()
@@ -218,7 +222,7 @@ class MainWindow(ctk.CTk):
             dialog,
             text=_at("update_prompt", lang),
             font=("Arial", 12),
-            text_color=("gray40", "gray60")
+            text_color=self._t("text_muted")
         ).pack(pady=(0, 20))
 
         btn_row = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -280,12 +284,26 @@ class MainWindow(ctk.CTk):
         ctk.set_window_scaling(self._ui_scale)
 
     def _apply_theme(self):
-        theme = self._cfg.get("theme", "system")
-        if theme == "system":
+        theme_mode = self._cfg.get("theme", "system")
+        preset = self._cfg.get("theme_preset", "default")
+        if preset != "default":
+            # Theme presets are dark-only; force dark (the light/dark switch was
+            # replaced by the preset picker).
+            ctk.set_appearance_mode("dark")
+        elif theme_mode == "system":
             ctk.set_appearance_mode("system")
         else:
-            ctk.set_appearance_mode(theme)
+            ctk.set_appearance_mode(theme_mode)
         ctk.set_default_color_theme("blue")
+        # Push the preset's colors into CTk's ThemeManager AFTER
+        # set_default_color_theme() (which reloads the JSON and would otherwise
+        # wipe them) — same ordering rule as init_fonts(). "default" is a no-op.
+        theme.apply_preset(preset)
+
+    def _t(self, key):
+        """Look up a theme design token (color / corner radius / font) for the
+        active preset. Use this instead of hardcoding colors/corners."""
+        return self._theme[key]
 
     def _setup_window(self):
         self.title(f"Full Auto Forza Edition v{VERSION}")
@@ -370,8 +388,9 @@ class MainWindow(ctk.CTk):
         self._status_var = ctk.StringVar(value=_at("status_ready", self._lang))
         status_bar = ctk.CTkLabel(
             self, textvariable=self._status_var,
-            anchor="w", font=("Arial", 11),
-            fg_color=("gray85", "gray20"),
+            anchor="w", font=theme.HINT_FONT,
+            fg_color=self._t("surface_alt"),
+            text_color=self._t("text_muted"),
             corner_radius=0)
         status_bar.pack(side="bottom", fill="x", padx=0, pady=0)
         status_bar.configure(height=26)
@@ -404,7 +423,7 @@ class MainWindow(ctk.CTk):
             text="☕ " + _at("support_btn", self._lang),
             width=110, height=30,
             font=("Segoe UI", 11),
-            fg_color="#0070ba", hover_color="#005ea6", text_color="#ffffff",
+            fg_color=self._t("support_fill"), hover_color=self._t("support_hover"), text_color=self._t("support_text"),
             command=self._open_support)
         support_btn.pack(side="left")
         overlay.place(relx=1.0, rely=1.0, anchor="se", x=-12, y=-12)
@@ -526,14 +545,15 @@ class MainWindow(ctk.CTk):
                      width=70, justify="center").pack(side="left", padx=8)
         ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
                      font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
+                     text_color=self._t("text_muted")).pack(side="left")
 
         # Run controls
         self._build_run_controls(frame, mode="race")
 
         # Log
         self._race_log = LogWidget(frame,
-                                    placeholder=_at('log_placeholder', self._lang))
+                                    placeholder=_at('log_placeholder', self._lang),
+                                    warn_color=self._t("warn"))
         self._race_log.pack(fill="both", expand=True,
                             padx=8, pady=(4, 8))
 
@@ -562,7 +582,7 @@ class MainWindow(ctk.CTk):
                      width=70, justify="center").pack(side="left", padx=8)
         ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
                      font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
+                     text_color=self._t("text_muted")).pack(side="left")
 
         # Start row selector
         start_row_frame = ctk.CTkFrame(frame, fg_color="transparent")
@@ -584,14 +604,15 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(start_row_frame,
                      text=_at("mastery_start_row_hint", self._lang),
                      font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
+                     text_color=self._t("text_muted")).pack(side="left")
 
         # Run controls
         self._build_run_controls(frame, mode="mastery")
 
         # Log
         self._mastery_log = LogWidget(frame,
-                                      placeholder=_at('log_placeholder', self._lang))
+                                      placeholder=_at('log_placeholder', self._lang),
+                                      warn_color=self._t("warn"))
         self._mastery_log.pack(fill="both", expand=True,
                                padx=8, pady=(4, 8))
 
@@ -608,7 +629,7 @@ class MainWindow(ctk.CTk):
             # ? icon — tooltip only fires here
             q_lbl = ctk.CTkLabel(row, text="?", width=18,
                                  font=("Segoe UI", 11),
-                                 text_color=("gray50", "gray60"),
+                                 text_color=self._t("text_muted"),
                                  cursor="question_arrow")
             q_lbl.pack(side="left", padx=(0, 6))
             Tooltip(q_lbl, _at(tip_key, self._lang))
@@ -652,13 +673,13 @@ class MainWindow(ctk.CTk):
                      width=70, justify="center").pack(side="left", padx=8)
         ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
                      font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
+                     text_color=self._t("text_muted")).pack(side="left")
 
         # Run controls
         self._build_run_controls(frame, mode="buy")
 
         # Log
-        self._buy_log = LogWidget(frame)
+        self._buy_log = LogWidget(frame, warn_color=self._t("warn"))
         self._buy_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
         return frame
 
@@ -681,11 +702,11 @@ class MainWindow(ctk.CTk):
                      width=70, justify="center").pack(side="left", padx=8)
         ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
                      font=("Arial", 11),
-                     text_color=("gray40", "gray60")).pack(side="left")
+                     text_color=self._t("text_muted")).pack(side="left")
 
         self._build_run_controls(frame, mode="delete")
 
-        self._delete_log = LogWidget(frame)
+        self._delete_log = LogWidget(frame, warn_color=self._t("warn"))
         self._delete_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
         return frame
 
@@ -713,7 +734,7 @@ class MainWindow(ctk.CTk):
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
                 font=theme.HINT_FONT,
-                text_color=("gray50", "gray60"))
+                text_color=self._t("text_muted"))
             self._race_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         elif mode == "mastery":
@@ -736,7 +757,7 @@ class MainWindow(ctk.CTk):
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
                 font=theme.HINT_FONT,
-                text_color=("gray50", "gray60"))
+                text_color=self._t("text_muted"))
             self._mastery_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         elif mode == "buy":
@@ -759,7 +780,7 @@ class MainWindow(ctk.CTk):
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
                 font=theme.HINT_FONT,
-                text_color=("gray50", "gray60"))
+                text_color=self._t("text_muted"))
             self._buy_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
         else:  # delete
@@ -782,7 +803,7 @@ class MainWindow(ctk.CTk):
                 text=_at("shortcut_toggle", self._lang,
                          key=self._toggle_key.upper()),
                 font=theme.HINT_FONT,
-                text_color=("gray50", "gray60"))
+                text_color=self._t("text_muted"))
             self._delete_shortcut_lbl.pack(anchor="w", padx=12, pady=(2, 6))
 
     # ── Tab switching ─────────────────────────────────────────
@@ -1084,7 +1105,7 @@ class MainWindow(ctk.CTk):
                 win,
                 text=_at('capture_instruction', self._lang),
                 font=('Segoe UI', 16, 'bold'),
-                text_color='#ff3333',
+                text_color=self._t("warn"),
                 wraplength=max(200, w - 20),
                 justify='center'
             ).pack(pady=10)
@@ -1303,7 +1324,7 @@ class MainWindow(ctk.CTk):
         on = bool(self._cfg.get('overlay_enabled', False))
         btn.configure(
             text=("● " if on else "○ ") + _at('overlay_indicator', self._lang),
-            text_color=("#39d353" if on else ("gray45", "gray60")))
+            text_color=(self._t("status_dot") if on else self._t("text_muted")))
 
     def _on_overlay_toggle(self):
         self._set_overlay_enabled(self._overlay_var.get())
@@ -1638,7 +1659,7 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(body, text=_at("support_btn", self._lang),
                      font=theme.H2_FONT).pack(pady=(4, 2))
         ctk.CTkLabel(body, text=_at("support_thanks", self._lang),
-                     font=theme.BODY_FONT, text_color=("gray40", "gray60"),
+                     font=theme.BODY_FONT, text_color=self._t("text_muted"),
                      wraplength=320, justify="center").pack(pady=(0, 14))
 
         # ── 街口支付 (JKOPAY) QR ──
@@ -1655,7 +1676,7 @@ class MainWindow(ctk.CTk):
             ctk.CTkLabel(
                 body, text="assets/support_jkopay.png", width=QR, height=QR,
                 fg_color=("gray85", "gray25"), corner_radius=8,
-                text_color=("gray50", "gray60")).pack(pady=(0, 14))
+                text_color=self._t("text_muted")).pack(pady=(0, 14))
 
         # ── PayPal (button sized to match the QR width) ──
         pp_img = self._load_ctk_image("assets", "paypal_logo.png", size=(20, 20))
@@ -1663,7 +1684,7 @@ class MainWindow(ctk.CTk):
         ctk.CTkButton(
             body, text=" PayPal", image=pp_img, compound="left",
             width=QR, height=46, font=("Segoe UI", 14, "bold"),
-            fg_color="#0070ba", hover_color="#005ea6", text_color="#ffffff",
+            fg_color=self._t("support_fill"), hover_color=self._t("support_hover"), text_color=self._t("support_text"),
             command=lambda: __import__("webbrowser").open(
                 "https://paypal.me/Leonbacon")).pack(pady=(0, 8))
 
@@ -1736,7 +1757,7 @@ class MainWindow(ctk.CTk):
                              side="left", fill="x", expand=True)
 
         ctk.CTkLabel(body, text=_at("report_privacy", self._lang),
-                     font=theme.HINT_FONT, text_color=("gray45", "gray60"),
+                     font=theme.HINT_FONT, text_color=self._t("text_muted"),
                      justify="left", wraplength=560).pack(anchor="w", pady=(14, 10))
 
         di = self._load_ctk_image("assets", "discord_logo.png", size=(18, 18))
@@ -1778,22 +1799,28 @@ class MainWindow(ctk.CTk):
                          font=('Segoe UI', 13, 'bold'),
                          anchor='w').pack(fill='x', pady=(12, 4))
             ctk.CTkFrame(scroll, height=1,
-                         fg_color=('gray70', 'gray40')).pack(fill='x')
+                         fg_color=self._t("border")).pack(fill='x')
 
         # ── Appearance ────────────────────────────────────
         section('settings_appearance_section')
+        # Theme preset (full color scheme). Replaces the old light/dark switch
+        # and accent-colour picker. Changing it restarts the app — CTk can't
+        # restyle every widget live (same as the language switch).
         _app_row = ctk.CTkFrame(scroll, fg_color='transparent')
         _app_row.pack(fill='x', padx=12, pady=4)
-        ctk.CTkLabel(_app_row, text=_at('label_theme', self._lang),
+        ctk.CTkLabel(_app_row, text=_at('label_theme_preset', self._lang),
                      width=160, anchor='w').pack(side='left')
-        self._theme_var = ctk.StringVar(value=self._cfg.get('theme', 'system').title())
-        ctk.CTkOptionMenu(
-            _app_row, variable=self._theme_var,
-            values=[_at('theme_system', self._lang),
-                    _at('theme_light',  self._lang),
-                    _at('theme_dark',   self._lang)],
-            command=self._on_theme_change,
-            width=160).pack(side='left', padx=8)
+        self._preset_labels = dict(theme.THEME_PRESET_LABELS)   # key -> label
+        _cur_preset = self._cfg.get('theme_preset', 'default')
+        if _cur_preset not in self._preset_labels:
+            _cur_preset = 'default'
+        self._preset_var = ctk.StringVar(value=self._preset_labels[_cur_preset])
+        self._preset_menu = ctk.CTkOptionMenu(
+            _app_row, variable=self._preset_var,
+            values=list(self._preset_labels.values()),
+            command=self._on_preset_change,
+            width=200)
+        self._preset_menu.pack(side='left', padx=8)
 
         _lang_row = ctk.CTkFrame(scroll, fg_color='transparent')
         _lang_row.pack(fill='x', padx=12, pady=4)
@@ -1855,9 +1882,6 @@ class MainWindow(ctk.CTk):
             value=bool(self._cfg.get('overlay_enabled', False)))
         ctk.CTkSwitch(_ov_row, text='', variable=self._overlay_var,
                       command=self._on_overlay_toggle).pack(side='left', padx=8)
-
-        # ── Accent color picker (inline accordion) ─────────────
-        self._build_accent_picker(scroll)
 
         # ── Shortcuts ─────────────────────────────────────
         section('settings_shortcuts_section')
@@ -1936,19 +1960,20 @@ class MainWindow(ctk.CTk):
             tpl_lang=self._tpl_lang,
         )
 
-    def _on_theme_change(self, val: str):
-        # Map display label (any language) back to ctk English value
-        theme_map = {
-            _at('theme_system', self._lang): 'system',
-            _at('theme_light',  self._lang): 'light',
-            _at('theme_dark',   self._lang): 'dark',
-            # Fallback English
-            'System': 'system', 'Light': 'light', 'Dark': 'dark',
-        }
-        mode = theme_map.get(val, 'system')
-        self._cfg["theme"] = mode
+    def _on_preset_change(self, val: str):
+        """Theme preset changed — persist and restart (CTk can't restyle live)."""
+        if self._restarting:
+            return
+        rev = {v: k for k, v in self._preset_labels.items()}
+        new = rev.get(val, 'default')
+        if new == self._cfg.get('theme_preset', 'default'):
+            return
+        self._restarting = True
+        if hasattr(self, '_preset_menu'):
+            self._preset_menu.configure(state="disabled")
+        self._cfg['theme_preset'] = new
         save(self._cfg)
-        ctk.set_appearance_mode(mode)
+        self._restart_app()
 
     def _on_scale_change(self, val: str):
         # Map the localized "Auto" label back to the stored "auto" sentinel.
@@ -1965,54 +1990,6 @@ class MainWindow(ctk.CTk):
         self.geometry("900x650")
 
     # ── Accent picker (always-visible swatch grid) ────────────
-
-    def _build_accent_picker(self, parent):
-        """Inserts a label row + a 4×2 grid of accent color swatches.
-        The currently selected one is marked with a contrasting border."""
-        # Label row
-        label_row = ctk.CTkFrame(parent, fg_color='transparent')
-        label_row.pack(fill='x', padx=12, pady=(4, 2))
-        ctk.CTkLabel(label_row,
-                     text=_at('label_accent_color', self._lang),
-                     width=160, anchor='w').pack(side='left')
-
-        # Grid row — sits directly below the label, always expanded
-        grid = ctk.CTkFrame(parent, fg_color=('gray95', 'gray16'),
-                            corner_radius=8)
-        grid.pack(fill='x', padx=12, pady=(0, 4))
-        pad = ctk.CTkFrame(grid, fg_color='transparent')
-        pad.pack(fill='both', expand=True, padx=8, pady=8)
-        for i in range(4):
-            pad.columnconfigure(i, weight=1)
-
-        current_name, _, _ = theme.get_accent(self._cfg)
-        self._accent_buttons: dict[str, ctk.CTkButton] = {}
-
-        for i, (sw_name, (sw_fg, sw_hover)) in enumerate(
-                theme.ACCENT_PRESETS.items()):
-            r, c = divmod(i, 4)
-            selected = (sw_name == current_name)
-            btn = ctk.CTkButton(
-                pad, text=sw_name, width=90, height=30,
-                font=theme.HINT_FONT,
-                fg_color=sw_fg, hover_color=sw_hover,
-                border_width=2 if selected else 0,
-                border_color=('white', 'white'),
-                command=lambda n=sw_name, f=sw_fg, h=sw_hover:
-                    self._on_accent_pick(n, f, h),
-            )
-            btn.grid(row=r, column=c, padx=4, pady=4, sticky='ew')
-            self._accent_buttons[sw_name] = btn
-
-    def _on_accent_pick(self, name: str, fg: str, hover: str):
-        """Persist new accent, update the selection border, and apply the
-        accent live to every existing slider/segmented button/switch in the
-        running app — no restart required."""
-        self._cfg['accent_color'] = name
-        save(self._cfg)
-        for btn_name, btn in self._accent_buttons.items():
-            btn.configure(border_width=2 if btn_name == name else 0)
-        theme.apply_accent_to_tree(self, self._cfg)
 
     def _ask_first_run_language(self):
         """First-launch modal: choose the UI language. Returns 'en'/'zh-tw'/

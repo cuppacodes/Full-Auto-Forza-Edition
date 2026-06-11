@@ -166,6 +166,7 @@ DEFAULTS = {
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,
     # UI / behavior toggles
+    "theme_preset":           "default",   # color scheme (see theme.THEME_PRESETS)
     "ui_scale":               "auto",
     "nodes_aspect_fix":       True,
     "auto_english_ime":       True,

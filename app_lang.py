@@ -245,6 +245,11 @@ STRINGS = {
         "zh-tw": "主題：",
         "zh-cn": "主题：",
     },
+    "label_theme_preset": {
+        "en":    "Theme",
+        "zh-tw": "主題",
+        "zh-cn": "主题",
+    },
     "label_language": {
         "en":    "Language:",
         "zh-tw": "語言：",

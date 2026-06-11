@@ -264,7 +264,7 @@ class SetupPanel(ctk.CTkFrame):
         self._stop_btn = ctk.CTkButton(
             ctrl, text=_at("btn_stop_capture", self._lang),
             command=self._stop_session,
-            fg_color="#dc2626", hover_color="#b91c1c",
+            fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
             width=120, state="disabled")
         self._stop_btn.pack(side="left")
 

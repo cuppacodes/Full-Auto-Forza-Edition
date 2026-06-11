@@ -13,12 +13,13 @@ class LogWidget(ctk.CTkFrame):
     MAX_LINES    = 1000
     MAX_SECTIONS = 3      # keep only the last N loop sections
 
-    def __init__(self, parent, placeholder="", **kwargs):
+    def __init__(self, parent, placeholder="", warn_color="#ff4444", **kwargs):
         super().__init__(parent, **kwargs)
         self._queue        = queue.Queue()
         self._lines        = []
         self._section_lens = []   # line count per live section (front = oldest)
         self._placeholder  = placeholder
+        self._warn_color   = warn_color   # themed red for warning lines
 
         self._text = ctk.CTkTextbox(
             self,
@@ -85,7 +86,7 @@ class LogWidget(ctk.CTkFrame):
             if style == "warning":
                 # Use underlying tk Text widget for colored tag
                 tk_text = self._text._textbox
-                tk_text.tag_configure("warning", foreground="#ff4444")
+                tk_text.tag_configure("warning", foreground=self._warn_color)
                 tk_text.insert("end", text + "\n", "warning")
             else:
                 self._text.insert("end", text + "\n")
