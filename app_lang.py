@@ -82,9 +82,9 @@ STRINGS = {
 
     # ── Delete Cars ───────────────────────────────────────────
     "tab_delete": {
-        "en":    "🗑️  Delete Used Cars",
-        "zh-tw": "🗑️  刪除已使用車輛",
-        "zh-cn": "🗑️  删除已使用车辆",
+        "en":    "🗑  Delete Used Cars",
+        "zh-tw": "🗑  刪除已使用車輛",
+        "zh-cn": "🗑  删除已使用车辆",
     },
     # Main-header page titles (emoji-free; the sidebar nav reuses the tab_* labels)
     "page_title_race": {
