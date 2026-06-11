@@ -1076,16 +1076,6 @@ STRINGS = {
         "zh-tw": "按下 X + ↓ ×6 + Enter — 依最近新增排序",
         "zh-cn": "按下 X + ↓ ×6 + Enter — 按最近添加排序",
     },
-    "mastery_keys_step_label": {
-        "en":    "Test: start from step",
-        "zh-tw": "測試：從步驟開始",
-        "zh-cn": "测试：从步骤开始",
-    },
-    "mastery_keys_step_hint": {
-        "en":    "(1 = full run; skips ahead on the first car only)",
-        "zh-tw": "（1＝完整執行；僅第一台車跳到此步驟）",
-        "zh-cn": "（1＝完整运行；仅第一辆车跳到此步骤）",
-    },
 }
 
 
