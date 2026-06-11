@@ -13,21 +13,35 @@ class LogWidget(ctk.CTkFrame):
     MAX_LINES    = 1000
     MAX_SECTIONS = 3      # keep only the last N loop sections
 
-    def __init__(self, parent, placeholder="", warn_color="#ff4444", **kwargs):
+    def __init__(self, parent, placeholder="", warn_color="#ff4444",
+                 title=None, title_color=None, loop_color=None,
+                 sep_color=None, **kwargs):
         super().__init__(parent, **kwargs)
         self._queue        = queue.Queue()
         self._lines        = []
         self._section_lens = []   # line count per live section (front = oldest)
         self._placeholder  = placeholder
-        self._warn_color   = warn_color   # themed red for warning lines
+        self._warn_color   = warn_color    # themed red for warning lines
+        self._loop_color   = loop_color    # themed accent for "-- … --" headers
+
+        # Optional card header ("Activity") + separator, like the mockup.
+        if title:
+            ctk.CTkLabel(self, text=title, anchor="w",
+                         font=theme.H2_FONT,
+                         text_color=title_color).pack(
+                fill="x", padx=14, pady=(10, 4))
+            ctk.CTkFrame(self, height=1,
+                         fg_color=(sep_color or "gray40")).pack(
+                fill="x", padx=14, pady=(0, 4))
 
         self._text = ctk.CTkTextbox(
             self,
             wrap="word",
             state="disabled",
+            fg_color="transparent",   # card frame supplies bg/border
             font=theme.LABEL_FONT,
         )
-        self._text.pack(fill="both", expand=True, padx=4, pady=4)
+        self._text.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
         if placeholder:
             self._text.configure(state="normal")
@@ -88,6 +102,11 @@ class LogWidget(ctk.CTkFrame):
                 tk_text = self._text._textbox
                 tk_text.tag_configure("warning", foreground=self._warn_color)
                 tk_text.insert("end", text + "\n", "warning")
+            elif self._loop_color and text.strip().startswith("--"):
+                # Loop/section headers ("-- Loop #3 --") in the accent color.
+                tk_text = self._text._textbox
+                tk_text.tag_configure("loop", foreground=self._loop_color)
+                tk_text.insert("end", text + "\n", "loop")
             else:
                 self._text.insert("end", text + "\n")
         except Exception:
