@@ -347,44 +347,7 @@ class MainWindow(ctk.CTk):
     # ── UI construction ───────────────────────────────────────
 
     def _build_ui(self):
-        # Top bar
-        self._build_topbar()
-
-        # Tab selector
-        self._tab_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self._tab_frame.pack(fill="x", padx=12, pady=(0, 4))
-
-        self._race_tab_btn = ctk.CTkButton(
-            self._tab_frame, text=_at("tab_race", self._lang),
-            command=lambda: self._switch_tab("race"),
-            width=140)
-        self._race_tab_btn.pack(side="left", padx=(0, 6))
-
-        self._mastery_tab_btn = ctk.CTkButton(
-            self._tab_frame, text=_at("tab_mastery", self._lang),
-            command=lambda: self._switch_tab("mastery"),
-            width=140)
-        self._mastery_tab_btn.pack(side="left")
-
-        self._buy_tab_btn = ctk.CTkButton(
-            self._tab_frame, text=_at("tab_buy", self._lang),
-            command=lambda: self._switch_tab("buy"),
-            width=140)
-        self._buy_tab_btn.pack(side="left", padx=(6, 0))
-
-        self._delete_tab_btn = ctk.CTkButton(
-            self._tab_frame, text=_at("tab_delete", self._lang),
-            command=lambda: self._switch_tab("delete"),
-            width=140)
-        self._delete_tab_btn.pack(side="left", padx=(6, 0))
-
-        # Content frames
-        self._race_frame    = self._build_race_tab()
-        self._mastery_frame = self._build_mastery_tab()
-        self._buy_frame     = self._build_buy_tab()
-        self._delete_frame  = self._build_delete_tab()
-
-        # Status bar
+        # Status bar pinned to the very bottom (full width, under everything).
         self._status_var = ctk.StringVar(value=_at("status_ready", self._lang))
         status_bar = ctk.CTkLabel(
             self, textvariable=self._status_var,
@@ -392,41 +355,37 @@ class MainWindow(ctk.CTk):
             fg_color=self._t("surface_alt"),
             text_color=self._t("text_muted"),
             corner_radius=0)
-        status_bar.pack(side="bottom", fill="x", padx=0, pady=0)
+        status_bar.pack(side="bottom", fill="x")
         status_bar.configure(height=26)
 
-        # Show race tab by default
+        # Body: left sidebar (fixed width) + main column (fills remaining).
+        body = ctk.CTkFrame(self, fg_color="transparent")
+        body.pack(side="top", fill="both", expand=True)
+        body.grid_columnconfigure(0, weight=0)   # sidebar (fixed)
+        body.grid_columnconfigure(1, weight=1)   # main (grows)
+        body.grid_rowconfigure(0, weight=1)
+
+        self._sidebar = self._build_sidebar(body)
+        self._sidebar.grid(row=0, column=0, sticky="ns")
+
+        self._main = ctk.CTkFrame(body, fg_color="transparent")
+        self._main.grid(row=0, column=1, sticky="nsew")
+        self._build_header(self._main)
+
+        # Content area — tab frames AND the inline panels (settings / support /
+        # report help) all live here, shown one at a time via _show_main().
+        self._main_content = ctk.CTkFrame(self._main, fg_color="transparent")
+        self._main_content.pack(side="top", fill="both", expand=True)
+
+        # Tab content frames (parented to the content area).
+        self._race_frame    = self._build_race_tab()
+        self._mastery_frame = self._build_mastery_tab()
+        self._buy_frame     = self._build_buy_tab()
+        self._delete_frame  = self._build_delete_tab()
+
+        self._cur_main    = None
         self._current_tab = None
         self._switch_tab("race")
-
-        # Bottom-right overlay: [🐞 Report a Bug] [Discord] [☕ Support Me]
-        overlay = ctk.CTkFrame(self, fg_color="transparent")
-        report_btn = ctk.CTkButton(
-            overlay, text="🐞 " + _at("report_help_btn", self._lang),
-            width=110, height=30, font=("Segoe UI", 11),
-            fg_color=("gray70", "gray35"), hover_color=("gray60", "gray45"),
-            command=self._open_report_help)
-        report_btn.pack(side="left", padx=(0, 8))
-        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(18, 18))
-        self._discord_img = discord_img   # keep a ref so it isn't GC'd
-        discord_btn = ctk.CTkButton(
-            overlay,
-            text=" Discord", image=discord_img, compound="left",
-            width=104, height=30,
-            font=("Segoe UI", 11),
-            fg_color="#5865F2", hover_color="#4752c4", text_color="#ffffff",
-            command=lambda: __import__("webbrowser").open(
-                "https://discord.com/invite/MNg2g9Pp6K"))
-        discord_btn.pack(side="left", padx=(0, 8))
-        support_btn = ctk.CTkButton(
-            overlay,
-            text="☕ " + _at("support_btn", self._lang),
-            width=110, height=30,
-            font=("Segoe UI", 11),
-            fg_color=self._t("support_fill"), hover_color=self._t("support_hover"), text_color=self._t("support_text"),
-            command=self._open_support)
-        support_btn.pack(side="left")
-        overlay.place(relx=1.0, rely=1.0, anchor="se", x=-12, y=-12)
 
         self._apply_ui_fonts()
 
@@ -441,77 +400,119 @@ class MainWindow(ctk.CTk):
         except Exception:
             pass
 
-    def _build_topbar(self):
-        bar = ctk.CTkFrame(self, fg_color="transparent")
-        bar.pack(fill="x", padx=12, pady=(10, 4))
-        self._topbar = bar
+    def _build_sidebar(self, parent):
+        """Left vertical nav: wordmark, the 4 function nav items, then a bottom
+        group (Settings / Report a Bug / Discord / Support Me)."""
+        sb = ctk.CTkFrame(parent, fg_color=self._t("sidebar_bg"),
+                          corner_radius=0, width=210)
+        sb.pack_propagate(False)   # honour the fixed width
 
-        # App title
-        ctk.CTkLabel(
-            bar, text=_at("app_title", self._lang),
-            font=theme.TITLE_FONT).pack(side="left")
+        # Wordmark
+        ctk.CTkLabel(sb, text=_at("app_title", self._lang),
+                     font=theme.TITLE_FONT,
+                     text_color=self._t("accent")).pack(
+            anchor="w", padx=16, pady=(16, 12))
 
-        # Monitor picker (left side of topbar)
-        mon_left_frame = ctk.CTkFrame(bar, fg_color="transparent")
-        mon_left_frame.pack(side="left", padx=(16, 0))
-        ctk.CTkLabel(mon_left_frame,
-                     text=_at('label_monitor', self._lang),
-                     font=theme.LABEL_FONT).pack(side='left')
+        # Function nav items (tab_ strings carry an emoji icon + label).
+        self._nav_buttons = {}
+        for key in ("race", "mastery", "buy", "delete"):
+            btn = ctk.CTkButton(
+                sb, text=_at(f"tab_{key}", self._lang),
+                anchor="w", height=38, corner_radius=self._t("corner_sm"),
+                fg_color="transparent", text_color=self._t("text"),
+                hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
+                command=lambda k=key: self._switch_tab(k))
+            btn.pack(fill="x", padx=8, pady=2)
+            self._nav_buttons[key] = btn
+
+        # Spacer — pushes the bottom group to the bottom.
+        ctk.CTkFrame(sb, fg_color="transparent").pack(fill="both", expand=True)
+
+        # Settings (nav-style)
+        sbtn = ctk.CTkButton(
+            sb, text="⚙  " + _at("settings_window_title", self._lang),
+            anchor="w", height=38, corner_radius=self._t("corner_sm"),
+            fg_color="transparent", text_color=self._t("text"),
+            hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
+            command=self._open_settings)
+        sbtn.pack(fill="x", padx=8, pady=2)
+        self._nav_buttons["settings"] = sbtn
+
+        # Report a Bug
+        ctk.CTkButton(
+            sb, text="🐞  " + _at("report_help_btn", self._lang),
+            anchor="w", height=34, corner_radius=self._t("corner_sm"),
+            fg_color="transparent", text_color=self._t("text_muted"),
+            hover_color=self._t("surface_alt"), font=theme.HINT_FONT,
+            command=self._open_report_help).pack(fill="x", padx=8, pady=2)
+
+        # Discord (brand color — not themed)
+        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(16, 16))
+        self._discord_img = discord_img   # keep a ref so it isn't GC'd
+        ctk.CTkButton(
+            sb, text="  Discord", image=discord_img, compound="left",
+            anchor="w", height=34, corner_radius=self._t("corner_sm"),
+            fg_color="#5865F2", hover_color="#4752c4", text_color="#ffffff",
+            font=theme.HINT_FONT,
+            command=lambda: __import__("webbrowser").open(
+                "https://discord.com/invite/MNg2g9Pp6K")).pack(
+            fill="x", padx=8, pady=2)
+
+        # Support Me (accent-ish support fill, bottom)
+        ctk.CTkButton(
+            sb, text="☕  " + _at("support_btn", self._lang),
+            anchor="w", height=38, corner_radius=self._t("corner_sm"),
+            fg_color=self._t("support_fill"), hover_color=self._t("support_hover"),
+            text_color=self._t("support_text"), font=theme.BUTTON_FONT,
+            command=self._open_support).pack(fill="x", padx=8, pady=(2, 12))
+
+        return sb
+
+    def _build_header(self, parent):
+        """Main-column header: page title (left) + monitor picker & overlay
+        on/off indicator (right)."""
+        hdr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr.pack(side="top", fill="x", padx=theme.PAD_SECTION, pady=(12, 6))
+
+        self._page_title_var = ctk.StringVar(value="")
+        ctk.CTkLabel(hdr, textvariable=self._page_title_var,
+                     font=theme.TITLE_FONT).pack(side="left")
+
+        # Overlay status indicator (rightmost) — click to toggle.
+        self._overlay_indicator = ctk.CTkButton(
+            hdr, text="", width=104, height=28, font=theme.HINT_FONT,
+            fg_color=self._t("surface_alt"), hover_color=self._t("border"),
+            command=lambda: self._set_overlay_enabled(
+                not self._cfg.get('overlay_enabled', False)))
+        self._overlay_indicator.pack(side="right", padx=(8, 0))
+        self._update_overlay_indicator()
+
+        # Monitor picker (left of the overlay indicator).
         from capture import list_monitors
-        _monitors   = list_monitors()
+        _monitors = list_monitors()
         _mon_options = [
             f"{m['index']} — {m['width']}x{m['height']}" +
             (" " + _at('monitor_primary_tag', self._lang)
              if m['left'] == 0 and m['top'] == 0 else "")
             for m in _monitors]
-        _saved_idx  = self._cfg.get('monitor_index', 1)
+        _saved_idx = self._cfg.get('monitor_index', 1)
         _primary_opt = next((o for o in _mon_options if
                              _at('monitor_primary_tag', self._lang) in o),
                             _mon_options[0] if _mon_options else '1')
-        _saved_opt   = next((o for o in _mon_options
-                             if o.startswith(str(_saved_idx) + ' —')),
-                            _primary_opt)
+        _saved_opt = next((o for o in _mon_options
+                           if o.startswith(str(_saved_idx) + ' —')), _primary_opt)
         self._mon_var = ctk.StringVar(value=_saved_opt)
         self._mon_menu = ctk.CTkOptionMenu(
-            mon_left_frame,
-            variable=self._mon_var,
+            hdr, variable=self._mon_var,
             values=_mon_options if _mon_options else ['1'],
-            command=self._on_monitor_change,
-            width=220)
-        self._mon_menu.pack(side='left', padx=8)
-
-        # Overlay status indicator (right of monitor picker) — click to toggle
-        self._overlay_indicator = ctk.CTkButton(
-            mon_left_frame, text="", width=104, height=28,
-            font=("Segoe UI", 11),
-            fg_color=("gray80", "gray30"), hover_color=("gray70", "gray40"),
-            command=lambda: self._set_overlay_enabled(
-                not self._cfg.get('overlay_enabled', False)))
-        self._overlay_indicator.pack(side='left', padx=(8, 0))
-        self._update_overlay_indicator()
-
-        # Right side controls
-        right = ctk.CTkFrame(bar, fg_color="transparent")
-        right.pack(side="right")
-
-        # Detection mode is no longer a manual toggle — it's chosen
-        # automatically per run from the template type: preset resolutions use
-        # the robust OCR-confirm "default" detection, custom templates use the
-        # pixel-only "custom" method (set in race.run / mastery.run). This
-        # removes a setting most users found confusing.
-
-        ctk.CTkButton(
-            right, text="⚙", width=36,
-            font=theme.ICON_FONT,
-            command=self._open_settings,
-            fg_color="transparent",
-            hover_color=("gray80", "gray30"),
-            text_color=("gray20", "gray90")
-        ).pack(side="left", padx=(theme.PAD_INLINE, 0))
+            command=self._on_monitor_change, width=200)
+        self._mon_menu.pack(side="right", padx=8)
+        ctk.CTkLabel(hdr, text=_at('label_monitor', self._lang),
+                     font=theme.LABEL_FONT).pack(side="right", padx=(0, 4))
         save(self._cfg)
 
     def _build_race_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
 
         # Description
         ctk.CTkLabel(frame, text=_at("race_description", self._lang),
@@ -560,7 +561,7 @@ class MainWindow(ctk.CTk):
         return frame
 
     def _build_mastery_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
 
         # Description
         ctk.CTkLabel(frame, text=_at("mastery_description", self._lang),
@@ -654,7 +655,7 @@ class MainWindow(ctk.CTk):
             slider.pack(side="left", fill="x", expand=True, padx=4)
 
     def _build_buy_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
 
         # Description
         desc = ctk.CTkFrame(frame, fg_color="transparent")
@@ -684,7 +685,7 @@ class MainWindow(ctk.CTk):
         return frame
 
     def _build_delete_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
 
         desc = ctk.CTkFrame(frame, fg_color="transparent")
         desc.pack(fill="x", padx=12, pady=(12, 4))
@@ -808,38 +809,45 @@ class MainWindow(ctk.CTk):
 
     # ── Tab switching ─────────────────────────────────────────
 
+    def _show_main(self, frame):
+        """Show one main-column view (a tab frame or an inline panel), hiding
+        whatever was shown before. Everything lives in self._main_content."""
+        cur = getattr(self, "_cur_main", None)
+        if cur is not None and cur is not frame:
+            cur.pack_forget()
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+        self._cur_main = frame
+
+    def _set_nav_active(self, key):
+        """Highlight the active sidebar nav item (accent fill); others reset."""
+        for k, btn in self._nav_buttons.items():
+            if k == key:
+                btn.configure(fg_color=self._t("accent"),
+                              text_color=self._t("accent_text"))
+            else:
+                btn.configure(fg_color="transparent",
+                              text_color=self._t("text"))
+
     def _switch_tab(self, tab: str):
-        if self._current_tab == tab:
-            return
+        # Always re-show (don't early-return on same tab): a panel may be open
+        # with _current_tab still set, and clicking the tab must exit the panel.
+        frame = {"race": self._race_frame, "mastery": self._mastery_frame,
+                 "buy": self._buy_frame, "delete": self._delete_frame}[tab]
+        self._show_main(frame)
         self._current_tab = tab
-        self._race_frame.pack_forget()
-        self._mastery_frame.pack_forget()
-        self._buy_frame.pack_forget()
-        self._delete_frame.pack_forget()
+        self._in_settings = False
+        self._in_support = False
+        if hasattr(self, "_in_report_help"):
+            self._in_report_help = False
+        self._set_nav_active(tab)
+        self._page_title_var.set(_at(f"page_title_{tab}", self._lang))
 
-        active   = ("gray75", "gray35")
-        inactive = ("gray85", "gray20")
-        self._race_tab_btn.configure(   fg_color=active if tab == "race"    else inactive)
-        self._mastery_tab_btn.configure(fg_color=active if tab == "mastery" else inactive)
-        self._buy_tab_btn.configure(    fg_color=active if tab == "buy"     else inactive)
-        self._delete_tab_btn.configure( fg_color=active if tab == "delete"  else inactive)
-
-        if tab == "race":
-            self._race_frame.pack(fill="both", expand=True, padx=4, pady=4)
-            self._active_log = self._race_log
-            self._active_setup_panel = self._race_setup
-        elif tab == "mastery":
-            self._mastery_frame.pack(fill="both", expand=True, padx=4, pady=4)
-            self._active_log = self._mastery_log
-            self._active_setup_panel = self._mastery_setup
-        elif tab == "buy":
-            self._buy_frame.pack(fill="both", expand=True, padx=4, pady=4)
-            self._active_log = self._buy_log
-            self._active_setup_panel = None
-        else:
-            self._delete_frame.pack(fill="both", expand=True, padx=4, pady=4)
-            self._active_log = self._delete_log
-            self._active_setup_panel = None
+        self._active_log = {"race": self._race_log, "mastery": self._mastery_log,
+                            "buy": self._buy_log, "delete": self._delete_log}[tab]
+        self._active_setup_panel = {
+            "race":    getattr(self, "_race_setup", None),
+            "mastery": getattr(self, "_mastery_setup", None),
+        }.get(tab)
 
     # ── Automation control ────────────────────────────────────
 
@@ -1539,36 +1547,19 @@ class MainWindow(ctk.CTk):
                 self.after(0, lambda l=lbl, t=txt: l.configure(text=t))
 
     def _open_settings(self):
-        """Show settings as an inline panel inside the main window."""
+        """Show settings in the main column (sidebar stays visible)."""
         if not hasattr(self, '_settings_frame'):
             self._build_settings_panel()
             self._apply_ui_fonts()
-        # Hide topbar, tab bar and current tab content
-        self._topbar.pack_forget()
-        self._tab_frame.pack_forget()
-        self._race_frame.pack_forget()
-        self._mastery_frame.pack_forget()
-        self._buy_frame.pack_forget()
-        self._delete_frame.pack_forget()
-        if getattr(self, '_support_frame', None):
-            self._support_frame.pack_forget()
-        if getattr(self, '_report_help_frame', None):
-            self._report_help_frame.pack_forget()
-        self._settings_frame.pack(fill='both', expand=True)
+        self._show_main(self._settings_frame)
         self._in_settings = True
+        self._in_support = False
+        self._set_nav_active("settings")
+        self._page_title_var.set(_at("settings_window_title", self._lang))
 
     def _close_settings(self):
-        """Hide settings and restore current tab."""
-        if hasattr(self, '_settings_frame'):
-            self._settings_frame.pack_forget()
-        self._in_settings = False
-        # Restore topbar and tab bar
-        self._topbar.pack(fill='x', padx=12, pady=(10, 4))
-        self._tab_frame.pack(fill='x', padx=12, pady=(0, 4))
-        # Re-show whatever tab was active
-        saved = self._current_tab
-        self._current_tab = None
-        self._switch_tab(saved)
+        """Return from settings to the previously-active tab."""
+        self._switch_tab(self._current_tab or "race")
 
     # ── Resource / image helpers ──────────────────────────────
 
@@ -1612,39 +1603,25 @@ class MainWindow(ctk.CTk):
     # ── Support panel (inline, like settings) ─────────────────
 
     def _open_support(self):
-        """Show the Support Me panel as an inline page (like settings)."""
+        """Show the Support Me panel in the main column (sidebar stays)."""
         if not hasattr(self, "_support_frame"):
             self._build_support_panel()
             self._apply_ui_fonts()
-        self._topbar.pack_forget()
-        self._tab_frame.pack_forget()
-        self._race_frame.pack_forget()
-        self._mastery_frame.pack_forget()
-        self._buy_frame.pack_forget()
-        self._delete_frame.pack_forget()
-        if getattr(self, "_settings_frame", None):
-            self._settings_frame.pack_forget()
-        if getattr(self, "_report_help_frame", None):
-            self._report_help_frame.pack_forget()
-        self._support_frame.pack(fill="both", expand=True)
+        self._show_main(self._support_frame)
         self._in_support = True
+        self._in_settings = False
+        self._set_nav_active(None)
+        self._page_title_var.set(_at("support_btn", self._lang))
 
     def _close_support(self):
-        """Hide the support panel and restore the current tab."""
-        if hasattr(self, "_support_frame"):
-            self._support_frame.pack_forget()
-        self._in_support = False
-        self._topbar.pack(fill="x", padx=12, pady=(10, 4))
-        self._tab_frame.pack(fill="x", padx=12, pady=(0, 4))
-        saved = self._current_tab
-        self._current_tab = None
-        self._switch_tab(saved)
+        """Return from the support panel to the previously-active tab."""
+        self._switch_tab(self._current_tab or "race")
 
     def _build_support_panel(self):
         """Build the inline Support Me panel once. Two ways to support:
         a 街口支付 (JKOPAY) QR image and a PayPal button sized to match it."""
         QR = 260   # QR display size; the PayPal button matches this width
-        self._support_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self._support_frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
 
         header = ctk.CTkFrame(self._support_frame, fg_color="transparent")
         header.pack(fill="x", padx=12, pady=(10, 4))
@@ -1694,34 +1671,22 @@ class MainWindow(ctk.CTk):
         if not hasattr(self, "_report_help_frame"):
             self._build_report_help_panel()
             self._apply_ui_fonts()
-        self._topbar.pack_forget()
-        self._tab_frame.pack_forget()
-        self._race_frame.pack_forget()
-        self._mastery_frame.pack_forget()
-        self._buy_frame.pack_forget()
-        self._delete_frame.pack_forget()
-        if getattr(self, "_settings_frame", None):
-            self._settings_frame.pack_forget()
-        if getattr(self, "_support_frame", None):
-            self._support_frame.pack_forget()
-        self._report_help_frame.pack(fill="both", expand=True)
+        self._show_main(self._report_help_frame)
         self._in_report_help = True
+        self._in_settings = False
+        self._in_support = False
+        self._set_nav_active(None)
+        self._page_title_var.set(_at("report_help_btn", self._lang))
 
     def _close_report_help(self):
-        if hasattr(self, "_report_help_frame"):
-            self._report_help_frame.pack_forget()
-        self._in_report_help = False
-        self._topbar.pack(fill="x", padx=12, pady=(10, 4))
-        self._tab_frame.pack(fill="x", padx=12, pady=(0, 4))
-        saved = self._current_tab
-        self._current_tab = None
-        self._switch_tab(saved)
+        """Return from the report-help panel to the previously-active tab."""
+        self._switch_tab(self._current_tab or "race")
 
     def _build_report_help_panel(self):
         """Inline tutorial explaining the F12 bug-report flow. (A capture
         button can't work — clicking it foregrounds FAFE; the hotkey is pressed
         while the game is in focus. So this teaches the hotkey instead.)"""
-        self._report_help_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self._report_help_frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
         header = ctk.CTkFrame(self._report_help_frame, fg_color="transparent")
         header.pack(fill="x", padx=12, pady=(10, 4))
         ctk.CTkButton(
@@ -1771,7 +1736,7 @@ class MainWindow(ctk.CTk):
 
     def _build_settings_panel(self):
         """Build the inline settings panel once."""
-        self._settings_frame = ctk.CTkFrame(self, fg_color='transparent')
+        self._settings_frame = ctk.CTkFrame(self._main_content, fg_color='transparent')
 
         # Header with back button
         header = ctk.CTkFrame(self._settings_frame, fg_color='transparent')

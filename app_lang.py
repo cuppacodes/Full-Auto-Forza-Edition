@@ -86,6 +86,27 @@ STRINGS = {
         "zh-tw": "🗑️  刪除已使用車輛",
         "zh-cn": "🗑️  删除已使用车辆",
     },
+    # Main-header page titles (emoji-free; the sidebar nav reuses the tab_* labels)
+    "page_title_race": {
+        "en":    "Race Auto",
+        "zh-tw": "自動掛機刷技術點",
+        "zh-cn": "自动挂机刷技术点",
+    },
+    "page_title_mastery": {
+        "en":    "Auto Unlock 22B",
+        "zh-tw": "自動解鎖22B轉輪",
+        "zh-cn": "自动解锁22B转轮",
+    },
+    "page_title_buy": {
+        "en":    "Auto Buy 22B-STi",
+        "zh-tw": "自動購買22B-STi",
+        "zh-cn": "自动购买22B-STi",
+    },
+    "page_title_delete": {
+        "en":    "Delete Used Cars",
+        "zh-tw": "刪除已使用車輛",
+        "zh-cn": "删除已使用车辆",
+    },
     "delete_description": {
         "en":    "Automatically deletes cars one by one. For each car: opens action menu → navigates down 4 times → confirms → navigates down once → confirms deletion.\n\nBefore starting, go to your garage and select the oldest car you want to start deleting from (bottom-right of the grid). The tool deletes from oldest to newest.\n\nIf there is a car you don't want to delete in the path, press Stop to cancel.",
         "zh-tw": "自動逐一刪除車輛。每輛車的操作：開啟動作選單 → 下鍵 ×4 → 確認 → 下鍵 ×1 → 確認刪除。\n\n使用前停在車庫裡你想批量刪除中最舊的那台（最右下角的），程式會由舊到最新去刪除。\n\n如果路徑上有不想刪除的車請記得按停止鍵取消。",
