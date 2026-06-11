@@ -366,10 +366,13 @@ class MainWindow(ctk.CTk):
         body.grid_rowconfigure(0, weight=1)
 
         self._sidebar = self._build_sidebar(body)
-        self._sidebar.grid(row=0, column=0, sticky="ns")
+        self._sidebar.grid(row=0, column=0, sticky="ns", padx=(10, 5), pady=10)
 
-        self._main = ctk.CTkFrame(body, fg_color="transparent")
-        self._main.grid(row=0, column=1, sticky="nsew")
+        # Main column is a themed surface panel (not the near-black window bg),
+        # with a small gutter (window bg) separating it from the sidebar.
+        self._main = ctk.CTkFrame(body, fg_color=self._t("surface"),
+                                  corner_radius=self._t("corner"))
+        self._main.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
         self._build_header(self._main)
 
         # Content area — tab frames AND the inline panels (settings / support /
@@ -421,67 +424,57 @@ class MainWindow(ctk.CTk):
         ul.pack(anchor="w", pady=(3, 0))
         ul.pack_propagate(False)
 
-        # Function nav items — emoji-free; active gets an accent left bar.
+        # Function nav items — full-width buttons; the active one gets a subtle
+        # fill + an accent left bar. The bar is an OVERLAY (place), so active and
+        # inactive items sit at the exact same position (no off-centre shift).
         self._nav_buttons = {}
         self._nav_bars = {}
         for key in ("race", "mastery", "buy", "delete"):
-            row = ctk.CTkFrame(sb, fg_color="transparent")
-            row.pack(fill="x", padx=10, pady=2)
-            bar = ctk.CTkFrame(row, width=3, height=34, corner_radius=2,
-                               fg_color=self._t("sidebar_bg"))
-            bar.pack(side="left", fill="y", padx=(0, 6))
-            bar.pack_propagate(False)
+            item = ctk.CTkFrame(sb, fg_color="transparent", height=42)
+            item.pack(fill="x", padx=10, pady=2)
+            item.pack_propagate(False)
             btn = ctk.CTkButton(
-                row, text=_at(f"nav_{key}", self._lang),
-                anchor="w", height=40, corner_radius=self._t("corner_sm"),
+                item, text=_at(f"nav_{key}", self._lang),
+                anchor="w", corner_radius=self._t("corner_sm"),
                 fg_color="transparent", text_color=self._t("text_muted"),
                 hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
                 command=lambda k=key: self._switch_tab(k))
-            btn.pack(side="left", fill="x", expand=True)
+            btn.place(x=0, y=0, relwidth=1, relheight=1)
+            bar = ctk.CTkFrame(item, width=4, corner_radius=2,
+                               fg_color="transparent")
+            bar.place(x=4, rely=0.5, anchor="w", relheight=0.6)
             self._nav_buttons[key] = btn
             self._nav_bars[key] = bar
 
         # Spacer — pushes the bottom group down.
         ctk.CTkFrame(sb, fg_color="transparent").pack(fill="both", expand=True)
 
-        # Report a Bug (icon) + Discord — compact muted row.
-        misc = ctk.CTkFrame(sb, fg_color="transparent")
-        misc.pack(fill="x", padx=10, pady=(0, 2))
-        ctk.CTkButton(
-            misc, text="🐞", width=34, height=30,
-            corner_radius=self._t("corner_sm"), fg_color="transparent",
-            text_color=self._t("text_muted"), hover_color=self._t("surface_alt"),
-            font=theme.HINT_FONT, command=self._open_report_help).pack(
-            side="left", padx=(0, 4))
+        # Bottom group: filled buttons sharing the accent border, stacked
+        # Settings → Report a Bug → Discord → Support Me.
+        def _bottom_btn(text, cmd, fill, txt, hover, image=None, pady=3):
+            ctk.CTkButton(
+                sb, text=text, image=image,
+                compound="left" if image else "center",
+                height=38, corner_radius=self._t("corner_sm"),
+                fg_color=fill, text_color=txt, hover_color=hover,
+                border_width=2, border_color=self._t("accent"),
+                font=theme.BUTTON_FONT, command=cmd).pack(
+                fill="x", padx=12, pady=pady)
+
+        _bottom_btn(_at("settings_window_title", self._lang), self._open_settings,
+                    self._t("surface_alt"), self._t("text"), self._t("surface"),
+                    pady=(2, 3))
+        _bottom_btn("🐞  " + _at("report_help_btn", self._lang),
+                    self._open_report_help, self._t("surface_alt"),
+                    self._t("text"), self._t("surface"))
         discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(16, 16))
         self._discord_img = discord_img   # keep a ref so it isn't GC'd
-        ctk.CTkButton(
-            misc, text="  Discord", image=discord_img, compound="left",
-            anchor="w", height=30, corner_radius=self._t("corner_sm"),
-            fg_color="transparent", text_color=self._t("text_muted"),
-            hover_color=self._t("surface_alt"), font=theme.HINT_FONT,
-            command=lambda: __import__("webbrowser").open(
-                "https://discord.com/invite/MNg2g9Pp6K")).pack(
-            side="left", fill="x", expand=True)
-
-        # Settings (nav-style, muted)
-        sbtn = ctk.CTkButton(
-            sb, text=_at("settings_window_title", self._lang),
-            anchor="w", height=38, corner_radius=self._t("corner_sm"),
-            fg_color="transparent", text_color=self._t("text_muted"),
-            hover_color=self._t("surface_alt"), font=theme.BODY_FONT,
-            command=self._open_settings)
-        sbtn.pack(fill="x", padx=12, pady=2)
-        self._nav_buttons["settings"] = sbtn
-
-        # Support Me — outlined accent button (transparent fill, accent border).
-        ctk.CTkButton(
-            sb, text=_at("support_btn", self._lang),
-            height=40, corner_radius=self._t("corner_sm"),
-            fg_color="transparent", border_width=2,
-            border_color=self._t("accent"), text_color=self._t("accent"),
-            hover_color=self._t("surface_alt"), font=theme.BUTTON_FONT,
-            command=self._open_support).pack(fill="x", padx=12, pady=(2, 16))
+        _bottom_btn("  Discord", lambda: __import__("webbrowser").open(
+            "https://discord.com/invite/MNg2g9Pp6K"),
+            "#5865F2", "#ffffff", "#4752c4", image=discord_img)
+        _bottom_btn("☕  " + _at("support_btn", self._lang), self._open_support,
+                    self._t("support_fill"), self._t("support_text"),
+                    self._t("support_hover"), pady=(3, 16))
 
         return sb
 
@@ -550,6 +543,7 @@ class MainWindow(ctk.CTk):
             capture_key=self._capture_key,
             main_cfg=self._cfg,
             tpl_lang=self._tpl_lang,
+            fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"),
         )
@@ -576,7 +570,7 @@ class MainWindow(ctk.CTk):
                                     warn_color=self._t("warn"),
             title=_at("label_activity", self._lang),
             title_color=self._t("text"), loop_color=self._t("log_accent"),
-            sep_color=self._t("border"), fg_color="transparent",
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"))
         self._race_log.pack(fill="both", expand=True,
@@ -640,7 +634,7 @@ class MainWindow(ctk.CTk):
                                       warn_color=self._t("warn"),
             title=_at("label_activity", self._lang),
             title_color=self._t("text"), loop_color=self._t("log_accent"),
-            sep_color=self._t("border"), fg_color="transparent",
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"))
         self._mastery_log.pack(fill="both", expand=True,
@@ -712,7 +706,7 @@ class MainWindow(ctk.CTk):
         self._buy_log = LogWidget(frame, warn_color=self._t("warn"),
             title=_at("label_activity", self._lang),
             title_color=self._t("text"), loop_color=self._t("log_accent"),
-            sep_color=self._t("border"), fg_color="transparent",
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"))
         self._buy_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
@@ -744,7 +738,7 @@ class MainWindow(ctk.CTk):
         self._delete_log = LogWidget(frame, warn_color=self._t("warn"),
             title=_at("label_activity", self._lang),
             title_color=self._t("text"), loop_color=self._t("log_accent"),
-            sep_color=self._t("border"), fg_color="transparent",
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"))
         self._delete_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
@@ -752,8 +746,8 @@ class MainWindow(ctk.CTk):
 
     def _build_run_controls(self, parent, mode: str):
         # Bordered card wrapping the Start / Stop buttons + the F9 hint.
-        card = ctk.CTkFrame(parent, fg_color="transparent", border_width=1,
-                            border_color=self._t("border"),
+        card = ctk.CTkFrame(parent, fg_color=self._t("surface_alt"),
+                            border_width=1, border_color=self._t("border"),
                             corner_radius=self._t("corner"))
         card.pack(fill="x", padx=12, pady=(4, 4))
         row = ctk.CTkFrame(card, fg_color="transparent")
@@ -863,8 +857,9 @@ class MainWindow(ctk.CTk):
         self._cur_main = frame
 
     def _set_nav_active(self, key):
-        """Highlight the active sidebar nav item: subtle surface fill + bright
-        text, plus an accent left bar (function navs only)."""
+        """Highlight the active function-nav item: subtle surface fill + bright
+        text + an accent left bar (overlay). Settings is a bottom filled button,
+        not a nav item, so opening it just clears the function-nav highlight."""
         for k, btn in self._nav_buttons.items():
             active = (k == key)
             btn.configure(
@@ -872,7 +867,7 @@ class MainWindow(ctk.CTk):
                 text_color=self._t("text") if active else self._t("text_muted"))
         for k, bar in getattr(self, "_nav_bars", {}).items():
             bar.configure(fg_color=self._t("accent") if k == key
-                          else self._t("sidebar_bg"))
+                          else "transparent")
 
     def _switch_tab(self, tab: str):
         # Always re-show (don't early-return on same tab): a panel may be open
@@ -1969,6 +1964,7 @@ class MainWindow(ctk.CTk):
             capture_key=self._capture_key,
             main_cfg=self._cfg,
             tpl_lang=self._tpl_lang,
+            fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"),
         )

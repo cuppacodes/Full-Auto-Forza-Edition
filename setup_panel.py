@@ -179,8 +179,8 @@ class SetupPanel(ctk.CTkFrame):
             hdr, text=_at("setup_header", self._lang),
             command=self._toggle,
             fg_color="transparent",
-            text_color=("gray20", "gray80"),
-            hover_color=("gray85", "gray25"),
+            text_color=theme.token("text"),
+            hover_color=theme.token("surface"),
             anchor="w",
             font=("Arial", 13, "bold"),
         )
