@@ -175,6 +175,13 @@ def run(cfg: dict, stop_event: threading.Event,
     res      = _fresh.get('race_resolution', 'custom')
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
     folder   = get_race_templates(res, tpl_lang)
+    # Single-reference templates: preset resolutions fall back to (or prefer)
+    # the one REFERENCE_RES set, downscaled. Custom keeps the user's own capture.
+    ref_folder = None
+    prefer_ref = False
+    if res != 'custom':
+        ref_folder = get_race_templates(_cfg_mod.REFERENCE_RES, tpl_lang)
+        prefer_ref = _fresh.get('template_prefer_reference', True)
     log_cb(f"  Templates: {tpl_lang} / {res}")
     # Detection mode follows the template type automatically (no manual toggle):
     # preset resolutions use the robust OCR-confirm "default" detection; custom
@@ -186,7 +193,8 @@ def run(cfg: dict, stop_event: threading.Event,
     for key in TEMPLATE_KEYS:
         try:
             img, scale = load_template(folder, key,
-                                       current_w, current_h, grayscale=True)
+                                       current_w, current_h, grayscale=True,
+                                       ref_folder=ref_folder, prefer_ref=prefer_ref)
             templates[key] = img
             log_cb(_at("log_template_loaded", cfg.get("lang","en"), key=key, scale=f"{scale:.2f}"))
         except FileNotFoundError:

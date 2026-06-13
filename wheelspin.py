@@ -67,11 +67,20 @@ def run(cfg: dict, stop_event: threading.Event,
     # Load the single detect-only template.
     current_w, current_h, _, _ = get_monitor_dims(monitor_index)
     folder   = get_wheelspin_templates(res, tpl_lang)
+    # Single-reference fallback for preset resolutions (no bundled wheelspin
+    # defaults today, so this only matters once any are shipped). Custom uses
+    # the user's own capture.
+    ref_folder = None
+    prefer_ref = False
+    if res != 'custom':
+        ref_folder = get_wheelspin_templates(_cfg_mod.REFERENCE_RES, tpl_lang)
+        prefer_ref = _fresh.get('template_prefer_reference', True)
     log_cb(f"  Templates: {tpl_lang} / {res}")
     detector = ScreenDetector(_fresh)
     try:
         template, scale = load_template(folder, TEMPLATE_KEY,
-                                        current_w, current_h, grayscale=True)
+                                        current_w, current_h, grayscale=True,
+                                        ref_folder=ref_folder, prefer_ref=prefer_ref)
         log_cb(_at("log_template_loaded", lang, key=TEMPLATE_KEY,
                    scale=f"{scale:.2f}"))
     except FileNotFoundError:

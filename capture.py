@@ -289,16 +289,39 @@ def save_template(folder: str, key: str, crop: np.ndarray,
 
 def load_template(folder: str, key: str,
                   current_w: int, current_h: int,
-                  grayscale: bool = True) -> tuple:
+                  grayscale: bool = True,
+                  ref_folder: str = None,
+                  prefer_ref: bool = False) -> tuple:
     """
-    Load a template and rescale it to current resolution.
+    Load a template and rescale it to the current resolution (by height — game
+    UI scales with vertical resolution).
     Returns (img, scale) or raises FileNotFoundError.
-    """
-    img_path  = os.path.join(folder, f"{key}.png")
-    meta_path = os.path.join(folder, f"{key}.json")
 
-    if not os.path.exists(img_path) or not os.path.exists(meta_path):
+    Single-reference resolution support (Stage 1): a bundled template authored
+    once at the highest resolution can serve every preset resolution by
+    downscaling. `ref_folder` is that reference set's folder; the source is
+    chosen as:
+      • prefer_ref + ref has it  → use ref_folder (downscale to current)
+      • else folder has it       → use folder (per-resolution, legacy)
+      • else ref has it          → fall back to ref_folder
+    Defaults (ref_folder=None, prefer_ref=False) reproduce the old behaviour
+    exactly, so existing callers are unaffected.
+    """
+    def _has(d):
+        return d and os.path.exists(os.path.join(d, f"{key}.png")) and \
+            os.path.exists(os.path.join(d, f"{key}.json"))
+
+    src = None
+    if prefer_ref and _has(ref_folder):
+        src = ref_folder
+    elif _has(folder):
+        src = folder
+    elif _has(ref_folder):
+        src = ref_folder
+    if src is None:
         raise FileNotFoundError(f"Template '{key}' not found in {folder}")
+    img_path  = os.path.join(src, f"{key}.png")
+    meta_path = os.path.join(src, f"{key}.json")
 
     flag = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
     with open(img_path, 'rb') as f:

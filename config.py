@@ -24,6 +24,13 @@ TEMPLATES_DIR     = os.path.join(BASE_DIR, "templates")
 
 RESOLUTION_SETS = ["1080p", "1440p", "2160p", "custom"]
 
+# Single bundled reference resolution. Built-in templates are authored once at
+# this (highest) resolution and DOWNSCALED to lower ones at load time — clean,
+# since downscaling preserves edges/text far better than upscaling a low-res
+# crop. Lets one template set serve every preset resolution (see
+# capture.load_template ref_folder / template_prefer_reference).
+REFERENCE_RES = "2160p"
+
 # ── Template languages ───────────────────────────────────────
 # Templates are organised by the language of the GAME's on-screen menus (NOT
 # the app UI) — the captured images contain that text, so the set must match
@@ -182,6 +189,11 @@ DEFAULTS = {
     "wheelspin_post_key_wait":   0.5,
     "wheelspin_settle_wait":     5.0,   # REQUIRED settle before collect; raisable
     "wheelspin_dup_mode":        "garage",
+    # Use the single REFERENCE_RES template set for ALL preset resolutions
+    # (downscaled), instead of per-resolution captures. Reversible kill-switch:
+    # set false to go back to using each resolution's own folder. Custom
+    # templates are never affected (they're the user's own capture).
+    "template_prefer_reference": True,
     # UI / behavior toggles
     "theme_preset":           "default",   # color scheme (see theme.THEME_PRESETS)
     "ui_scale":               "auto",
