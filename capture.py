@@ -274,8 +274,14 @@ def get_monitor_dims(monitor_index: int):
 # ── Template save / load ──────────────────────────────────────
 
 def save_template(folder: str, key: str, crop: np.ndarray,
-                  screen_w: int, screen_h: int):
-    """Save a BGR crop and its resolution metadata."""
+                  screen_w: int, screen_h: int, box=None):
+    """Save a BGR crop and its resolution metadata.
+
+    box (x, y, w, h): where the crop sat on the capture screen. Stored so the
+    detector can derive an anchor-aware ROI at any resolution (Stage 2), instead
+    of a hand-tuned DEFAULT_ROIS entry. Optional/back-compatible: old templates
+    without it fall back to DEFAULT_ROIS.
+    """
     os.makedirs(folder, exist_ok=True)
     img_path  = os.path.join(folder, f"{key}.png")
     meta_path = os.path.join(folder, f"{key}.json")
@@ -283,8 +289,12 @@ def save_template(folder: str, key: str, crop: np.ndarray,
     if success:
         with open(img_path, 'wb') as f:
             f.write(buf.tobytes())
+    meta = {"screen_width": screen_w, "screen_height": screen_h}
+    if box is not None:
+        bx, by, bw, bh = box
+        meta["box"] = [int(bx), int(by), int(bw), int(bh)]
     with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump({"screen_width": screen_w, "screen_height": screen_h}, f)
+        json.dump(meta, f)
 
 
 def load_template(folder: str, key: str,
@@ -295,7 +305,8 @@ def load_template(folder: str, key: str,
     """
     Load a template and rescale it to the current resolution (by height — game
     UI scales with vertical resolution).
-    Returns (img, scale) or raises FileNotFoundError.
+    Returns (img, scale, meta) or raises FileNotFoundError. `meta` is the
+    sidecar JSON (screen_width/height, and optional "box" capture geometry).
 
     Single-reference resolution support (Stage 1): a bundled template authored
     once at the highest resolution can serve every preset resolution by
@@ -342,7 +353,7 @@ def load_template(folder: str, key: str,
         nh = max(1, int(img.shape[0] * scale))
         img = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_AREA)
 
-    return img, scale
+    return img, scale, meta
 
 
 def template_exists(folder: str, key: str) -> bool:
@@ -594,7 +605,9 @@ class CaptureSession:
                             # while _advance_session() is still spinning up
                             # the new session, which broke multi-capture.
                             self._stop.set()
-                            self.callback(crop, w, h)
+                            # Pass the capture box (x,y,w,h) + screen size so the
+                            # template can carry its own location (Stage 2 ROI).
+                            self.callback(crop, w, h, x, y, rw, rh)
                         else:
                             self._stop.set()
                             if self.on_cancel:

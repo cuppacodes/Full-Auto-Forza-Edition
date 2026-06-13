@@ -424,7 +424,8 @@ class SetupPanel(ctk.CTkFrame):
             sess = CaptureSession(
                 monitor_index=self._monitor_index,
                 window_title=f"Select region — {label}",
-                callback=lambda crop, w, h, k=next_key: self._on_captured(k, crop, w, h),
+                callback=lambda crop, w, h, bx, by, bw, bh, k=next_key:
+                    self._on_captured(k, crop, w, h, (bx, by, bw, bh)),
                 on_cancel=self._on_capture_cancel,
                 capture_key=self._capture_key,
                 template_key=next_key,
@@ -433,8 +434,8 @@ class SetupPanel(ctk.CTkFrame):
             self._session = sess
             sess.start()
 
-    def _on_captured(self, key, crop, screen_w, screen_h):
-        save_template(self.folder, key, crop, screen_w, screen_h)
+    def _on_captured(self, key, crop, screen_w, screen_h, box=None):
+        save_template(self.folder, key, crop, screen_w, screen_h, box=box)
         self.after(0, lambda: self._post_capture(key))
 
     def _post_capture(self, key):

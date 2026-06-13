@@ -89,6 +89,18 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
 TEXT_TEMPLATES: frozenset[str] = frozenset(DEFAULT_ROIS.keys())
 
 
+def _scale_by_anchor(val: float, ref_dim: int, screen_dim: int,
+                     scale: float) -> float:
+    """Map a coordinate from the reference frame onto the live frame, anchored
+    to whichever edge it sits nearest (ok-script's model). A coordinate in the
+    right/bottom half is measured from the FAR edge so edge-anchored UI (bottom
+    HUD, right-side panels) stays glued to that edge on any screen size;
+    otherwise it's measured from the near (left/top) edge."""
+    if val > ref_dim / 2:
+        return screen_dim - (ref_dim - val) * scale
+    return val * scale
+
+
 def _clip_roi(frame: np.ndarray, roi: Optional[Rect]) -> tuple[np.ndarray, int, int]:
     if roi is None:
         return frame, 0, 0
@@ -269,6 +281,18 @@ class ScreenDetector:
             self.cfg.get("detector_roi_aspect_fix", True))
         self._roi_aspect_tol: float = float(
             self.cfg.get("detector_roi_aspect_tol", 0.05))
+        # Geometry-derived ROI (Stage 2): when a template carries its capture
+        # box (x,y,w,h) + capture resolution, derive an anchor-aware search ROI
+        # from it instead of the hand-tuned DEFAULT_ROIS. Only applies to keys
+        # registered via set_template_geometry(); templates without geometry
+        # (e.g. the bundled set) keep DEFAULT_ROIS unchanged. Kill-switch:
+        # detector_geometry_roi=false. detector_geom_variance is the ± screen
+        # fraction the box is padded by (absorbs anchoring/scale imprecision).
+        self._geom_roi_on: bool = bool(
+            self.cfg.get("detector_geometry_roi", True))
+        self._geom_variance: float = float(
+            self.cfg.get("detector_geom_variance", 0.05))
+        self._geom: dict[str, dict] = {}
         # OCR cooldown: minimum seconds between actual OCR calls for the same
         # key.  Without this, a score stuck in the borderline zone triggers
         # rapidocr on every check interval (~0.5 s), causing CPU spikes.
@@ -365,10 +389,55 @@ class ScreenDetector:
             self._template_cache[cache_key] = cached
         return cached
 
+    def set_template_geometry(self, key: str, box, cap_w: int, cap_h: int):
+        """Register a template's capture box (x, y, w, h on a cap_w×cap_h
+        screen) so detect() uses an anchor-aware, resolution-adaptive ROI for
+        it instead of DEFAULT_ROIS. No-op on incomplete geometry."""
+        try:
+            x, y, w, h = box
+        except (TypeError, ValueError):
+            return
+        if w <= 0 or h <= 0 or cap_w <= 0 or cap_h <= 0:
+            return
+        self._geom[key] = {"box": (int(x), int(y), int(w), int(h)),
+                           "cap_w": int(cap_w), "cap_h": int(cap_h)}
+
+    def _geom_roi(self, key: str, frame_w: int, frame_h: int):
+        """Anchor-aware ROI (ratio tuple) from a registered capture box, scaled
+        to the live frame. Returns None if the key has no geometry. Scales by
+        height (UI scales with vertical resolution, matching load_template) and
+        anchors x/y to the nearest edge, then pads by detector_geom_variance."""
+        g = self._geom.get(key)
+        if g is None:
+            return None
+        bx, by, bw, bh = g["box"]
+        cap_w, cap_h = g["cap_w"], g["cap_h"]
+        scale = frame_h / cap_h
+        x = _scale_by_anchor(bx, cap_w, frame_w, scale)
+        y = _scale_by_anchor(by, cap_h, frame_h, scale)
+        w = bw * scale
+        h = bh * scale
+        vx = frame_w * self._geom_variance
+        vy = frame_h * self._geom_variance
+        rx = max(0.0, x - vx)
+        ry = max(0.0, y - vy)
+        rw = min(frame_w - rx, w + 2 * vx)
+        rh = min(frame_h - ry, h + 2 * vy)
+        if rw <= 0 or rh <= 0:
+            return None
+        return (rx / frame_w, ry / frame_h, rw / frame_w, rh / frame_h)
+
     def detect(self, frame: np.ndarray, key: str, template: np.ndarray,
                threshold: float, stable: bool = True) -> MatchResult:
-        roi = self._roi_for_frame(
-            key, DEFAULT_ROIS.get(key), frame.shape[1], frame.shape[0])
+        # Prefer a geometry-derived ROI (anchor-aware, from the template's own
+        # capture box) when available; else the hand-tuned DEFAULT_ROIS. The
+        # geometry ROI already accounts for aspect ratio, so it bypasses the
+        # 16:9 _roi_for_frame remap.
+        roi = self._geom_roi(key, frame.shape[1], frame.shape[0]) \
+            if self._geom_roi_on else None
+        if roi is None:
+            roi = self._roi_for_frame(
+                key, DEFAULT_ROIS.get(key), frame.shape[1], frame.shape[0])
         roi_result = self._detect_in_area(
             frame, key, template, threshold, roi, "roi", stable)
         if roi_result.matched:

@@ -192,10 +192,15 @@ def run(cfg: dict, stop_event: threading.Event,
     detector = ScreenDetector(_fresh)
     for key in TEMPLATE_KEYS:
         try:
-            img, scale = load_template(folder, key,
+            img, scale, meta = load_template(folder, key,
                                        current_w, current_h, grayscale=True,
                                        ref_folder=ref_folder, prefer_ref=prefer_ref)
             templates[key] = img
+            _box = meta.get("box")
+            if _box:
+                detector.set_template_geometry(
+                    key, _box, meta.get("screen_width", current_w),
+                    meta.get("screen_height", current_h))
             log_cb(_at("log_template_loaded", cfg.get("lang","en"), key=key, scale=f"{scale:.2f}"))
         except FileNotFoundError:
             log_cb(_at("log_template_missing", cfg.get("lang","en"), key=key))

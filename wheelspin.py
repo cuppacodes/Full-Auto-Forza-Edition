@@ -78,9 +78,14 @@ def run(cfg: dict, stop_event: threading.Event,
     log_cb(f"  Templates: {tpl_lang} / {res}")
     detector = ScreenDetector(_fresh)
     try:
-        template, scale = load_template(folder, TEMPLATE_KEY,
+        template, scale, meta = load_template(folder, TEMPLATE_KEY,
                                         current_w, current_h, grayscale=True,
                                         ref_folder=ref_folder, prefer_ref=prefer_ref)
+        _box = meta.get("box")
+        if _box:
+            detector.set_template_geometry(
+                TEMPLATE_KEY, _box, meta.get("screen_width", current_w),
+                meta.get("screen_height", current_h))
         log_cb(_at("log_template_loaded", lang, key=TEMPLATE_KEY,
                    scale=f"{scale:.2f}"))
     except FileNotFoundError:
