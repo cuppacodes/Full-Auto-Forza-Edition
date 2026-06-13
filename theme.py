@@ -14,8 +14,8 @@
 # Chinese text Windows falls back via its font-linking registry — and on some
 # machines that fallback resolves to a decorative/brush font, making the whole
 # UI look wrong (this was a real user report). Naming a CJK-capable Windows
-# font explicitly (Microsoft JhengHei for 繁中, YaHei for 简中) bypasses that
-# fallback entirely. English keeps Segoe UI.
+# font explicitly (Microsoft JhengHei for 繁中) bypasses that fallback
+# entirely. English keeps Segoe UI.
 #
 # All callers reference these as `theme.X_FONT` (attribute access, never a
 # by-value `from theme import X_FONT`), so reassigning them in init_fonts()
@@ -36,7 +36,6 @@ ICON_FONT   = (UI_FAMILY, 16, "normal")  # ⚙ etc. — chunky icon
 # of these is always present; the list ends in a deterministic fallback.
 _FAMILY_BY_LANG = {
     "zh-tw": ["Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU", "Segoe UI"],
-    "zh-cn": ["Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Segoe UI"],
     "en":    ["Segoe UI"],
 }
 

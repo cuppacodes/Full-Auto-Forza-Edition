@@ -107,7 +107,7 @@ class MainWindow(ctk.CTk):
         # made CTk paint a blank/white window (its canvas isn't drawn while
         # hidden). The root stays visible (empty) behind the modal picker, then
         # _build_ui fills it. init_fonts('zh-tw') first so the picker's CJK option
-        # labels (繁體中文 / 简体中文) render in a real CJK font.
+        # label (繁體中文) renders in a real CJK font.
         if self._first_run:
             self._setup_window()   # size/title the (empty) root behind the modal
             theme.init_fonts('zh-tw', root=self)
@@ -119,7 +119,7 @@ class MainWindow(ctk.CTk):
             self._tpl_lang = resolve_template_lang(self._cfg)
             save(self._cfg)
         # Lock the UI font family to a guaranteed-installed Windows face for
-        # this language (CJK UIs → JhengHei/YaHei, English → Segoe UI). MUST run
+        # this language (繁中 → JhengHei, English → Segoe UI). MUST run
         # AFTER _apply_theme(): set_default_color_theme() reloads the theme JSON
         # and would reset CTk's default font family back to Roboto (no CJK
         # glyphs), clobbering the override and leaving font=None widgets (e.g.
@@ -1872,7 +1872,7 @@ class MainWindow(ctk.CTk):
         _lang_row.pack(fill='x', padx=12, pady=4)
         ctk.CTkLabel(_lang_row, text=_at('label_language', self._lang),
                      width=160, anchor='w').pack(side='left')
-        _lang_map = {'en': 'English', 'zh-tw': '繁體中文', 'zh-cn': '简体中文'}
+        _lang_map = {'en': 'English', 'zh-tw': '繁體中文'}
         self._lang_var = ctk.StringVar(
             value=_lang_map.get(self._cfg.get('lang', 'en'), 'English'))
         self._lang_menu = ctk.CTkOptionMenu(
@@ -1891,7 +1891,7 @@ class MainWindow(ctk.CTk):
         # display label -> stored template_lang value
         self._glang_opts = {
             _at('game_lang_auto', self._lang): 'auto',
-            '繁體中文': 'cht', '简体中文': 'chs', 'English': 'en',
+            '繁體中文': 'cht', 'English': 'en',
         }
         _glang_rev = {v: k for k, v in self._glang_opts.items()}
         self._glang_var = ctk.StringVar(
@@ -2042,8 +2042,7 @@ class MainWindow(ctk.CTk):
     # ── Accent picker (always-visible swatch grid) ────────────
 
     def _ask_first_run_language(self):
-        """First-launch modal: choose the UI language. Returns 'en'/'zh-tw'/
-        'zh-cn'.
+        """First-launch modal: choose the UI language. Returns 'en'/'zh-tw'.
 
         Built with PLAIN Tk (not CTk): CTk multiplies CTkToplevel.geometry() by
         the widget-scaling factor, which on multi-monitor / high-DPI setups put
@@ -2055,7 +2054,7 @@ class MainWindow(ctk.CTk):
         fam = theme.UI_FAMILY
         BG, FG, ACC, ACC2 = "#1b1b1b", "#f0f0f0", "#3B82F6", "#2563EB"
         win = tk.Toplevel(self)
-        win.title("Language  /  語言  /  语言")
+        win.title("Language  /  語言")
         win.configure(bg=BG)
         win.resizable(False, False)
         try:
@@ -2063,11 +2062,11 @@ class MainWindow(ctk.CTk):
         except Exception:
             pass
 
-        W, H = 400, 360
+        W, H = 400, 300
         sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
         win.geometry(f"{W}x{H}+{max(0, (sw - W) // 2)}+{max(0, (sh - H) // 2)}")
 
-        tk.Label(win, text="Choose your language\n選擇您的語言\n选择您的语言",
+        tk.Label(win, text="Choose your language\n選擇您的語言",
                  bg=BG, fg=FG, font=(fam, 15, 'bold'),
                  justify='center').pack(pady=(30, 20))
 
@@ -2085,8 +2084,7 @@ class MainWindow(ctk.CTk):
             win.after_idle(win.destroy)
 
         for code, label in (('en', 'English'),
-                            ('zh-tw', '繁體中文'),
-                            ('zh-cn', '简体中文')):
+                            ('zh-tw', '繁體中文')):
             tk.Button(win, text=label, font=(fam, 13), width=18,
                       bg=ACC, fg="#ffffff", activebackground=ACC2,
                       activeforeground="#ffffff", relief='flat', bd=0,
@@ -2107,7 +2105,7 @@ class MainWindow(ctk.CTk):
     def _on_lang_change(self, val: str):
         if self._restarting:
             return   # already restarting, ignore
-        lang_map = {"English": "en", "繁體中文": "zh-tw", "简体中文": "zh-cn"}
+        lang_map = {"English": "en", "繁體中文": "zh-tw"}
         new_lang = lang_map.get(val, "en")
         if new_lang == self._cfg.get("lang", "en"):
             return   # no change

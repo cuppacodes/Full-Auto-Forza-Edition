@@ -133,7 +133,7 @@ class SetupPanel(ctk.CTkFrame):
         super().__init__(parent, **kwargs)
         self._res_cfg_key = res_cfg_key
         self._mode        = mode
-        self._tpl_lang    = tpl_lang   # game-menu template language (cht/chs/en)
+        self._tpl_lang    = tpl_lang   # game-menu template language (cht/en)
         self._main_cfg    = main_cfg   # reference to main window cfg dict
         # Load saved resolution
         _saved_cfg = config.load()

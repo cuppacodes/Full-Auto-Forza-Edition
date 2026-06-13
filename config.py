@@ -29,20 +29,20 @@ RESOLUTION_SETS = ["1080p", "1440p", "2160p", "custom"]
 # the app UI) — the captured images contain that text, so the set must match
 # what's rendered in-game. Layout: templates/<lang>/<category>/<res>/ plus
 # templates/<lang>/examples/.
-#   cht = Traditional Chinese · chs = Simplified Chinese · en = English
-TEMPLATE_LANGS = ["cht", "chs", "en"]
+#   cht = Traditional Chinese · en = English
+TEMPLATE_LANGS = ["cht", "en"]
 DEFAULT_TEMPLATE_LANG = "cht"
 
 # Default game-template language per app-UI language (used when the
 # `template_lang` setting is "auto").
-_APP_LANG_TO_TPL = {"zh-tw": "cht", "zh-cn": "chs", "en": "en"}
+_APP_LANG_TO_TPL = {"zh-tw": "cht", "en": "en"}
 
 
 def resolve_template_lang(cfg: dict) -> str:
     """Which game-template language set to use.
 
     `template_lang` config: "auto" (follow the app UI language) or an explicit
-    cht / chs / en. Defaults to auto."""
+    cht / en. Defaults to auto."""
     val = str(cfg.get("template_lang", "auto") or "auto").lower()
     if val in TEMPLATE_LANGS:
         return val
@@ -146,7 +146,7 @@ DEFAULTS = {
     "monitor_index":     _get_primary_monitor_index(),
     "race_resolution":    "1080p",
     "mastery_resolution": "1080p",
-    # Game-menu language for templates: "auto" (follow app UI lang) / cht / chs / en
+    # Game-menu language for templates: "auto" (follow app UI lang) / cht / en
     "template_lang":      "auto",
     # Race settings
     "race_threshold":    0.60,
@@ -199,6 +199,14 @@ def load() -> dict:
             if k not in data:
                 data[k] = v
                 added = True
+        # Migrate dropped Simplified Chinese (zh-cn / chs templates) → Traditional
+        # so existing SC users land on a maintained language, not English fallback.
+        if data.get("lang") == "zh-cn":
+            data["lang"] = "zh-tw"
+            added = True
+        if data.get("template_lang") == "chs":
+            data["template_lang"] = "auto"
+            added = True
         # Validate monitor index against available monitors (runtime-only;
         # doesn't itself trigger a rewrite).
         try:
