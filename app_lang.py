@@ -414,6 +414,10 @@ STRINGS = {
         "en":    "Template set:",
         "zh-tw": "樣本組：",
     },
+    "res_builtin": {
+        "en":    "Built-in (auto-scaled)",
+        "zh-tw": "內建（自動縮放）",
+    },
     "res_1080p": {
         "en":    "1080p (Built-in)",
         "zh-tw": "1080p（內建）",

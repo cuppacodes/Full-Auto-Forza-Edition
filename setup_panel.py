@@ -203,14 +203,19 @@ class SetupPanel(ctk.CTkFrame):
         res_frame.pack(fill='x', pady=(4, 8))
         ctk.CTkLabel(res_frame,
                      text=_at('label_resolution', self._lang)).pack(side='left')
+        # Two choices only: Built-in (the single REFERENCE_RES set, auto-scaled
+        # to the detected monitor) or Custom (the user's own capture). The old
+        # 1080p/1440p/2160p picks are gone — Stage 1 makes one reference set
+        # serve every resolution, so the number was meaningless. Built-in maps
+        # to REFERENCE_RES; any legacy stored preset (1080p/1440p/2160p) still
+        # displays as Built-in and behaves identically.
         _res_options = {
-            '1080p':  _at('res_1080p',  self._lang),
-            '1440p':  _at('res_1440p',  self._lang),
-            '2160p':  _at('res_2160p', self._lang),
-            'custom': _at('res_custom', self._lang),
+            config.REFERENCE_RES: _at('res_builtin', self._lang),
+            'custom':             _at('res_custom',  self._lang),
         }
-        self._res_var = ctk.StringVar(
-            value=_res_options.get(self._resolution, _res_options['custom']))
+        _init_label = (_res_options['custom'] if self._resolution == 'custom'
+                       else _res_options[config.REFERENCE_RES])
+        self._res_var = ctk.StringVar(value=_init_label)
         ctk.CTkOptionMenu(
             res_frame,
             variable=self._res_var,
