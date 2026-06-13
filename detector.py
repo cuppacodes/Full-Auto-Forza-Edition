@@ -60,6 +60,7 @@ DEFAULT_ROIS: dict[str, Rect] = {
     "mastery_anchor":       (0.00, 0.00, 0.25, 0.15),  # top-left title
     "mastery_my_cars":      (0.00, 0.10, 0.30, 0.50),  # top of left menu
     "mastery_sort_recent":  (0.30, 0.20, 0.40, 0.70),  # centre sort menu
+    "wheelspin_duplicate":  (0.20, 0.20, 0.65, 0.65),  # centre duplicate-reward menu
 }
 
 
@@ -78,6 +79,7 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     "mastery_anchor": ("車輛熟練度", "车辆熟练度"),
     "mastery_my_cars": ("my cars", "車庫", "车库"),
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
+    "wheelspin_duplicate": ("garage", "gift", "sell", "車庫", "禮物", "贈送", "賣出", "出售"),
 }
 
 # All template images capture text UI elements. Edge matching on text is

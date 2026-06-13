@@ -73,6 +73,13 @@ def get_nodes_file(res: str = "custom",
     return os.path.join(get_mastery_templates(res, lang), "mastery_nodes.json")
 
 
+def get_wheelspin_templates(res: str = "custom",
+                            lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    path = os.path.join(_lang_dir(lang), "wheelspin", res)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_examples_dir(lang: str = DEFAULT_TEMPLATE_LANG) -> str:
     path = os.path.join(_lang_dir(lang), "examples")
     os.makedirs(path, exist_ok=True)
@@ -167,6 +174,14 @@ DEFAULTS = {
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,
+    # Auto Spin Wheel settings. No default templates are bundled (custom-only),
+    # so the resolution defaults to "custom" to nudge a capture. dup_mode is
+    # "garage" (safe) | "sell" (sells duplicates UNATTENDED — warned in the UI).
+    "wheelspin_resolution":      "custom",
+    "thresh_wheelspin_duplicate": 0.60,
+    "wheelspin_post_key_wait":   0.5,
+    "wheelspin_settle_wait":     5.0,   # REQUIRED settle before collect; raisable
+    "wheelspin_dup_mode":        "garage",
     # UI / behavior toggles
     "theme_preset":           "default",   # color scheme (see theme.THEME_PRESETS)
     "ui_scale":               "auto",

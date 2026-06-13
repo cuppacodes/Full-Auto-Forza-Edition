@@ -87,6 +87,10 @@ STRINGS = {
         "en":    "Delete Cars",
         "zh-tw": "刪除車輛",
     },
+    "page_title_spin": {
+        "en":    "Auto Spin Wheel",
+        "zh-tw": "自動轉輪",
+    },
     # Sidebar nav labels (emoji-free, short — the header shows the full page title)
     "nav_race": {
         "en":    "AFK Races",
@@ -103,6 +107,10 @@ STRINGS = {
     "nav_delete": {
         "en":    "Delete Cars",
         "zh-tw": "刪除車輛",
+    },
+    "nav_spin": {
+        "en":    "Auto Spin Wheel",
+        "zh-tw": "自動轉輪",
     },
     "label_activity": {
         "en":    "Activity",
@@ -143,6 +151,87 @@ STRINGS = {
     "log_buy_limit_reached": {
         "en":    "Reached target of {n} purchases. Stopping.",
         "zh-tw": "已完成目標 {n} 次購買，自動停止。",
+    },
+    # ── Auto Spin Wheel ───────────────────────────────────────
+    "spin_description": {
+        "en":    "Automatically spins the wheelspin over and over. Each spin: spin → fast-forward → wait for the result to settle → collect. If a duplicate-reward menu appears, it is handled per the mode below.\n\nBefore starting, open a wheelspin screen ready to spin.\n\n⚠ Sell mode sells duplicate cars automatically and UNATTENDED — once started it sells every duplicate it sees, with no confirmation. Use Add to Garage if unsure.",
+        "zh-tw": "自動連續轉動幸運轉輪。每次轉動：轉動 → 快轉動畫 → 等待結果定格 → 領取獎勵。若出現重複獎勵選單，會依下方模式處理。\n\n開始前請先進入可轉動的轉輪畫面。\n\n⚠ 賣出模式會自動且無人看管地賣掉重複車輛 — 一旦啟動，看到任何重複車輛都會直接賣出、不會再次確認。不確定請選「加入車庫」。",
+    },
+    "spin_count_label": {
+        "en":    "Number of spins to run:",
+        "zh-tw": "要轉動的次數：",
+    },
+    "spin_mode_label": {
+        "en":    "Duplicate handling:",
+        "zh-tw": "重複獎勵處理：",
+    },
+    "spin_mode_garage": {
+        "en":    "Add to Garage",
+        "zh-tw": "加入車庫",
+    },
+    "spin_mode_sell": {
+        "en":    "Sell Car",
+        "zh-tw": "賣出車輛",
+    },
+    "spin_mode_hint": {
+        "en":    "Sell mode sells duplicates automatically — see the warning above.",
+        "zh-tw": "賣出模式會自動賣掉重複車輛 — 請見上方警告。",
+    },
+    "spin_tpl_duplicate": {
+        "en":    "Duplicate-reward menu",
+        "zh-tw": "重複獎勵選單",
+    },
+    "spin_loop": {
+        "en":    "Spin",
+        "zh-tw": "轉動",
+    },
+    "status_starting_spin": {
+        "en":    "Starting Auto Spin Wheel...",
+        "zh-tw": "正在啟動自動轉輪...",
+    },
+    "log_spin_started": {
+        "en":    "Auto Spin Wheel started.",
+        "zh-tw": "自動轉輪已啟動。",
+    },
+    "log_spin_started_count": {
+        "en":    "Auto Spin Wheel started — will run {n} spins.",
+        "zh-tw": "自動轉輪已啟動 — 將轉動 {n} 次。",
+    },
+    "log_spin_sell_warn": {
+        "en":    "SELL mode: duplicate cars will be sold automatically and unattended.",
+        "zh-tw": "賣出模式：重複車輛將被自動且無人看管地賣出。",
+    },
+    "log_spin_spin": {
+        "en":    "Spinning...",
+        "zh-tw": "轉動中…",
+    },
+    "log_spin_settle": {
+        "en":    "Waiting for the result to settle...",
+        "zh-tw": "等待結果定格…",
+    },
+    "log_spin_collect": {
+        "en":    "Collecting reward...",
+        "zh-tw": "領取獎勵…",
+    },
+    "log_spin_no_dup": {
+        "en":    "No duplicate menu — continuing.",
+        "zh-tw": "無重複獎勵選單 — 繼續。",
+    },
+    "log_spin_dup_garage": {
+        "en":    "Duplicate #{n} found → Add to Garage.",
+        "zh-tw": "發現重複 #{n} → 加入車庫。",
+    },
+    "log_spin_dup_sell": {
+        "en":    "Duplicate #{n} found → Sell.",
+        "zh-tw": "發現重複 #{n} → 賣出。",
+    },
+    "log_spin_limit_reached": {
+        "en":    "Reached target of {n} spins. Stopping.",
+        "zh-tw": "已完成目標 {n} 次轉動，自動停止。",
+    },
+    "log_spin_stopped": {
+        "en":    "Auto Spin Wheel stopped.",
+        "zh-tw": "自動轉輪已停止。",
     },
     "mastery_count_label": {
         "en":    "Number of cars to process:",
@@ -224,6 +313,10 @@ STRINGS = {
         "en":    "Delete Used Cars",
         "zh-tw": "刪除已使用車輛",
     },
+    "settings_wheelspin_section": {
+        "en":    "Auto Spin Wheel",
+        "zh-tw": "自動轉輪",
+    },
     "settings_appearance_section": {
         "en":    "Appearance",
         "zh-tw": "外觀",
@@ -275,6 +368,9 @@ STRINGS = {
     },
     "ov_func_delete": {
         "en": "Delete", "zh-tw": "刪除",
+    },
+    "ov_func_spin": {
+        "en": "Spin", "zh-tw": "轉輪",
     },
     "overlay_hint_stop": {
         "en":    "■  Press {key} to stop",
@@ -439,6 +535,14 @@ STRINGS = {
     "setting_delete_post_key_wait": {
         "en":    "Key interval (s)",
         "zh-tw": "按鍵間隔（秒）",
+    },
+    "setting_wheelspin_post_key_wait": {
+        "en":    "Key interval (s)",
+        "zh-tw": "按鍵間隔（秒）",
+    },
+    "setting_wheelspin_settle_wait": {
+        "en":    "Result settle wait (s)",
+        "zh-tw": "結果定格等待（秒）",
     },
 
     # ── Run controls ──────────────────────────────────────────
@@ -771,6 +875,14 @@ STRINGS = {
     "tip_delete_post_key_wait": {
         "en":    "How long to wait between each key press during deletion (in seconds).",
         "zh-tw": "每次刪除按鍵之間的等待時間（秒）。",
+    },
+    "tip_wheelspin_post_key_wait": {
+        "en":    "How long to wait between each key press during a spin (in seconds).",
+        "zh-tw": "轉輪每次按鍵之間的等待時間（秒）。",
+    },
+    "tip_wheelspin_settle_wait": {
+        "en":    "How long to wait after fast-forwarding for the spin result to fully settle before collecting (in seconds). Raise this on slower machines if rewards are missed.",
+        "zh-tw": "快轉動畫後、領取獎勵前，等待轉輪結果完全定格的時間（秒）。若電腦較慢而漏接獎勵，請調高此值。",
     },
 
     "mastery_start_row_label": {

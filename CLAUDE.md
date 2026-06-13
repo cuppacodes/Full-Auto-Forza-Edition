@@ -14,6 +14,7 @@ New APP/
 ├── race.py               # Race Auto-Grind automation logic
 ├── mastery.py            # Auto Unlock 22B Mastery automation logic
 ├── delete_cars.py        # Delete Used Cars automation logic
+├── wheelspin.py          # Auto Spin Wheel automation logic (detect-only duplicate menu)
 ├── report.py             # One-press bug-report bundle (F12): screenshot + log + DxDiag → zip
 ├── overlay.py            # Translucent click-through status overlay shown over the game
 ├── log_widget.py         # Thread-safe log widget with colored warning support
@@ -100,6 +101,13 @@ New APP/
 - **Node positions are the ONLY capture mastery needs** — `_make_mastery_setup` passes `template_defs=[]` so the Setup panel shows only the resolution selector + node capture (no template rows → no threshold sliders; `setup_panel._build_content` hides the "Templates" header when defs are empty; `is_complete()` is nodes-only). The mastery detection template images + their example PNGs were deleted from `templates/` (only `mastery_nodes.json` + the `nodes.png` example remain).
 - Arrow keys: `'up'/'down'` added to mastery's `_VK_MAP` — they're in `_EXTENDED_VKS`, so `_send_vk` sets `KEYEVENTF_EXTENDEDKEY` (without it Down collides with numpad-2).
 - Log strings: `log_mkeys_*` (ride/cutscene/upgrade/mastery/wait_mastery/mycars/sort), bilingual (zh-tw/en). (The detection-flow strings, the `mastery_mode_*` toggle strings, the `mastery_tpl_*` labels, and the `mastery_check_interval`/`mastery_post_click_wait`/`mastery_threshold` settings were all removed.)
+
+#### wheelspin.py — Auto Spin Wheel
+- One loop = one wheelspin: **(1)** Enter (spin) → **(2)** wait `FF_WAIT` (1.0s) + Enter (fast-forward) → **(3)** wait `SETTLE_WAIT` (config `wheelspin_settle_wait`, default 5.0s, REQUIRED — the result must land even after fast-forward) → **(4)** Enter (collect) → **(5)** duplicate-handling inner loop → next spin. Reuses `delete_cars.key_press` (IME-safe dual VK+scancode; only `enter`/`down`). Stop/F9 checked between every press AND inside the inner loop.
+- **TIME-BOXED detection, NOT `wait_for`** — `_detect_once(window_s)` polls `detector.detect(..., stable=False)` for ≤ `DUP_CHECK_WINDOW` (2.0s) and returns True/False. A normal (non-duplicate) spin MUST fall through after the window; the timeout is the loop's natural "wheel rolled over / no more duplicates" signal, **not** an error — so NO 3s "not detected" warning here (`warn_cb` accepted but unused).
+- **Duplicate inner loop**: re-checks after each handled duplicate (the menu cursor resets to the top option, so the key counts are constant): **garage** mode → Enter; **sell** mode → Down×2 → Enter. Up to `MAX_DUP_CHAIN` (5, safety cap) chain. Mode = `wheelspin_dup_mode` (`"garage"` default | `"sell"`), a CTkSegmentedButton on the tab. **Sell sells duplicates automatically + unattended** — warned explicitly in the bilingual `spin_description` + a startup `log_spin_sell_warn`.
+- **ONE detect-only template `wheelspin_duplicate`** (the 3-option Add to Garage / Gift / Sell menu) — registered in `DEFAULT_ROIS` (centre dialog) + `OCR_HINTS`; threshold `thresh_wheelspin_duplicate` (default 0.60). No bundled defaults — `wheelspin_resolution` defaults to `"custom"` (capture your own). Setup panel via `_make_spin_setup` (mode `'wheelspin'` → `setup_panel._get_folder` → `config.get_wheelspin_templates` = `templates/<lang>/wheelspin/<res>/`).
+- Settings → **Auto Spin Wheel**: `wheelspin_post_key_wait` (0.5s) + `wheelspin_settle_wait` (slider 3–12s). Failure mode (commented): if the duplicate template never matches, a menu may be left open and the next spin's Enter lands on it; the settle bounds most of it, recapture/lower threshold fixes it.
 
 ### Capture (capture.py)
 - `CaptureSession`: listens for CAPS LOCK, opens fullscreen region selector, shows preview

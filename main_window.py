@@ -13,7 +13,8 @@ import config
 import theme
 from app_lang import t as _at
 from config import (load, save, resolve_template_lang,
-                    get_race_templates, get_mastery_templates, get_nodes_file)
+                    get_race_templates, get_mastery_templates, get_nodes_file,
+                    get_wheelspin_templates)
 from log_widget import LogWidget
 from setup_panel import SetupPanel
 from updater import check_async, RELEASES_PAGE
@@ -28,6 +29,10 @@ from version import VERSION
 RACE_TEMPLATE_KEYS = [
     ("start_menu",   "race_tpl_start_menu"),
     ("restart_menu", "race_tpl_restart_menu"),
+]
+# Auto Spin Wheel: ONE detect-only template — the duplicate-reward menu.
+SPIN_TEMPLATE_KEYS = [
+    ("wheelspin_duplicate", "spin_tpl_duplicate"),
 ]
 # Mastery is keyboard-driven (no detection), so it has no template list — the
 # Setup panel shows node capture only.
@@ -385,6 +390,7 @@ class MainWindow(ctk.CTk):
         self._mastery_frame = self._build_mastery_tab()
         self._buy_frame     = self._build_buy_tab()
         self._delete_frame  = self._build_delete_tab()
+        self._spin_frame    = self._build_spin_tab()
 
         self._cur_main    = None
         self._current_tab = None
@@ -429,7 +435,7 @@ class MainWindow(ctk.CTk):
         # inactive items sit at the exact same position (no off-centre shift).
         self._nav_buttons = {}
         self._nav_bars = {}
-        for key in ("race", "mastery", "buy", "delete"):
+        for key in ("race", "mastery", "buy", "delete", "spin"):
             item = ctk.CTkFrame(sb, fg_color="transparent", height=42)
             item.pack(fill="x", padx=10, pady=2)
             item.pack_propagate(False)
@@ -778,6 +784,99 @@ class MainWindow(ctk.CTk):
         self._delete_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
         return frame
 
+    def _build_spin_tab(self) -> ctk.CTkFrame:
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+
+        # Description — includes the explicit unattended-Sell warning.
+        ctk.CTkLabel(frame, text=_at("spin_description", self._lang),
+                     anchor="w", wraplength=480, justify="left",
+                     font=("Arial", 12)).pack(fill="x", padx=12, pady=(8, 0))
+
+        # Setup panel — ONE detect-only template (the duplicate-reward menu).
+        self._spin_setup = self._make_spin_setup(frame)
+        self._spin_setup.pack(fill="x", padx=8, pady=(4, 8))
+
+        # Duplicate-handling mode toggle (garage / sell)
+        mode_row = ctk.CTkFrame(frame, fg_color="transparent")
+        mode_row.pack(fill="x", padx=12, pady=(4, 0))
+        ctk.CTkLabel(mode_row, text=_at("spin_mode_label", self._lang),
+                     font=theme.LABEL_FONT).pack(side="left")
+        self._spin_mode_labels = {
+            "garage": _at("spin_mode_garage", self._lang),
+            "sell":   _at("spin_mode_sell", self._lang),
+        }
+        cur_mode = self._cfg.get("wheelspin_dup_mode", "garage")
+        if cur_mode not in self._spin_mode_labels:
+            cur_mode = "garage"
+        self._spin_mode_var = ctk.StringVar(
+            value=self._spin_mode_labels[cur_mode])
+        ctk.CTkSegmentedButton(
+            mode_row,
+            values=[self._spin_mode_labels["garage"],
+                    self._spin_mode_labels["sell"]],
+            variable=self._spin_mode_var,
+            command=self._on_spin_mode_change,
+            height=32,
+            **theme.segbtn_kwargs(self._cfg),
+        ).pack(side="left", padx=theme.PAD_INLINE)
+        ctk.CTkLabel(mode_row, text=_at("spin_mode_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=self._t("text_muted")).pack(side="left")
+
+        # Spin count row (0 = unlimited)
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(count_row, text=_at("spin_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._spin_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._spin_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+        ctk.CTkLabel(count_row, text=_at("delete_count_hint", self._lang),
+                     font=("Arial", 11),
+                     text_color=self._t("text_muted")).pack(side="left")
+
+        # Run controls
+        self._build_run_controls(frame, mode="spin")
+
+        # Log
+        self._spin_log = LogWidget(frame,
+                                   placeholder=_at('log_placeholder', self._lang),
+                                   warn_color=self._t("warn"),
+            title=_at("label_activity", self._lang),
+            title_color=self._t("text"), loop_color=self._t("log_accent"),
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
+            border_width=1, border_color=self._t("border"),
+            corner_radius=self._t("corner"))
+        self._spin_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
+        return frame
+
+    def _make_spin_setup(self, parent) -> SetupPanel:
+        """Auto Spin Wheel Setup panel — ONE detect-only template
+        (wheelspin_duplicate); no node capture."""
+        return SetupPanel(
+            parent,
+            template_defs=[(k, _at(lk, self._lang))
+                           for k, lk in SPIN_TEMPLATE_KEYS],
+            folder=get_wheelspin_templates('custom', self._tpl_lang),
+            nodes_file=None,
+            res_cfg_key='wheelspin_resolution',
+            mode='wheelspin',
+            log_cb=self._log,
+            status_cb=self._set_status,
+            lang=self._lang,
+            capture_key=self._capture_key,
+            main_cfg=self._cfg,
+            tpl_lang=self._tpl_lang,
+            fg_color=self._t("surface_alt"),
+            border_width=1, border_color=self._t("border"),
+            corner_radius=self._t("corner"),
+        )
+
+    def _on_spin_mode_change(self, val: str):
+        rev = {v: k for k, v in getattr(self, "_spin_mode_labels", {}).items()}
+        self._cfg["wheelspin_dup_mode"] = rev.get(val, "garage")
+        save(self._cfg)
+
     def _build_run_controls(self, parent, mode: str):
         # Bordered card wrapping the Start / Stop buttons + the F9 hint.
         card = ctk.CTkFrame(parent, fg_color=self._t("surface_alt"),
@@ -856,6 +955,29 @@ class MainWindow(ctk.CTk):
                 text_color=self._t("text_muted"))
             self._buy_shortcut_lbl.pack(side="left", padx=(16, 0))
 
+        elif mode == "spin":
+            self._spin_start_btn = ctk.CTkButton(
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
+                command=self._start_spin,
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER, text_color=self._t("start_text"))
+            self._spin_start_btn.pack(side="left", padx=(0, 8))
+
+            self._spin_stop_btn = ctk.CTkButton(
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
+                command=self._stop_auto,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER, text_color=self._t("stop_text"),
+                width=100, font=theme.BUTTON_FONT, state="disabled")
+            self._spin_stop_btn.pack(side="left")
+
+            self._spin_shortcut_lbl = ctk.CTkLabel(
+                row,
+                text=_at("shortcut_toggle", self._lang,
+                         key=self._toggle_key.upper()),
+                font=theme.HINT_FONT,
+                text_color=self._t("text_muted"))
+            self._spin_shortcut_lbl.pack(side="left", padx=(16, 0))
+
         else:  # delete
             self._delete_start_btn = ctk.CTkButton(
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
@@ -907,7 +1029,8 @@ class MainWindow(ctk.CTk):
         # Always re-show (don't early-return on same tab): a panel may be open
         # with _current_tab still set, and clicking the tab must exit the panel.
         frame = {"race": self._race_frame, "mastery": self._mastery_frame,
-                 "buy": self._buy_frame, "delete": self._delete_frame}[tab]
+                 "buy": self._buy_frame, "delete": self._delete_frame,
+                 "spin": self._spin_frame}[tab]
         self._show_main(frame)
         self._current_tab = tab
         self._in_settings = False
@@ -918,10 +1041,12 @@ class MainWindow(ctk.CTk):
         self._page_title_var.set(_at(f"page_title_{tab}", self._lang))
 
         self._active_log = {"race": self._race_log, "mastery": self._mastery_log,
-                            "buy": self._buy_log, "delete": self._delete_log}[tab]
+                            "buy": self._buy_log, "delete": self._delete_log,
+                            "spin": self._spin_log}[tab]
         self._active_setup_panel = {
             "race":    getattr(self, "_race_setup", None),
             "mastery": getattr(self, "_mastery_setup", None),
+            "spin":    getattr(self, "_spin_setup", None),
         }.get(tab)
 
     # ── Automation control ────────────────────────────────────
@@ -1127,6 +1252,52 @@ class MainWindow(ctk.CTk):
         self._auto_thread.start()
         self._poll_thread()
 
+    def _start_spin(self):
+        if self._auto_thread and self._auto_thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._set_status(_at("status_starting_spin", self._lang))
+        self._spin_start_btn.configure(state="disabled")
+        self._spin_stop_btn.configure(state="normal")
+        self._spin_log.clear()
+
+        def _spin_safe():
+            log_cb = self._spin_log.log
+            lang = self._cfg.get('lang', 'en')
+            try:
+                import time as _t
+                log_cb(_at('startup_switch_to_game', lang))
+                for i in range(5, 0, -1):
+                    if self._stop_event.is_set(): return
+                    log_cb(_at('startup_countdown', lang, i=i))
+                    self._set_status(_at('startup_countdown', lang, i=i))
+                    _t.sleep(1)
+                if self._stop_event.is_set(): return
+                import config as _cfg_mod
+                from wheelspin import run as spin_run
+                try:
+                    max_loops = int(self._spin_count_var.get())
+                except ValueError:
+                    max_loops = 0
+                spin_run(
+                    cfg=_cfg_mod.load(),
+                    stop_event=self._stop_event,
+                    log_cb=log_cb,
+                    status_cb=self._set_status,
+                    max_loops=max_loops,
+                    section_cb=self._spin_log.log_section,
+                )
+            except Exception as e:
+                import traceback
+                log_cb(f'ERROR: {e}')
+                log_cb(traceback.format_exc())
+                self._set_status(f'Error: {e}')
+
+        self._auto_thread = threading.Thread(
+            target=_spin_safe, daemon=True)
+        self._auto_thread.start()
+        self._poll_thread()
+
     def _poll_example_queue(self):
         """Poll capture.py example queue and manage CTkToplevel on main thread."""
         try:
@@ -1229,6 +1400,8 @@ class MainWindow(ctk.CTk):
                 self._start_mastery()
             elif self._current_tab == 'buy':
                 self._start_buy()
+            elif self._current_tab == 'spin':
+                self._start_spin()
             else:
                 self._start_delete()
 
@@ -1261,6 +1434,8 @@ class MainWindow(ctk.CTk):
             self._buy_stop_btn.configure(state="disabled")
             self._delete_start_btn.configure(state="normal")
             self._delete_stop_btn.configure(state="disabled")
+            self._spin_start_btn.configure(state="normal")
+            self._spin_stop_btn.configure(state="disabled")
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -1455,6 +1630,7 @@ class MainWindow(ctk.CTk):
                         ('mastery', _at('ov_func_mastery', self._lang)),
                         ('buy',     _at('ov_func_buy',     self._lang)),
                         ('delete',  _at('ov_func_delete',  self._lang)),
+                        ('spin',    _at('ov_func_spin',    self._lang)),
                     ]
                     self._overlay = _ov.GameOverlay(
                         self, on_move=self._on_overlay_move,
@@ -1963,6 +2139,14 @@ class MainWindow(ctk.CTk):
             scroll,
             fields=[
                 (_at('setting_delete_post_key_wait', self._lang), 'delete_post_key_wait', 0.2, 3.0, 0.1, 'tip_delete_post_key_wait'),
+            ])
+
+        section('settings_wheelspin_section')
+        self._build_settings_fields(
+            scroll,
+            fields=[
+                (_at('setting_wheelspin_post_key_wait', self._lang), 'wheelspin_post_key_wait', 0.4, 3.0, 0.1, 'tip_wheelspin_post_key_wait'),
+                (_at('setting_wheelspin_settle_wait', self._lang), 'wheelspin_settle_wait', 3.0, 12.0, 0.5, 'tip_wheelspin_settle_wait'),
             ])
 
     def _on_monitor_change(self, val: str):
