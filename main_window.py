@@ -313,7 +313,9 @@ class MainWindow(ctk.CTk):
     def _setup_window(self):
         self.title(f"Full Auto Forza Edition v{VERSION}")
         self.geometry("900x650")
-        self.minsize(700, 500)
+        # Min height fits the full sidebar (5 nav items + the 4-button bottom
+        # group) with margin, so the bottom group never clips when shortened.
+        self.minsize(700, 560)
         self.resizable(True, True)
 
     def _icon_path(self):
@@ -464,8 +466,9 @@ class MainWindow(ctk.CTk):
             self._nav_buttons[key] = btn
             self._nav_bars[key] = bar
 
-        # Spacer — pushes the bottom group down.
-        ctk.CTkFrame(sb, fg_color="transparent").pack(fill="both", expand=True)
+        # No spacer needed: the bottom group is packed side="bottom" (below),
+        # the nav items side="top", so the middle gap is automatic and the
+        # bottom group stays pinned to the bottom edge at any window height.
 
         # Bottom group: compact filled buttons sharing the accent border,
         # stacked Settings → Report a Bug → Discord → Support Me.
@@ -483,7 +486,11 @@ class MainWindow(ctk.CTk):
                 fg_color=fill, text_color=txt, hover_color=hover,
                 border_width=2, border_color=self._t("accent"),
                 font=theme.LABEL_FONT, command=cmd)
-            b.pack(fill="x", padx=12, pady=pady)
+            # side="bottom": anchor the group to the sidebar's bottom edge so it
+            # can't be pushed off-screen by the nav list above (the 5th nav item
+            # used to shove the flush group past the frame, clipping Support Me).
+            # Packed bottom-up, so callers are issued in reverse visual order.
+            b.pack(side="bottom", fill="x", padx=12, pady=pady)
             b.update_idletasks()
             _lead = round(14 * S)
             _ny = max(0, round((S - 1.0) * 3))
@@ -500,21 +507,23 @@ class MainWindow(ctk.CTk):
                 pass
             return b
 
+        # Packed side="bottom", so issue them in REVERSE visual order:
+        # Support (bottom-most) → Discord → Report → Settings (top of group).
+        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(15, 15))
+        self._discord_img = discord_img   # keep a ref so it isn't GC'd
+        _bottom_btn("☕  " + _at("support_btn", self._lang), self._open_support,
+                    self._t("support_fill"), self._t("support_text"),
+                    self._t("support_hover"), pady=(2, 12))
+        _bottom_btn("Discord", lambda: __import__("webbrowser").open(
+            "https://discord.com/invite/MNg2g9Pp6K"),
+            "#5865F2", "#ffffff", "#4752c4", image=discord_img)
+        _bottom_btn("🐞  " + _at("report_help_btn", self._lang),
+                    self._open_report_help, self._t("surface_alt"),
+                    self._t("text"), self._t("surface"))
         _bottom_btn("⚙  " + _at("settings_window_title", self._lang),
                     self._open_settings,
                     self._t("surface_alt"), self._t("text"), self._t("surface"),
                     pady=(2, 2))
-        _bottom_btn("🐞  " + _at("report_help_btn", self._lang),
-                    self._open_report_help, self._t("surface_alt"),
-                    self._t("text"), self._t("surface"))
-        discord_img = self._load_ctk_image("assets", "discord_logo.png", size=(15, 15))
-        self._discord_img = discord_img   # keep a ref so it isn't GC'd
-        _bottom_btn("Discord", lambda: __import__("webbrowser").open(
-            "https://discord.com/invite/MNg2g9Pp6K"),
-            "#5865F2", "#ffffff", "#4752c4", image=discord_img)
-        _bottom_btn("☕  " + _at("support_btn", self._lang), self._open_support,
-                    self._t("support_fill"), self._t("support_text"),
-                    self._t("support_hover"), pady=(2, 12))
 
         return sb
 
