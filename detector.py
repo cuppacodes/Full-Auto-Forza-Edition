@@ -82,10 +82,13 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     "mastery_anchor": ("車輛熟練度", "车辆熟练度"),
     "mastery_my_cars": ("my cars", "車庫", "车库"),
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
-    "wheelspin_duplicate": ("garage", "gift", "sell", "車庫", "禮物", "贈送", "賣出", "出售"),
-    "super_wheelspin": ("super", "wheelspin", "超級", "輪盤"),
-    "wheelspin_skip": ("skip", "hold", "fast", "跳過", "快轉", "按住"),
-    "wheelspin_collect": ("collect", "continue", "accept", "繼續", "領取", "收下"),
+    # Captured prompts are the question/prompt text (see templates). Hints are
+    # bilingual so OCR confirm works whichever language the game renders.
+    "wheelspin_duplicate": ("這輛車", "什麼操作", "this car", "what would",
+                            "garage", "sell", "車庫", "賣出", "贈送"),
+    "super_wheelspin": ("super", "wheelspin", "horizon", "超級", "輪盤"),
+    "wheelspin_skip": ("略過", "skip", "跳過"),
+    "wheelspin_collect": ("取得", "獎勵", "抽獎", "再次", "collect", "reward"),
 }
 
 # All template images capture text UI elements. Edge matching on text is
