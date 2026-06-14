@@ -176,6 +176,27 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
+    def _wait_gone(key, tpl, timeout=8.0):
+        """Wait (bounded) until `key` is NO LONGER on screen. The next
+        duplicate menu only appears AFTER the current one is fully dealt with,
+        so we must let this menu close before re-checking — otherwise the
+        still-visible menu (especially while the slower sell action is
+        processing) gets re-counted as fresh duplicates (the real bug: 3
+        'duplicates' off one menu before the sell even finished). Bounded
+        timeout so a genuinely stuck menu can't hang the loop."""
+        end = time.time() + timeout
+        while time.time() < end:
+            if stop():
+                return
+            try:
+                frame = grab_frame(monitor_index)
+                if not detector.detect(frame, key, tpl, _thr(key),
+                                       stable=False).matched:
+                    return
+            except Exception:
+                pass
+            time.sleep(0.15)
+
     def _wait_stage(key, tpl, waiting_msg, label):
         """Wait until a spin STAGE that always occurs is on screen (the
         skip-able spin, the prize/collect screen), then return True. Gated on
@@ -286,8 +307,14 @@ def run(cfg: dict, stop_event: threading.Event,
                 # Garage = top option: Enter.
                 announce(_at("log_spin_dup_garage", lang, n=chain))
                 press('enter')
+            if stop(): break
             if chain >= MAX_DUP_CHAIN:
                 break
+            # The next duplicate menu only appears AFTER this one is dealt
+            # with. Wait for this menu to close before re-checking, so it
+            # isn't re-counted while the action (esp. sell) is still
+            # processing — then the next _detect sees a genuinely new menu.
+            _wait_gone(TEMPLATE_KEY, dup_tpl)
         if stop(): break
 
         # ── 5. Count limit ────────────────────────────────────
