@@ -228,8 +228,9 @@ def run(cfg: dict, stop_event: threading.Event,
 
     # ── Entry (ONCE): from the My Horizon menu, find the Super Wheelspin tile
     #    and click its centre. Clicking it starts the first spin and moves to
-    #    the spin screen, which then persists — so subsequent spins are
-    #    triggered with Enter inside the loop (no menu revisit). ──
+    #    the spin screen, which then persists. Every later spin auto-starts from
+    #    the previous collect ("…and Spin Again"), so FAFE never presses to spin
+    #    again — it just waits for each spin's skip/collect prompts. ──
     announce(_at("log_spin_select_super", lang))
     res_super = _detect(SUPER_KEY, super_tpl, SUPER_FIND_WINDOW)
     if res_super is None:
@@ -244,19 +245,19 @@ def run(cfg: dict, stop_event: threading.Event,
                  mon_left, mon_top, post_kw)   # starts spin #1
 
     loop_count = 0
-    first = True   # spin #1 was started by the click above
     while not stop():
         loop_count += 1
         section(f"-- {_at('spin_loop', lang)} #{loop_count}" +
                 (f" / {max_loops}" if max_loops > 0 else "") + " --")
 
         # ── 1. Spin ───────────────────────────────────────────
-        # First iteration: already spinning from the Super Wheelspin click.
-        # Later iterations: trigger the next spin with Enter (spin screen).
+        # The spin ALWAYS auto-starts — FAFE never presses to spin: spin #1
+        # was started by the Super Wheelspin click, and every later spin by the
+        # previous collect ("Collect Prize and Spin Again"). So we just wait for
+        # the running spin's skip prompt. Pressing Enter here would land on an
+        # already-spinning wheel and desync (the bug: after a duplicate was
+        # dealt with the wheel auto-spun, but FAFE then pressed spin again).
         announce(_at("log_spin_spin", lang))
-        if not first:
-            press('enter', post_wait=0.0)
-        first = False
         if stop(): break
 
         # ── 2. Skip-forward — wait for the spin stage, then Enter ──
