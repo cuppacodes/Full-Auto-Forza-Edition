@@ -181,6 +181,14 @@ STRINGS = {
         "en":    "Super Wheelspin tile",
         "zh-tw": "超級輪盤圖示",
     },
+    "spin_tpl_skip": {
+        "en":    "Spin / skip-forward screen",
+        "zh-tw": "轉動／快轉畫面",
+    },
+    "spin_tpl_collect": {
+        "en":    "Prize / collect screen",
+        "zh-tw": "獎品／領取畫面",
+    },
     "spin_tpl_duplicate": {
         "en":    "Duplicate-reward menu",
         "zh-tw": "重複獎勵選單",
@@ -216,6 +224,18 @@ STRINGS = {
     "log_spin_spin": {
         "en":    "Spinning...",
         "zh-tw": "轉動中…",
+    },
+    "log_spin_wait_skip": {
+        "en":    "Waiting for the spin (skip-forward)...",
+        "zh-tw": "等待轉動畫面（快轉）…",
+    },
+    "log_spin_wait_collect": {
+        "en":    "Waiting for the prize to collect...",
+        "zh-tw": "等待領取獎品…",
+    },
+    "log_spin_stage_slow": {
+        "en":    "Still waiting for the wheelspin screen — recheck the template/threshold if this persists.",
+        "zh-tw": "仍在等待轉輪畫面 — 若持續發生，請重新檢查樣本／門檻。",
     },
     "log_spin_settle": {
         "en":    "Waiting for the result to settle...",
@@ -897,8 +917,8 @@ STRINGS = {
         "zh-tw": "轉輪每次按鍵之間的等待時間（秒）。",
     },
     "tip_wheelspin_settle_wait": {
-        "en":    "How long to wait after fast-forwarding for the spin result to fully settle before collecting (in seconds). Raise this on slower machines if rewards are missed.",
-        "zh-tw": "快轉動畫後、領取獎勵前，等待轉輪結果完全定格的時間（秒）。若電腦較慢而漏接獎勵，請調高此值。",
+        "en":    "Grace period after the prize screen is detected, before pressing collect (in seconds). Detection now times the spin, so this can be low or 0 for speed — raise it only if the prize needs a moment to become interactive.",
+        "zh-tw": "偵測到獎品畫面後、按下領取前的緩衝時間（秒）。現在改由偵測來掌握時機，因此可設低或設 0 以加快 — 只有在獎品需要時間才能互動時才調高。",
     },
 
     "mastery_start_row_label": {

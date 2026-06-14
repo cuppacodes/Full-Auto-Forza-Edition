@@ -1,12 +1,16 @@
 # ============================================================
 #  automation/wheelspin.py — Auto Spin Wheel automation logic
 #  ENTRY: from the My Horizon menu, detect the Super Wheelspin tile
-#  and click it (this starts the first spin and moves to the spin
-#  screen, which then persists). Each loop = one wheelspin:
-#  spin → fast-forward → settle → collect → handle duplicates.
-#  Two detect-only templates: super_wheelspin (clicked) and
-#  wheelspin_duplicate (TIME-BOXED yes/no, NOT the indefinite
-#  wait_for). Output via log_cb / status_cb; stop via stop_event.
+#  and click it (starts the first spin; the spin screen then persists).
+#  Each spin is DETECTION-GATED, not timed:
+#    1. spin   (click for #1 / Enter for #2+)
+#    2. wait for the skip/spin stage  → Enter (skip-forward)
+#    3. wait for the prize/collect stage → Enter (collect)
+#    4. duplicate-handling inner loop
+#  Stage waits use detector.wait_for (wait until the screen is actually
+#  present — F9/Stop recovers); the duplicate check is TIME-BOXED
+#  (a non-detection is the NORMAL "no duplicate" outcome).
+#  Output via log_cb / status_cb; stop via stop_event.
 # ============================================================
 
 import time
@@ -25,18 +29,20 @@ from delete_cars import key_press
 
 
 # ── Tunable values (constants; some overridable via Settings) ──
-FF_WAIT          = 1.0    # spin → fast-forward Enter
-SETTLE_WAIT      = 5.0    # REQUIRED settle before collect (default; overridden
-                          #         by the wheelspin_settle_wait setting)
-DUP_CHECK_WINDOW = 2.0    # max time to look for the duplicate menu
+DUP_CHECK_WINDOW  = 2.0   # time-boxed window to look for the duplicate menu
 SUPER_FIND_WINDOW = 12.0  # max time to find the Super Wheelspin tile at start
+SETTLE_GRACE      = 5.0   # default grace after the prize is DETECTED, before
+                          #   collect (overridden by wheelspin_settle_wait;
+                          #   detection times the spin, so this can be low/0)
 # Safety cap on chained duplicates per spin. The game chains at most ~3, but if
 # detection wrongly keeps matching (e.g. a menu is stuck open) this bounds the
 # inner loop so it can never spin forever on one wheelspin.
 MAX_DUP_CHAIN    = 5
 
-SUPER_KEY    = "super_wheelspin"     # left-column tile, clicked to start a run
-TEMPLATE_KEY = "wheelspin_duplicate" # the 3-option duplicate-reward menu
+SUPER_KEY    = "super_wheelspin"      # left-column tile, clicked to start a run
+SKIP_KEY     = "wheelspin_skip"       # spin animation — Enter skips forward
+COLLECT_KEY  = "wheelspin_collect"    # prize/result — Enter collects
+TEMPLATE_KEY = "wheelspin_duplicate"  # the 3-option duplicate-reward menu
 
 
 # ── Mouse click (SendInput) — used once to click the Super Wheelspin tile ──
@@ -75,8 +81,8 @@ def run(cfg: dict, stop_event: threading.Event,
     max_loops: stop after this many spins (0 = unlimited)
     section_cb(msg): start a bounded log section; falls back to log_cb
     warn_cb: accepted for call-site parity; UNUSED — the duplicate check is
-             time-boxed and a non-detection is the NORMAL outcome, so the 3s
-             red "not detected" warning must NOT fire here.
+             time-boxed and a non-detection is its NORMAL outcome. The skip /
+             collect stage waits surface their own one-time slow hint instead.
     """
     section       = section_cb or log_cb
     lang          = cfg.get("lang", "en")
@@ -86,7 +92,7 @@ def run(cfg: dict, stop_event: threading.Event,
     import config as _cfg_mod
     _fresh   = _cfg_mod.load()
     post_kw  = _fresh.get("wheelspin_post_key_wait", 0.5)
-    settle   = max(0.0, float(_fresh.get("wheelspin_settle_wait", SETTLE_WAIT)))
+    settle   = max(0.0, float(_fresh.get("wheelspin_settle_wait", SETTLE_GRACE)))
     dup_mode = _fresh.get("wheelspin_dup_mode", "garage")
     res      = _fresh.get("wheelspin_resolution", "custom")
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
@@ -122,15 +128,15 @@ def run(cfg: dict, stop_event: threading.Event,
         return img
 
     templates = {}
-    for key in (SUPER_KEY, TEMPLATE_KEY):
+    for key in (SUPER_KEY, SKIP_KEY, COLLECT_KEY, TEMPLATE_KEY):
         try:
             templates[key] = _load(key)
         except FileNotFoundError:
             log_cb(_at("log_template_missing", lang, key=key))
             status_cb(_at("status_setup_incomplete", lang))
             return
-    super_tpl = templates[SUPER_KEY]
-    dup_tpl   = templates[TEMPLATE_KEY]
+    super_tpl, skip_tpl   = templates[SUPER_KEY], templates[SKIP_KEY]
+    collect_tpl, dup_tpl  = templates[COLLECT_KEY], templates[TEMPLATE_KEY]
 
     def stop():
         return stop_event.is_set()
@@ -153,8 +159,8 @@ def run(cfg: dict, stop_event: threading.Event,
     def _detect(key, tpl, window_s):
         """TIME-BOXED detection: poll detect() for up to window_s seconds and
         return the MatchResult the instant it matches, else None. NOT wait_for
-        (which is indefinite) — callers treat a None as a normal outcome (no
-        duplicate / tile not visible), never as an error warning."""
+        (which is indefinite) — used where a None is a NORMAL outcome (no
+        duplicate, or the Super Wheelspin tile not visible), never an error."""
         end = time.time() + window_s
         while time.time() < end:
             if stop():
@@ -169,6 +175,23 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
+    def _wait_stage(key, tpl, waiting_msg):
+        """Wait until a spin STAGE that always occurs is on screen (the
+        skip-able spin, the prize/collect screen), then return True. Gated on
+        detection — the script acts only when the screen is actually present,
+        never on a blind timer (fixes mis-timed presses). Waits indefinitely
+        (F9/Stop recovers); an over-3s wait logs a one-time hint. Returns
+        False if stopped."""
+        announce(waiting_msg)
+        def _warn(best):
+            log_cb(_at("log_spin_stage_slow", lang) +
+                   f" ({best.source}: {best.score:.0%})")
+        res = detector.wait_for(
+            frame_cb=lambda: grab_frame(monitor_index),
+            key=key, template=tpl, threshold=_thr(key),
+            stop_cb=stop, interval=0.2, on_warn=_warn)
+        return res.matched
+
     if max_loops > 0:
         log_cb(_at("log_spin_started_count", lang, n=max_loops))
     else:
@@ -181,14 +204,12 @@ def run(cfg: dict, stop_event: threading.Event,
         time.sleep(0.2)
 
     # ── Entry (ONCE): from the My Horizon menu, find the Super Wheelspin tile
-    #    and click its centre. Clicking it immediately starts the first spin
-    #    and moves to the spin screen, which then persists — so subsequent
-    #    spins are triggered with Enter inside the loop (no menu revisit). ──
+    #    and click its centre. Clicking it starts the first spin and moves to
+    #    the spin screen, which then persists — so subsequent spins are
+    #    triggered with Enter inside the loop (no menu revisit). ──
     announce(_at("log_spin_select_super", lang))
     res_super = _detect(SUPER_KEY, super_tpl, SUPER_FIND_WINDOW)
     if res_super is None:
-        # Not on the My Horizon menu / tile not matched. A failure to START is
-        # meaningful (unlike the duplicate check), so report it and stop.
         if not stop():
             log_cb(_at("log_spin_super_not_found", lang))
         log_cb(_at("log_spin_stopped", lang))
@@ -206,31 +227,30 @@ def run(cfg: dict, stop_event: threading.Event,
 
         # ── 1. Spin ───────────────────────────────────────────
         # First iteration: already spinning from the Super Wheelspin click.
-        # Later iterations: trigger the next spin with Enter (still on the spin
-        # screen). post_wait=0.0 — the gap to fast-forward is FF_WAIT below.
+        # Later iterations: trigger the next spin with Enter (spin screen).
         announce(_at("log_spin_spin", lang))
         if not first:
             press('enter', post_wait=0.0)
         first = False
         if stop(): break
 
-        # ── 2. Fast-forward the spin animation ────────────────
-        wait(FF_WAIT)
-        if stop(): break
-        press('enter', post_wait=0.0)   # gap to collect = the SETTLE_WAIT below
+        # ── 2. Skip-forward — wait for the spin stage, then Enter ──
+        if not _wait_stage(SKIP_KEY, skip_tpl, _at("log_spin_wait_skip", lang)):
+            break
+        press('enter', post_wait=0.0)
 
-        # ── 3. Settle (REQUIRED — the result must land even after
-        #       fast-forward, before collect) ──────────────────
-        announce(_at("log_spin_settle", lang))
-        wait(settle)
-        if stop(): break
-
-        # ── 4. Collect the reward ─────────────────────────────
+        # ── 3. Collect — wait for the prize stage, then Enter ──
+        if not _wait_stage(COLLECT_KEY, collect_tpl,
+                           _at("log_spin_wait_collect", lang)):
+            break
+        if settle > 0:          # optional grace once the prize is on screen
+            wait(settle)
+            if stop(): break
         announce(_at("log_spin_collect", lang))
         press('enter')
         if stop(): break
 
-        # ── 5. Duplicate-handling inner loop ──────────────────
+        # ── 4. Duplicate-handling inner loop ──────────────────
         # Up to MAX_DUP_CHAIN duplicate menus may chain. The menu cursor resets
         # to the top option each time, so the down-count is constant.
         chain = 0
@@ -257,12 +277,7 @@ def run(cfg: dict, stop_event: threading.Event,
                 break
         if stop(): break
 
-        # Failure mode (documented): if the duplicate template never matches
-        # (mismatch / threshold too high), a duplicate menu may be left open and
-        # the next spin's Enter lands on it. The SETTLE before collect bounds
-        # most of this; raising thresh sensitivity / recapturing fixes it.
-
-        # ── 6. Count limit ────────────────────────────────────
+        # ── 5. Count limit ────────────────────────────────────
         if max_loops > 0 and loop_count >= max_loops:
             log_cb(_at("log_spin_limit_reached", lang, n=max_loops))
             break

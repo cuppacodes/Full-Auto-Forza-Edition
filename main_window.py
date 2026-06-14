@@ -34,6 +34,8 @@ RACE_TEMPLATE_KEYS = [
 # run from the My Horizon menu) and the duplicate-reward menu (detect-only).
 SPIN_TEMPLATE_KEYS = [
     ("super_wheelspin",     "spin_tpl_super"),
+    ("wheelspin_skip",      "spin_tpl_skip"),
+    ("wheelspin_collect",   "spin_tpl_collect"),
     ("wheelspin_duplicate", "spin_tpl_duplicate"),
 ]
 # Mastery is keyboard-driven (no detection), so it has no template list — the
