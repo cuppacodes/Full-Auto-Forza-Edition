@@ -177,6 +177,10 @@ STRINGS = {
         "en":    "Sell mode sells duplicates automatically — see the warning above.",
         "zh-tw": "賣出模式會自動賣掉重複車輛 — 請見上方警告。",
     },
+    "spin_tpl_super": {
+        "en":    "Super Wheelspin tile",
+        "zh-tw": "超級輪盤圖示",
+    },
     "spin_tpl_duplicate": {
         "en":    "Duplicate-reward menu",
         "zh-tw": "重複獎勵選單",
@@ -200,6 +204,14 @@ STRINGS = {
     "log_spin_sell_warn": {
         "en":    "SELL mode: duplicate cars will be sold automatically and unattended.",
         "zh-tw": "賣出模式：重複車輛將被自動且無人看管地賣出。",
+    },
+    "log_spin_select_super": {
+        "en":    "Selecting Super Wheelspin...",
+        "zh-tw": "選擇超級輪盤…",
+    },
+    "log_spin_super_not_found": {
+        "en":    "Super Wheelspin tile not found — start on the My Horizon menu with it visible, then try again.",
+        "zh-tw": "找不到超級輪盤圖示 — 請在「我的 HORIZON」選單（可看到超級輪盤）開始後再試一次。",
     },
     "log_spin_spin": {
         "en":    "Spinning...",

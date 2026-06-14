@@ -30,8 +30,10 @@ RACE_TEMPLATE_KEYS = [
     ("start_menu",   "race_tpl_start_menu"),
     ("restart_menu", "race_tpl_restart_menu"),
 ]
-# Auto Spin Wheel: ONE detect-only template — the duplicate-reward menu.
+# Auto Spin Wheel: the Super Wheelspin tile (detected + clicked to start each
+# run from the My Horizon menu) and the duplicate-reward menu (detect-only).
 SPIN_TEMPLATE_KEYS = [
+    ("super_wheelspin",     "spin_tpl_super"),
     ("wheelspin_duplicate", "spin_tpl_duplicate"),
 ]
 # Mastery is keyboard-driven (no detection), so it has no template list — the

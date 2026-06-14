@@ -1,14 +1,18 @@
 # ============================================================
 #  automation/wheelspin.py — Auto Spin Wheel automation logic
-#  One loop = one wheelspin: spin → fast-forward → settle →
-#  collect → handle any duplicate-reward menus.
-#  Uses ONE detect-only template (wheelspin_duplicate) with a
-#  TIME-BOXED check — NOT the indefinite race/mastery wait_for.
-#  Output via log_cb / status_cb; stop via stop_event.
+#  ENTRY: from the My Horizon menu, detect the Super Wheelspin tile
+#  and click it (this starts the first spin and moves to the spin
+#  screen, which then persists). Each loop = one wheelspin:
+#  spin → fast-forward → settle → collect → handle duplicates.
+#  Two detect-only templates: super_wheelspin (clicked) and
+#  wheelspin_duplicate (TIME-BOXED yes/no, NOT the indefinite
+#  wait_for). Output via log_cb / status_cb; stop via stop_event.
 # ============================================================
 
 import time
 import threading
+import ctypes
+from ctypes import wintypes
 
 import config
 from config import get_wheelspin_templates
@@ -21,16 +25,43 @@ from delete_cars import key_press
 
 
 # ── Tunable values (constants; some overridable via Settings) ──
-FF_WAIT          = 1.0    # step 2: spin → fast-forward Enter
-SETTLE_WAIT      = 5.0    # step 3: REQUIRED settle before collect (default;
-                          #         overridden by the wheelspin_settle_wait setting)
-DUP_CHECK_WINDOW = 2.0    # step 5: max time to look for the duplicate menu
+FF_WAIT          = 1.0    # spin → fast-forward Enter
+SETTLE_WAIT      = 5.0    # REQUIRED settle before collect (default; overridden
+                          #         by the wheelspin_settle_wait setting)
+DUP_CHECK_WINDOW = 2.0    # max time to look for the duplicate menu
+SUPER_FIND_WINDOW = 12.0  # max time to find the Super Wheelspin tile at start
 # Safety cap on chained duplicates per spin. The game chains at most ~3, but if
 # detection wrongly keeps matching (e.g. a menu is stuck open) this bounds the
 # inner loop so it can never spin forever on one wheelspin.
 MAX_DUP_CHAIN    = 5
 
-TEMPLATE_KEY = "wheelspin_duplicate"
+SUPER_KEY    = "super_wheelspin"     # left-column tile, clicked to start a run
+TEMPLATE_KEY = "wheelspin_duplicate" # the 3-option duplicate-reward menu
+
+
+# ── Mouse click (SendInput) — used once to click the Super Wheelspin tile ──
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [("dx", ctypes.c_long), ("dy", ctypes.c_long),
+                ("mouseData", wintypes.DWORD), ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
+
+class _MINPUT_UNION(ctypes.Union):
+    _fields_ = [("mi", _MOUSEINPUT), ("_pad", ctypes.c_byte * 28)]
+
+class _MINPUT(ctypes.Structure):
+    _fields_ = [("type", wintypes.DWORD), ("union", _MINPUT_UNION)]
+
+def _mouse_click(x: int, y: int, mon_left: int = 0, mon_top: int = 0,
+                 post_wait: float = 0.5):
+    """Left-click at frame-local (x, y), offset to the monitor's screen origin."""
+    ctypes.windll.user32.SetCursorPos(int(x + mon_left), int(y + mon_top))
+    time.sleep(0.1)
+    for flag in (0x0002, 0x0004):   # LEFTDOWN, LEFTUP
+        inp = _MINPUT(type=0, union=_MINPUT_UNION(mi=_MOUSEINPUT(
+            dx=0, dy=0, mouseData=0, dwFlags=flag, time=0, dwExtraInfo=None)))
+        ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_MINPUT))
+        time.sleep(0.05)
+    time.sleep(post_wait)
 
 
 def run(cfg: dict, stop_event: threading.Event,
@@ -62,14 +93,14 @@ def run(cfg: dict, stop_event: threading.Event,
     # Detection mode follows the template type (preset → default/OCR-confirm,
     # custom → pixel-only), same rule as race/mastery. See ScreenDetector.
     _fresh['detector_ocr_primary'] = (res != 'custom')
-    threshold = _fresh.get(f"thresh_{TEMPLATE_KEY}", 0.60)
 
-    # Load the single detect-only template.
-    current_w, current_h, _, _ = get_monitor_dims(monitor_index)
+    def _thr(key):
+        return _fresh.get(f"thresh_{key}", 0.60)
+
+    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
     folder   = get_wheelspin_templates(res, tpl_lang)
-    # Single-reference fallback for preset resolutions (no bundled wheelspin
-    # defaults today, so this only matters once any are shipped). Custom uses
-    # the user's own capture.
+    # Single-reference fallback for preset resolutions. Custom uses the user's
+    # own capture.
     ref_folder = None
     prefer_ref = False
     if res != 'custom':
@@ -77,21 +108,29 @@ def run(cfg: dict, stop_event: threading.Event,
         prefer_ref = _fresh.get('template_prefer_reference', True)
     log_cb(f"  Templates: {tpl_lang} / {res}")
     detector = ScreenDetector(_fresh)
-    try:
-        template, scale, meta = load_template(folder, TEMPLATE_KEY,
-                                        current_w, current_h, grayscale=True,
-                                        ref_folder=ref_folder, prefer_ref=prefer_ref)
-        _box = meta.get("box")
-        if _box:
+
+    def _load(key):
+        img, scale, meta = load_template(folder, key, current_w, current_h,
+                                         grayscale=True, ref_folder=ref_folder,
+                                         prefer_ref=prefer_ref)
+        box = meta.get("box")
+        if box:
             detector.set_template_geometry(
-                TEMPLATE_KEY, _box, meta.get("screen_width", current_w),
+                key, box, meta.get("screen_width", current_w),
                 meta.get("screen_height", current_h))
-        log_cb(_at("log_template_loaded", lang, key=TEMPLATE_KEY,
-                   scale=f"{scale:.2f}"))
-    except FileNotFoundError:
-        log_cb(_at("log_template_missing", lang, key=TEMPLATE_KEY))
-        status_cb(_at("status_setup_incomplete", lang))
-        return
+        log_cb(_at("log_template_loaded", lang, key=key, scale=f"{scale:.2f}"))
+        return img
+
+    templates = {}
+    for key in (SUPER_KEY, TEMPLATE_KEY):
+        try:
+            templates[key] = _load(key)
+        except FileNotFoundError:
+            log_cb(_at("log_template_missing", lang, key=key))
+            status_cb(_at("status_setup_incomplete", lang))
+            return
+    super_tpl = templates[SUPER_KEY]
+    dup_tpl   = templates[TEMPLATE_KEY]
 
     def stop():
         return stop_event.is_set()
@@ -111,30 +150,24 @@ def run(cfg: dict, stop_event: threading.Event,
     def press(key, post_wait=None):
         key_press(key, post_wait=post_kw if post_wait is None else post_wait)
 
-    def _detect_once(window_s: float) -> bool:
-        """TIME-BOXED yes/no detection of the duplicate menu.
-
-        Polls for up to window_s seconds, returning True the instant it matches
-        and False if the window elapses. This is deliberately NOT the
-        race/mastery wait_for (which waits indefinitely): a normal, non-duplicate
-        spin has no menu and MUST fall through after the window — the timeout is
-        the loop's natural "the wheel has rolled over / no more duplicates"
-        signal, not an error. No warning is emitted on timeout.
-        """
+    def _detect(key, tpl, window_s):
+        """TIME-BOXED detection: poll detect() for up to window_s seconds and
+        return the MatchResult the instant it matches, else None. NOT wait_for
+        (which is indefinite) — callers treat a None as a normal outcome (no
+        duplicate / tile not visible), never as an error warning."""
         end = time.time() + window_s
         while time.time() < end:
             if stop():
-                return False
+                return None
             try:
                 frame = grab_frame(monitor_index)
-                r = detector.detect(frame, TEMPLATE_KEY, template,
-                                    threshold, stable=False)
+                r = detector.detect(frame, key, tpl, _thr(key), stable=False)
                 if r.matched:
-                    return True
+                    return r
             except Exception:
                 pass
             time.sleep(0.15)
-        return False
+        return None
 
     if max_loops > 0:
         log_cb(_at("log_spin_started_count", lang, n=max_loops))
@@ -147,17 +180,38 @@ def run(cfg: dict, stop_event: threading.Event,
         force_english_ime()
         time.sleep(0.2)
 
+    # ── Entry (ONCE): from the My Horizon menu, find the Super Wheelspin tile
+    #    and click its centre. Clicking it immediately starts the first spin
+    #    and moves to the spin screen, which then persists — so subsequent
+    #    spins are triggered with Enter inside the loop (no menu revisit). ──
+    announce(_at("log_spin_select_super", lang))
+    res_super = _detect(SUPER_KEY, super_tpl, SUPER_FIND_WINDOW)
+    if res_super is None:
+        # Not on the My Horizon menu / tile not matched. A failure to START is
+        # meaningful (unlike the duplicate check), so report it and stop.
+        if not stop():
+            log_cb(_at("log_spin_super_not_found", lang))
+        log_cb(_at("log_spin_stopped", lang))
+        status_cb(_at("status_stopped", lang))
+        return
+    _mouse_click(res_super.location[0], res_super.location[1],
+                 mon_left, mon_top, post_kw)   # starts spin #1
+
     loop_count = 0
+    first = True   # spin #1 was started by the click above
     while not stop():
         loop_count += 1
         section(f"-- {_at('spin_loop', lang)} #{loop_count}" +
                 (f" / {max_loops}" if max_loops > 0 else "") + " --")
 
         # ── 1. Spin ───────────────────────────────────────────
-        # post_wait=0.0: the gap to the fast-forward Enter is the explicit
-        # FF_WAIT below, not stacked on top of the key-pacing wait.
+        # First iteration: already spinning from the Super Wheelspin click.
+        # Later iterations: trigger the next spin with Enter (still on the spin
+        # screen). post_wait=0.0 — the gap to fast-forward is FF_WAIT below.
         announce(_at("log_spin_spin", lang))
-        press('enter', post_wait=0.0)
+        if not first:
+            press('enter', post_wait=0.0)
+        first = False
         if stop(): break
 
         # ── 2. Fast-forward the spin animation ────────────────
@@ -181,7 +235,7 @@ def run(cfg: dict, stop_event: threading.Event,
         # to the top option each time, so the down-count is constant.
         chain = 0
         while not stop():
-            if not _detect_once(DUP_CHECK_WINDOW):
+            if _detect(TEMPLATE_KEY, dup_tpl, DUP_CHECK_WINDOW) is None:
                 # No (more) duplicate within the window → wheel is already
                 # spinning again. End this spin's inner loop.
                 announce(_at("log_spin_no_dup", lang))

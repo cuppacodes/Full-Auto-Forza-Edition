@@ -186,6 +186,7 @@ DEFAULTS = {
     # "garage" (safe) | "sell" (sells duplicates UNATTENDED — warned in the UI).
     "wheelspin_resolution":      "custom",
     "thresh_wheelspin_duplicate": 0.60,
+    "thresh_super_wheelspin":     0.60,
     "wheelspin_post_key_wait":   0.5,
     "wheelspin_settle_wait":     5.0,   # REQUIRED settle before collect; raisable
     "wheelspin_dup_mode":        "garage",
