@@ -190,10 +190,6 @@ DEFAULTS = {
     "thresh_wheelspin_skip":      0.60,
     "thresh_wheelspin_collect":   0.60,
     "wheelspin_post_key_wait":   0.5,
-    # Detection now times the spin (wait for the skip + prize stages), so this
-    # is just an optional grace after the prize appears before collecting.
-    # Set low / 0 for speed; raise only if the prize needs a moment to settle.
-    "wheelspin_settle_wait":     5.0,
     "wheelspin_dup_mode":        "garage",
     # Use the single REFERENCE_RES template set for ALL preset resolutions
     # (downscaled), instead of per-resolution captures. Reversible kill-switch:

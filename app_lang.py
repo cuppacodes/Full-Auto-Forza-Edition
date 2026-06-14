@@ -154,8 +154,8 @@ STRINGS = {
     },
     # ── Auto Spin Wheel ───────────────────────────────────────
     "spin_description": {
-        "en":    "Automatically spins the wheelspin over and over. Each spin: spin → fast-forward → wait for the result to settle → collect. If a duplicate-reward menu appears, it is handled per the mode below.\n\nBefore starting, open a wheelspin screen ready to spin.\n\n⚠ Sell mode sells duplicate cars automatically and UNATTENDED — once started it sells every duplicate it sees, with no confirmation. Use Add to Garage if unsure.",
-        "zh-tw": "自動連續轉動幸運轉輪。每次轉動：轉動 → 快轉動畫 → 等待結果定格 → 領取獎勵。若出現重複獎勵選單，會依下方模式處理。\n\n開始前請先進入可轉動的轉輪畫面。\n\n⚠ 賣出模式會自動且無人看管地賣掉重複車輛 — 一旦啟動，看到任何重複車輛都會直接賣出、不會再次確認。不確定請選「加入車庫」。",
+        "en":    "Automatically spins the Super Wheelspin over and over. From the My Horizon menu it selects Super Wheelspin, then each spin waits for the on-screen prompt before acting: skip-forward → collect. If a duplicate-reward menu appears, it is handled per the mode below.\n\nBefore starting, open the My Horizon menu with the Super Wheelspin tile visible.\n\n⚠ Sell mode sells duplicate cars automatically and UNATTENDED — once started it sells every duplicate it sees, with no confirmation. Use Add to Garage if unsure.",
+        "zh-tw": "自動連續轉動超級輪盤。從「我的 HORIZON」選單選擇超級輪盤後，每次轉動都會等待畫面提示再操作：快轉 → 領取。若出現重複獎勵選單，會依下方模式處理。\n\n開始前請開啟「我的 HORIZON」選單，並確保看得到超級輪盤圖示。\n\n⚠ 賣出模式會自動且無人看管地賣掉重複車輛 — 一旦啟動，看到任何重複車輛都會直接賣出、不會再次確認。不確定請選「加入車庫」。",
     },
     "spin_count_label": {
         "en":    "Number of spins to run:",
@@ -236,10 +236,6 @@ STRINGS = {
     "log_spin_stage_slow": {
         "en":    "Still waiting for the wheelspin screen — recheck the template/threshold if this persists.",
         "zh-tw": "仍在等待轉輪畫面 — 若持續發生，請重新檢查樣本／門檻。",
-    },
-    "log_spin_settle": {
-        "en":    "Waiting for the result to settle...",
-        "zh-tw": "等待結果定格…",
     },
     "log_spin_collect": {
         "en":    "Collecting reward...",
@@ -576,10 +572,6 @@ STRINGS = {
         "en":    "Key interval (s)",
         "zh-tw": "按鍵間隔（秒）",
     },
-    "setting_wheelspin_settle_wait": {
-        "en":    "Result settle wait (s)",
-        "zh-tw": "結果定格等待（秒）",
-    },
 
     # ── Run controls ──────────────────────────────────────────
     "btn_start": {
@@ -915,10 +907,6 @@ STRINGS = {
     "tip_wheelspin_post_key_wait": {
         "en":    "How long to wait between each key press during a spin (in seconds).",
         "zh-tw": "轉輪每次按鍵之間的等待時間（秒）。",
-    },
-    "tip_wheelspin_settle_wait": {
-        "en":    "Grace period after the prize screen is detected, before pressing collect (in seconds). Detection now times the spin, so this can be low or 0 for speed — raise it only if the prize needs a moment to become interactive.",
-        "zh-tw": "偵測到獎品畫面後、按下領取前的緩衝時間（秒）。現在改由偵測來掌握時機，因此可設低或設 0 以加快 — 只有在獎品需要時間才能互動時才調高。",
     },
 
     "mastery_start_row_label": {

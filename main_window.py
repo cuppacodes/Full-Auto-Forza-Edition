@@ -2159,7 +2159,6 @@ class MainWindow(ctk.CTk):
             scroll,
             fields=[
                 (_at('setting_wheelspin_post_key_wait', self._lang), 'wheelspin_post_key_wait', 0.4, 3.0, 0.1, 'tip_wheelspin_post_key_wait'),
-                (_at('setting_wheelspin_settle_wait', self._lang), 'wheelspin_settle_wait', 3.0, 12.0, 0.5, 'tip_wheelspin_settle_wait'),
             ])
 
     def _on_monitor_change(self, val: str):

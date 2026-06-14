@@ -31,9 +31,6 @@ from delete_cars import key_press
 # ── Tunable values (constants; some overridable via Settings) ──
 DUP_CHECK_WINDOW  = 2.0   # time-boxed window to look for the duplicate menu
 SUPER_FIND_WINDOW = 12.0  # max time to find the Super Wheelspin tile at start
-SETTLE_GRACE      = 5.0   # default grace after the prize is DETECTED, before
-                          #   collect (overridden by wheelspin_settle_wait;
-                          #   detection times the spin, so this can be low/0)
 # A Super Wheelspin has 3 wheels, so at most 3 duplicates can appear per spin.
 # Hard-cap the inner loop at 3 — without this a mis-detection (e.g. a stuck/
 # re-matched menu) let it handle 5+ in a real bug report. Reaching the cap
@@ -93,7 +90,6 @@ def run(cfg: dict, stop_event: threading.Event,
     import config as _cfg_mod
     _fresh   = _cfg_mod.load()
     post_kw  = _fresh.get("wheelspin_post_key_wait", 0.5)
-    settle   = max(0.0, float(_fresh.get("wheelspin_settle_wait", SETTLE_GRACE)))
     dup_mode = _fresh.get("wheelspin_dup_mode", "garage")
     res      = _fresh.get("wheelspin_resolution", "custom")
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
@@ -270,13 +266,12 @@ def run(cfg: dict, stop_event: threading.Event,
         press('enter', post_wait=0.0)
 
         # ── 3. Collect — wait for the prize stage, then Enter ──
+        # Detection of the collect prompt IS the gate (the prompt only renders
+        # when the prize is ready), so press immediately — no blind grace.
         if not _wait_stage(COLLECT_KEY, collect_tpl,
                            _at("log_spin_wait_collect", lang),
                            _at("spin_tpl_collect", lang)):
             break
-        if settle > 0:          # optional grace once the prize is on screen
-            wait(settle)
-            if stop(): break
         announce(_at("log_spin_collect", lang))
         press('enter')
         if stop(): break
