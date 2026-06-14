@@ -88,7 +88,7 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
                             "garage", "sell", "車庫", "賣出", "贈送"),
     "super_wheelspin": ("super", "wheelspin", "horizon", "超級", "輪盤"),
     "wheelspin_skip": ("略過", "skip", "跳過"),
-    "wheelspin_collect": ("取得", "獎勵", "抽獎", "再次", "collect", "reward"),
+    "wheelspin_collect": ("取得", "獎勵", "抽獎", "再次", "collect", "prize", "reward"),
 }
 
 # All template images capture text UI elements. Edge matching on text is

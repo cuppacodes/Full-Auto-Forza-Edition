@@ -34,10 +34,11 @@ SUPER_FIND_WINDOW = 12.0  # max time to find the Super Wheelspin tile at start
 SETTLE_GRACE      = 5.0   # default grace after the prize is DETECTED, before
                           #   collect (overridden by wheelspin_settle_wait;
                           #   detection times the spin, so this can be low/0)
-# Safety cap on chained duplicates per spin. The game chains at most ~3, but if
-# detection wrongly keeps matching (e.g. a menu is stuck open) this bounds the
-# inner loop so it can never spin forever on one wheelspin.
-MAX_DUP_CHAIN    = 5
+# A Super Wheelspin has 3 wheels, so at most 3 duplicates can appear per spin.
+# Hard-cap the inner loop at 3 — without this a mis-detection (e.g. a stuck/
+# re-matched menu) let it handle 5+ in a real bug report. Reaching the cap
+# means something misfired; the per-detection confidence log helps diagnose it.
+MAX_DUP_CHAIN    = 3
 
 SUPER_KEY    = "super_wheelspin"      # left-column tile, clicked to start a run
 SKIP_KEY     = "wheelspin_skip"       # spin animation — Enter skips forward
@@ -175,7 +176,7 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
-    def _wait_stage(key, tpl, waiting_msg):
+    def _wait_stage(key, tpl, waiting_msg, label):
         """Wait until a spin STAGE that always occurs is on screen (the
         skip-able spin, the prize/collect screen), then return True. Gated on
         detection — the script acts only when the screen is actually present,
@@ -190,6 +191,11 @@ def run(cfg: dict, stop_event: threading.Event,
             frame_cb=lambda: grab_frame(monitor_index),
             key=key, template=tpl, threshold=_thr(key),
             stop_cb=stop, interval=0.2, on_warn=_warn)
+        if res.matched:
+            # Log the match + confidence (like race/mastery) so a misfire is
+            # visible — a low % or a "full" source hints at a false match.
+            log_cb(_at("log_detected", lang, label=label,
+                       conf=f"{res.score:.0%}, {res.source}"))
         return res.matched
 
     if max_loops > 0:
@@ -215,6 +221,8 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_spin_stopped", lang))
         status_cb(_at("status_stopped", lang))
         return
+    log_cb(_at("log_detected", lang, label=_at("spin_tpl_super", lang),
+               conf=f"{res_super.score:.0%}, {res_super.source}"))
     _mouse_click(res_super.location[0], res_super.location[1],
                  mon_left, mon_top, post_kw)   # starts spin #1
 
@@ -235,13 +243,15 @@ def run(cfg: dict, stop_event: threading.Event,
         if stop(): break
 
         # ── 2. Skip-forward — wait for the spin stage, then Enter ──
-        if not _wait_stage(SKIP_KEY, skip_tpl, _at("log_spin_wait_skip", lang)):
+        if not _wait_stage(SKIP_KEY, skip_tpl, _at("log_spin_wait_skip", lang),
+                           _at("spin_tpl_skip", lang)):
             break
         press('enter', post_wait=0.0)
 
         # ── 3. Collect — wait for the prize stage, then Enter ──
         if not _wait_stage(COLLECT_KEY, collect_tpl,
-                           _at("log_spin_wait_collect", lang)):
+                           _at("log_spin_wait_collect", lang),
+                           _at("spin_tpl_collect", lang)):
             break
         if settle > 0:          # optional grace once the prize is on screen
             wait(settle)
@@ -255,11 +265,14 @@ def run(cfg: dict, stop_event: threading.Event,
         # to the top option each time, so the down-count is constant.
         chain = 0
         while not stop():
-            if _detect(TEMPLATE_KEY, dup_tpl, DUP_CHECK_WINDOW) is None:
+            dup = _detect(TEMPLATE_KEY, dup_tpl, DUP_CHECK_WINDOW)
+            if dup is None:
                 # No (more) duplicate within the window → wheel is already
                 # spinning again. End this spin's inner loop.
                 announce(_at("log_spin_no_dup", lang))
                 break
+            log_cb(_at("log_detected", lang, label=_at("spin_tpl_duplicate", lang),
+                       conf=f"{dup.score:.0%}, {dup.source}"))
             chain += 1
             if dup_mode == "sell":
                 # Sell = 3rd option: Down ×2 → Enter.
