@@ -182,12 +182,12 @@ STRINGS = {
         "zh-tw": "超級輪盤圖示",
     },
     "spin_tpl_skip": {
-        "en":    "Spin / skip-forward screen",
-        "zh-tw": "轉動／快轉畫面",
+        "en":    "Skip-forward prompt (bottom-left)",
+        "zh-tw": "快轉提示（左下角）",
     },
     "spin_tpl_collect": {
-        "en":    "Prize / collect screen",
-        "zh-tw": "獎品／領取畫面",
+        "en":    "Collect prompt (bottom-left)",
+        "zh-tw": "領取提示（左下角）",
     },
     "spin_tpl_duplicate": {
         "en":    "Duplicate-reward menu",

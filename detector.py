@@ -62,6 +62,8 @@ DEFAULT_ROIS: dict[str, Rect] = {
     "mastery_sort_recent":  (0.30, 0.20, 0.40, 0.70),  # centre sort menu
     "wheelspin_duplicate":  (0.20, 0.20, 0.65, 0.65),  # centre duplicate-reward menu
     "super_wheelspin":      (0.00, 0.20, 0.33, 0.65),  # left-column Super Wheelspin tile
+    "wheelspin_skip":       (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
+    "wheelspin_collect":    (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
 }
 
 
@@ -82,6 +84,8 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
     "wheelspin_duplicate": ("garage", "gift", "sell", "車庫", "禮物", "贈送", "賣出", "出售"),
     "super_wheelspin": ("super", "wheelspin", "超級", "輪盤"),
+    "wheelspin_skip": ("skip", "hold", "fast", "跳過", "快轉", "按住"),
+    "wheelspin_collect": ("collect", "continue", "accept", "繼續", "領取", "收下"),
 }
 
 # All template images capture text UI elements. Edge matching on text is
