@@ -29,7 +29,6 @@ from delete_cars import key_press
 
 
 # ── Tunable values (constants; some overridable via Settings) ──
-DUP_CHECK_WINDOW  = 2.0   # time-boxed window to look for the duplicate menu
 SUPER_FIND_WINDOW = 12.0  # max time to find the Super Wheelspin tile at start
 # A Super Wheelspin has 3 wheels, so at most 3 duplicates can appear per spin.
 # Hard-cap the inner loop at 3 — without this a mis-detection (e.g. a stuck/
@@ -172,6 +171,33 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
+    def _wait_either(key_a, tpl_a, key_b, tpl_b):
+        """Wait until EITHER template is on screen; return ('a'|'b', result),
+        or (None, None) if stopped. After a collect the next event is always
+        one of two screens — the duplicate menu (a) or the NEXT spin's skip
+        prompt (b, the wheel auto-spun) — so we react to whichever appears
+        first instead of blind-waiting a fixed window for the duplicate. The
+        old fixed window delayed skip detection: by the time it decided "no
+        duplicate", the auto-spun wheel had already passed the skip period.
+        The two screens don't co-occur (a blocking menu means the wheel isn't
+        spinning), so checking `a` first is a safe tiebreak. Indefinite
+        (F9/Stop recovers) — one of the two always shows while spins remain."""
+        while not stop():
+            try:
+                frame = grab_frame(monitor_index)
+                ra = detector.detect(frame, key_a, tpl_a, _thr(key_a),
+                                     stable=False)
+                if ra.matched:
+                    return ('a', ra)
+                rb = detector.detect(frame, key_b, tpl_b, _thr(key_b),
+                                     stable=False)
+                if rb.matched:
+                    return ('b', rb)
+            except Exception:
+                pass
+            time.sleep(0.15)
+        return (None, None)
+
     def _wait_gone(key, tpl, timeout=8.0):
         """Wait (bounded) until `key` is NO LONGER on screen. The next
         duplicate menu only appears AFTER the current one is fully dealt with,
@@ -277,19 +303,24 @@ def run(cfg: dict, stop_event: threading.Event,
         press('enter')
         if stop(): break
 
-        # ── 4. Duplicate-handling inner loop ──────────────────
-        # Up to MAX_DUP_CHAIN duplicate menus may chain. The menu cursor resets
-        # to the top option each time, so the down-count is constant.
+        # ── 4. Resolve duplicates (react to dup-menu OR next skip) ──
+        # After collect, wait for whichever appears first: the duplicate menu
+        # (handle it; the 2nd+ can stack, capped at MAX_DUP_CHAIN) or the next
+        # spin's skip prompt (the wheel auto-spun → no more duplicates this
+        # spin). Polling BOTH avoids a blind duplicate window that would delay
+        # skip detection and miss the skip period (the reported bug).
         chain = 0
         while not stop():
-            dup = _detect(TEMPLATE_KEY, dup_tpl, DUP_CHECK_WINDOW)
-            if dup is None:
-                # No (more) duplicate within the window → wheel is already
-                # spinning again. End this spin's inner loop.
-                announce(_at("log_spin_no_dup", lang))
+            which, r = _wait_either(TEMPLATE_KEY, dup_tpl, SKIP_KEY, skip_tpl)
+            if which != 'a':
+                # 'b' = next spin's skip prompt (wheel rolled over, no more
+                # duplicates) — the top-of-loop _wait_stage(skip) catches it;
+                # or stopped.
+                if which == 'b':
+                    announce(_at("log_spin_no_dup", lang))
                 break
             log_cb(_at("log_detected", lang, label=_at("spin_tpl_duplicate", lang),
-                       conf=f"{dup.score:.0%}, {dup.source}"))
+                       conf=f"{r.score:.0%}, {r.source}"))
             chain += 1
             if dup_mode == "sell":
                 # Sell = 3rd option: Down ×2 → Enter.
@@ -306,10 +337,8 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop(): break
             if chain >= MAX_DUP_CHAIN:
                 break
-            # The next duplicate menu only appears AFTER this one is dealt
-            # with. Wait for this menu to close before re-checking, so it
-            # isn't re-counted while the action (esp. sell) is still
-            # processing — then the next _detect sees a genuinely new menu.
+            # Let this menu close before re-polling, so it isn't re-counted
+            # while the action (esp. the slower sell) is still processing.
             _wait_gone(TEMPLATE_KEY, dup_tpl)
         if stop(): break
 
