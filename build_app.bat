@@ -57,6 +57,8 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\updater.py;." ^
     --add-data "%CD%\delete_cars.py;." ^
     --add-data "%CD%\wheelspin.py;." ^
+    --add-data "%CD%\buy.py;." ^
+    --add-data "%CD%\full_auto.py;." ^
     --add-data "%CD%\report.py;." ^
     --add-data "%CD%\overlay.py;." ^
     --hidden-import customtkinter ^
@@ -87,6 +89,11 @@ if errorlevel 1 (
 
 if exist FAFE_dist rmdir /s /q FAFE_dist >nul 2>&1
 xcopy /e /i /q dist\FAFE FAFE_dist >nul
+
+:: -- Bundle the template sets (read from BASE_DIR\templates = next to the exe,
+::    NOT from _internal, so they must be COPIED here, not --add-data'd) --------
+echo  [+]    Bundling templates...
+if exist templates xcopy /e /i /q templates "FAFE_dist\templates" >nul
 
 :: -- Step 3: Generate default config.json -------------------
 echo  [+]    Writing default config.json...

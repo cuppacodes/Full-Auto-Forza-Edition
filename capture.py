@@ -10,6 +10,7 @@ import os
 import threading
 import time
 import ctypes
+from ctypes import wintypes as _wintypes
 import mss
 
 import config
@@ -130,6 +131,61 @@ def focus_window(hwnd) -> bool:
         return ok
     except Exception:
         return False
+
+
+# ── Mouse click (SendInput) ───────────────────────────────────
+# Shared left-click helper for clicking a detected on-screen element (e.g. the
+# Super Wheelspin tile, or a menu nav button). Click target is a frame-local
+# (x, y) plus the monitor's screen origin offset.
+
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [("dx", ctypes.c_long), ("dy", ctypes.c_long),
+                ("mouseData", _wintypes.DWORD), ("dwFlags", _wintypes.DWORD),
+                ("time", _wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
+
+
+class _MINPUT_UNION(ctypes.Union):
+    _fields_ = [("mi", _MOUSEINPUT), ("_pad", ctypes.c_byte * 28)]
+
+
+class _MINPUT(ctypes.Structure):
+    _fields_ = [("type", _wintypes.DWORD), ("union", _MINPUT_UNION)]
+
+
+def mouse_click(x: int, y: int, mon_left: int = 0, mon_top: int = 0,
+                post_wait: float = 0.5):
+    """Left-click at frame-local (x, y), offset to the monitor's screen origin."""
+    ctypes.windll.user32.SetCursorPos(int(x + mon_left), int(y + mon_top))
+    time.sleep(0.1)
+    for flag in (0x0002, 0x0004):   # LEFTDOWN, LEFTUP
+        inp = _MINPUT(type=0, union=_MINPUT_UNION(mi=_MOUSEINPUT(
+            dx=0, dy=0, mouseData=0, dwFlags=flag, time=0, dwExtraInfo=None)))
+        ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_MINPUT))
+        time.sleep(0.05)
+    time.sleep(post_wait)
+
+
+_MOUSEEVENTF_WHEEL = 0x0800
+_WHEEL_DELTA       = 120
+
+def mouse_scroll(notches: int, post_wait: float = 0.1):
+    """Inject a vertical mouse-wheel scroll into the foreground window.
+
+    `notches` > 0 scrolls UP (wheel forward / away from the user), < 0 scrolls
+    DOWN — the Windows convention (positive WHEEL_DELTA = away). One notch =
+    WHEEL_DELTA (120). Used to scroll long in-game grids (e.g. the Car
+    Collection list down to the bottom). mouseData is a DWORD, so a negative
+    delta is passed as its unsigned 32-bit two's-complement."""
+    data = int(notches) * _WHEEL_DELTA
+    if data < 0:
+        data += 0x100000000        # unsigned 32-bit wrap for the DWORD field
+    inp = _MINPUT(type=0, union=_MINPUT_UNION(mi=_MOUSEINPUT(
+        dx=0, dy=0, mouseData=data, dwFlags=_MOUSEEVENTF_WHEEL,
+        time=0, dwExtraInfo=None)))
+    ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_MINPUT))
+    if post_wait:
+        time.sleep(post_wait)
 
 
 # ── mss screen capture ───────────────────────────────────────

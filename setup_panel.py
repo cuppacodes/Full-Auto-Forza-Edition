@@ -12,7 +12,7 @@ from capture import (CaptureSession, NodeSession,
                       list_monitors, show_example, close_example)
 from config import (RESOLUTION_SETS, get_examples_dir,
                     get_race_templates, get_mastery_templates,
-                    get_wheelspin_templates, get_nodes_file)
+                    get_wheelspin_templates, get_buy_templates, get_nodes_file)
 import config
 import theme
 
@@ -164,6 +164,8 @@ class SetupPanel(ctk.CTkFrame):
             return get_race_templates(self._resolution, self._tpl_lang)
         if self._mode == 'wheelspin':
             return get_wheelspin_templates(self._resolution, self._tpl_lang)
+        if self._mode == 'buy':
+            return get_buy_templates(self._resolution, self._tpl_lang)
         return get_mastery_templates(self._resolution, self._tpl_lang)
 
     def _get_nodes_file(self):

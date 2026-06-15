@@ -15,7 +15,8 @@ import config
 from config import get_race_templates, get_nodes_file
 from app_lang import t as _at
 from capture import (grab_frame, load_template, get_monitor_dims,
-                     force_english_ime, get_foreground_window, focus_window)
+                     force_english_ime, get_foreground_window, focus_window,
+                     mouse_click)
 from detector import ScreenDetector
 
 
@@ -167,7 +168,7 @@ def run(cfg: dict, stop_event: threading.Event,
     CONFIRM_KEY    = 'enter'
 
     # Load templates
-    current_w, current_h, _, _ = get_monitor_dims(monitor_index)
+    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
     templates = {}
     # Always read resolution fresh from config.json at start
     import config as _cfg_mod
@@ -206,6 +207,52 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_template_missing", cfg.get("lang","en"), key=key))
             status_cb(_at("status_setup_incomplete", cfg.get("lang","en")))
             return
+
+    # ── Optional menu-navigation templates ──
+    # If ALL are captured, the script can walk main menu → CREATIVE HUB →
+    # EventLab → Play Event → MY HISTORY → Solo → car → Start screen before the
+    # AFK loop (the bridge for chaining other functions into racing). Best-
+    # effort: missing any of them disables navigation and we just wait for the
+    # Start screen as before — so existing race setups are unaffected.
+    NAV_KEYS = ["creative_hub", "eventlab", "play_event", "events_arrow",
+                "my_history", "choose_race_type", "car_select"]
+    nav_tpls = {}
+    for key in NAV_KEYS:
+        try:
+            img, scale, meta = load_template(folder, key, current_w, current_h,
+                                       grayscale=True, ref_folder=ref_folder,
+                                       prefer_ref=prefer_ref)
+            nav_tpls[key] = img
+            _box = meta.get("box")
+            if _box:
+                detector.set_template_geometry(
+                    key, _box, meta.get("screen_width", current_w),
+                    meta.get("screen_height", current_h))
+        except FileNotFoundError:
+            pass
+    nav_enabled = all(k in nav_tpls for k in NAV_KEYS)
+
+    # ── Optional exit template (results → main menu) ──
+    # Lets the run END on the main menu when the race count is reached: press
+    # Continue, wait through the loading screen for the recommended "What's
+    # Next" menu, then Esc back out to the main menu. This is the chaining
+    # hand-off (every function ends on the main menu). Needs next_activity AND
+    # creative_hub (the main-menu marker). Best-effort: if either is missing the
+    # run just stops on the results screen as before.
+    exit_tpl = None
+    try:
+        img, scale, meta = load_template(folder, "next_activity",
+                                   current_w, current_h, grayscale=True,
+                                   ref_folder=ref_folder, prefer_ref=prefer_ref)
+        exit_tpl = img
+        _box = meta.get("box")
+        if _box:
+            detector.set_template_geometry(
+                "next_activity", _box, meta.get("screen_width", current_w),
+                meta.get("screen_height", current_h))
+    except FileNotFoundError:
+        pass
+    exit_enabled = exit_tpl is not None and "creative_hub" in nav_tpls
 
     def stop():
         if stop_event.is_set():
@@ -280,6 +327,109 @@ def run(cfg: dict, stop_event: threading.Event,
     if _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+
+    # ── Optional: navigate the menus to the Start screen ──
+    # Each step is detection-GATED and TIME-BOXED (unlike the in-race loop's
+    # infinite wait): a wrong/stuck menu state won't self-correct, so aborting
+    # beats hanging. Steps detect distinct screens in sequence, so there's no
+    # lingering/re-press problem.
+    _NAV_STEP_WINDOW = 12.0
+
+    def _detect_nav(key, window_s):
+        end = time.time() + window_s
+        while time.time() < end:
+            if stop():
+                return None
+            try:
+                r = detector.detect(grab_frame(monitor_index), key,
+                                    nav_tpls[key], _thresh(key), stable=False)
+                if r.matched:
+                    return r
+            except Exception:
+                pass
+            time.sleep(0.15)
+        return None
+
+    def _detect_start_state(window_s):
+        """Decide where we are: ('creative_hub'|'start_menu', result) for
+        whichever appears first, else (None, None)."""
+        end = time.time() + window_s
+        while time.time() < end:
+            if stop():
+                return (None, None)
+            try:
+                frame = grab_frame(monitor_index)
+                rc = detector.detect(frame, "creative_hub",
+                                     nav_tpls["creative_hub"],
+                                     _thresh("creative_hub"), stable=False)
+                if rc.matched:
+                    return ("creative_hub", rc)
+                rs = detector.detect(frame, "start_menu",
+                                     templates["start_menu"],
+                                     _thresh("start_menu"), stable=False)
+                if rs.matched:
+                    return ("start_menu", rs)
+            except Exception:
+                pass
+            time.sleep(0.15)
+        return (None, None)
+
+    def _navigate_to_event(ch_hit):
+        """Main menu → CREATIVE HUB → EventLab → Play Event → MY HISTORY →
+        Solo → car → Start screen. ch_hit = the creative_hub match already in
+        hand. Returns True on success, False if a step's element never appears
+        (abort) or we were stopped."""
+        announce(_at("log_race_nav_begin", lang))
+        lbl = _at("race_tpl_creative_hub", lang)
+        log_cb(_at("log_race_nav_click", lang, label=lbl))
+        mouse_click(ch_hit.location[0], ch_hit.location[1],
+                    mon_left, mon_top, post_kw)
+        # Per step: (key, action, pre_wait). pre_wait is a settle BEFORE acting,
+        # for screens that animate in — the element is detected mid-transition
+        # but the game drops input until the transition finishes (the ◀ arrow
+        # and the MY HISTORY Enter both needed ~0.25s or the press was missed).
+        steps = [("eventlab", "click", 0.0), ("play_event", "click", 0.0),
+                 ("events_arrow", "click", 0.25), ("my_history", "enter", 0.25),
+                 ("choose_race_type", "enter", 0.0), ("car_select", "enter", 0.0)]
+        for key, action, pre_wait in steps:
+            lbl = _at("race_tpl_" + key, lang)
+            t0 = time.time()
+            r = _detect_nav(key, _NAV_STEP_WINDOW)
+            secs = f"{time.time() - t0:.1f}"
+            if r is None:
+                if not stop():
+                    log_cb(_at("log_race_nav_fail", lang, label=lbl, secs=secs))
+                return False
+            log_cb(_at("log_race_nav_detected", lang, label=lbl,
+                       conf=f"{r.score:.0%}, {r.source}", secs=secs))
+            if pre_wait:
+                wait(pre_wait)
+                if stop():
+                    return False
+            if action == "click":
+                log_cb(_at("log_race_nav_click", lang, label=lbl))
+                mouse_click(r.location[0], r.location[1],
+                            mon_left, mon_top, post_kw)
+            else:
+                log_cb(_at("log_race_nav_enter", lang, label=lbl))
+                key_press('enter', post_wait=post_kw)
+            if stop():
+                return False
+        log_cb(_at("log_race_nav_done", lang))
+        return True
+
+    if nav_enabled and not stop():
+        _which, _hit = _detect_start_state(8.0)
+        if _which == "creative_hub":
+            if not _navigate_to_event(_hit):
+                log_cb(_at("log_race_stopped", cfg.get("lang", "en")))
+                status_cb(_at("status_stopped", lang))
+                return
+        elif _which == "start_menu":
+            log_cb(_at("log_race_at_start", lang))
+        # else: neither within the window — fall through to the loop's
+        # wait_for(start_menu), which handles wherever the user actually is.
+
     loop_count = 0
     # Foreground (game) window captured while racing, so W can be released to
     # the GAME even if the user stopped via the FAFE UI button (which moves
@@ -296,6 +446,70 @@ def run(cfg: dict, stop_event: threading.Event,
             focus_window(game_hwnd)
         key_up('w')
         _send_scancode('w', key_up=True)
+
+    # ── Race exit → main menu (fires once, on the count-reached clean exit) ──
+    # Generous window: after Continue the game shows a ~12s loading screen
+    # before the "What's Next" menu appears.
+    _EXIT_MENU_WINDOW    = 30.0
+    _EXIT_CONFIRM_WINDOW = 12.0
+    _EXIT_WORLD_WAIT     = 4.0   # open-world transition after the first Esc
+
+    def _detect_exit(key, tpl, window_s):
+        end = time.time() + window_s
+        while time.time() < end:
+            if stop():
+                return None
+            try:
+                r = detector.detect(grab_frame(monitor_index), key, tpl,
+                                    _thresh(key), stable=False)
+                if r.matched:
+                    return r
+            except Exception:
+                pass
+            time.sleep(0.2)
+        return None
+
+    def _return_to_menu():
+        """Results screen → main menu: Enter (Continue) → wait through the
+        loading screen for the "What's Next" menu → Esc (close it → open world)
+        → Esc (→ main menu) → confirm creative_hub. Best-effort / time-boxed:
+        the run is already finishing, so a failed step logs and returns rather
+        than hanging."""
+        announce(_at("log_race_exit_begin", lang))
+        log_cb(_at("log_race_exit_continue", lang))
+        key_press('enter', post_wait=post_kw)          # Continue, leave the race
+        if stop():
+            return
+        t0 = time.time()
+        r = _detect_exit("next_activity", exit_tpl, _EXIT_MENU_WINDOW)
+        if r is None:
+            if not stop():
+                log_cb(_at("log_race_exit_fail", lang, secs=f"{time.time()-t0:.1f}"))
+            return
+        log_cb(_at("log_race_exit_menu_detected", lang,
+                   conf=f"{r.score:.0%}, {r.source}", secs=f"{time.time()-t0:.1f}"))
+        # Esc the recommended menu (→ open world), then Esc again (→ main menu).
+        log_cb(_at("log_race_exit_esc_menu", lang))
+        key_press('escape', post_wait=post_kw)
+        if stop():
+            return
+        # The first Esc plays a transition INTO open-world gameplay; the second
+        # Esc only opens the main menu once that transition has settled.
+        wait(_EXIT_WORLD_WAIT)
+        if stop():
+            return
+        log_cb(_at("log_race_exit_esc_world", lang))
+        key_press('escape', post_wait=post_kw)
+        if stop():
+            return
+        t0 = time.time()
+        r = _detect_exit("creative_hub", nav_tpls["creative_hub"],
+                         _EXIT_CONFIRM_WINDOW)
+        if r is None:
+            if not stop():
+                log_cb(_at("log_race_exit_fail", lang, secs=f"{time.time()-t0:.1f}"))
+            return
+        log_cb(_at("log_race_at_menu", lang))
 
     while not stop():
         loop_count += 1
@@ -349,6 +563,10 @@ def run(cfg: dict, stop_event: threading.Event,
         # off another race we'd immediately abandon.
         if max_loops > 0 and loop_count >= max_loops:
             log_cb(_at("log_race_limit_reached", lang, n=max_loops))
+            # End on the main menu (the chaining hand-off) when the exit
+            # templates are captured; otherwise stop on the results screen.
+            if exit_enabled and not stop():
+                _return_to_menu()
             break
 
         # ── 5. Release W (done above), press X to restart ─────────────

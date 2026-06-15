@@ -87,6 +87,13 @@ def get_wheelspin_templates(res: str = "custom",
     return path
 
 
+def get_buy_templates(res: str = "custom",
+                      lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    path = os.path.join(_lang_dir(lang), "buy", res)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_examples_dir(lang: str = DEFAULT_TEMPLATE_LANG) -> str:
     path = os.path.join(_lang_dir(lang), "examples")
     os.makedirs(path, exist_ok=True)
@@ -169,6 +176,17 @@ DEFAULTS = {
     # templates, so no mastery thresholds.
     "thresh_start_menu":           0.60,
     "thresh_restart_menu":         0.60,
+    # Race menu-navigation templates (optional — used to auto-walk from the main
+    # menu to the Start screen before the AFK loop; skipped if not captured).
+    "thresh_creative_hub":         0.60,
+    "thresh_eventlab":             0.60,
+    "thresh_play_event":           0.60,
+    "thresh_events_arrow":         0.60,
+    "thresh_my_history":           0.60,
+    "thresh_choose_race_type":     0.60,
+    "thresh_car_select":           0.60,
+    # Race exit: the recommended "What's Next" menu shown after Continue.
+    "thresh_next_activity":        0.60,
     "race_check_interval":    0.5,
     "race_post_key_wait":     0.75,
     # Mastery settings (keyboard-driven; no detection)
@@ -178,15 +196,28 @@ DEFAULTS = {
     # via a Settings slider (min 11). The other mastery step waits
     # (screen/tap + menu-transition delays) stay FIXED constants in mastery.py.
     "mastery_cutscene_wait":  11.0,
+    # Full Auto (chained orchestrator): branch after selling — "racing" (loop
+    # straight back to racing, no wheelspin) | "wheelspin" (run wheelspin each
+    # cycle). The buy/master/sell count is fixed (33) in full_auto.py.
+    "full_auto_branch_mode":  "racing",
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,
+    # Buy menu-navigation (optional — start/end the buy run on the main menu;
+    # skipped if these templates aren't captured). custom-only (no bundled set).
+    "buy_resolution":             "custom",
+    "thresh_collection_log":      0.60,
+    "thresh_discover_japan":      0.60,
+    "thresh_car_collection":      0.60,
+    "thresh_subaru":              0.60,
+    "thresh_buy_target_car":      0.60,
     # Auto Spin Wheel settings. No default templates are bundled (custom-only),
     # so the resolution defaults to "custom" to nudge a capture. dup_mode is
     # "garage" (safe) | "sell" (sells duplicates UNATTENDED — warned in the UI).
     "wheelspin_resolution":      "custom",
     "thresh_wheelspin_duplicate": 0.60,
     "thresh_super_wheelspin":     0.60,
+    "thresh_my_horizon_tab":      0.60,
     "thresh_wheelspin_skip":      0.60,
     "thresh_wheelspin_collect":   0.60,
     "wheelspin_post_key_wait":   0.5,

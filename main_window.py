@@ -14,7 +14,7 @@ import theme
 from app_lang import t as _at
 from config import (load, save, resolve_template_lang,
                     get_race_templates, get_mastery_templates, get_nodes_file,
-                    get_wheelspin_templates)
+                    get_wheelspin_templates, get_buy_templates)
 from log_widget import LogWidget
 from setup_panel import SetupPanel
 from updater import check_async, RELEASES_PAGE
@@ -23,20 +23,59 @@ from version import VERSION
 
 # ── Race template definitions ─────────────────────────────────
 # Template label keys looked up via app_lang at runtime
+# Full Auto is a WIP scaffold (race+buy wired; mastery/sell/wheelspin-branch are
+# TODO placeholders). Hidden for the v1.6.0 release — flip to True to show the
+# sidebar nav item again when resuming the chain work. The tab frame is still
+# built (so its widgets/handlers stay valid); only the nav entry is gated.
+SHOW_FULL_AUTO = False
+
 # Race Auto detects two screens: the Start Race screen (start_menu) and the
 # race-END screen (restart_menu). racing/confirm are blind timing, so only
 # these two need capturing.
 RACE_TEMPLATE_KEYS = [
-    ("start_menu",   "race_tpl_start_menu"),
-    ("restart_menu", "race_tpl_restart_menu"),
+    ("start_menu",       "race_tpl_start_menu"),
+    ("restart_menu",     "race_tpl_restart_menu"),
+    # Menu-navigation templates: let the script walk main menu → CREATIVE HUB →
+    # EventLab → Play Event → MY HISTORY → Solo → car → Start screen before the
+    # AFK loop. Best-effort: if these aren't captured, race just waits for the
+    # Start screen (today's behavior). This is the bridge for chaining other
+    # functions (sell/spin) into racing.
+    ("creative_hub",     "race_tpl_creative_hub"),
+    ("eventlab",         "race_tpl_eventlab"),
+    ("play_event",       "race_tpl_play_event"),
+    ("events_arrow",     "race_tpl_events_arrow"),
+    ("my_history",       "race_tpl_my_history"),
+    ("choose_race_type", "race_tpl_choose_race_type"),
+    ("car_select",       "race_tpl_car_select"),
+    # Race exit: the recommended "What's Next" menu shown after pressing
+    # Continue at the results screen — gates the ESC back to the main menu so
+    # the run ENDS on the main menu (the chaining hand-off point).
+    ("next_activity",    "race_tpl_next_activity"),
 ]
 # Auto Spin Wheel: the Super Wheelspin tile (detected + clicked to start each
 # run from the My Horizon menu) and the duplicate-reward menu (detect-only).
 SPIN_TEMPLATE_KEYS = [
+    # My Horizon top-nav tab: lets the run START from the main menu (detect +
+    # click it → My Horizon menu → Super Wheelspin tile). Best-effort — if it's
+    # not captured, wheelspin assumes you're already on the My Horizon menu.
+    ("my_horizon_tab",      "spin_tpl_my_horizon"),
     ("super_wheelspin",     "spin_tpl_super"),
     ("wheelspin_skip",      "spin_tpl_skip"),
     ("wheelspin_collect",   "spin_tpl_collect"),
     ("wheelspin_duplicate", "spin_tpl_duplicate"),
+]
+# NOTE: wheelspin_skip is a BEST-EFFORT fast-forward — wheelspin.py loads it only
+# if present and falls back to waiting for the collect prompt when it's missing
+# or the prompt is missed, so a missing capture never breaks a run.
+# Auto Buy: optional menu-navigation templates — let the run START and END on
+# the main menu (main menu → Car Collection → target car; Esc chain back). All
+# best-effort: if not captured, buy just runs the macro where you are.
+BUY_TEMPLATE_KEYS = [
+    ("collection_log",  "buy_tpl_collection_log"),
+    ("discover_japan",  "buy_tpl_discover_japan"),
+    ("car_collection",  "buy_tpl_car_collection"),
+    ("subaru",          "buy_tpl_subaru"),
+    ("buy_target_car",  "buy_tpl_target_car"),
 ]
 # Mastery is keyboard-driven (no detection), so it has no template list — the
 # Setup panel shows node capture only.
@@ -392,6 +431,7 @@ class MainWindow(ctk.CTk):
         self._main_content.pack(side="top", fill="both", expand=True)
 
         # Tab content frames (parented to the content area).
+        self._full_auto_frame = self._build_full_auto_tab()
         self._race_frame    = self._build_race_tab()
         self._mastery_frame = self._build_mastery_tab()
         self._buy_frame     = self._build_buy_tab()
@@ -441,7 +481,9 @@ class MainWindow(ctk.CTk):
         # inactive items sit at the exact same position (no off-centre shift).
         self._nav_buttons = {}
         self._nav_bars = {}
-        for key in ("race", "mastery", "buy", "delete", "spin"):
+        _nav_keys = (("full_auto",) if SHOW_FULL_AUTO else ()) + \
+                    ("race", "mastery", "buy", "delete", "spin")
+        for key in _nav_keys:
             item = ctk.CTkFrame(sb, fg_color="transparent", height=42)
             item.pack(fill="x", padx=10, pady=2)
             item.pack_propagate(False)
@@ -730,8 +772,69 @@ class MainWindow(ctk.CTk):
                         lambda e, k=key, va=var: self._on_setting_change(k, va))
             slider.pack(side="left", fill="x", expand=True, padx=4)
 
+    def _build_full_auto_tab(self) -> ctk.CTkFrame:
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+
+        # Description
+        ctk.CTkLabel(frame, text=_at("full_auto_description", self._lang),
+                     anchor="w", wraplength=480, justify="left",
+                     font=("Arial", 12)).pack(fill="x", padx=12, pady=(8, 0))
+
+        # Races-per-cycle count row (user-defined; for mastery points)
+        count_row = ctk.CTkFrame(frame, fg_color="transparent")
+        count_row.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(count_row, text=_at("full_auto_count_label", self._lang),
+                     font=("Arial", 12)).pack(side="left")
+        self._full_auto_count_var = ctk.StringVar(value="0")
+        ctk.CTkEntry(count_row, textvariable=self._full_auto_count_var,
+                     width=70, justify="center").pack(side="left", padx=8)
+
+        # Branch toggle: spin wheels each cycle, or straight back to racing
+        branch_row = ctk.CTkFrame(frame, fg_color="transparent")
+        branch_row.pack(fill="x", padx=12, pady=(8, 0))
+        ctk.CTkLabel(branch_row, text=_at("full_auto_branch_label", self._lang),
+                     font=theme.LABEL_FONT).pack(side="left")
+        self._fa_branch_labels = {
+            "racing":    _at("full_auto_branch_racing", self._lang),
+            "wheelspin": _at("full_auto_branch_wheelspin", self._lang),
+        }
+        cur_branch = self._cfg.get("full_auto_branch_mode", "racing")
+        if cur_branch not in self._fa_branch_labels:
+            cur_branch = "racing"
+        self._fa_branch_var = ctk.StringVar(
+            value=self._fa_branch_labels[cur_branch])
+        ctk.CTkSegmentedButton(
+            branch_row,
+            values=[self._fa_branch_labels["racing"],
+                    self._fa_branch_labels["wheelspin"]],
+            variable=self._fa_branch_var,
+            command=self._on_fa_branch_change,
+            height=32,
+            **theme.segbtn_kwargs(self._cfg),
+        ).pack(side="left", padx=theme.PAD_INLINE)
+
+        # Run controls
+        self._build_run_controls(frame, mode="full_auto")
+
+        # Log
+        self._full_auto_log = LogWidget(frame,
+            placeholder=_at('log_placeholder', self._lang),
+            warn_color=self._t("warn"),
+            title=_at("label_activity", self._lang),
+            title_color=self._t("text"), loop_color=self._t("log_accent"),
+            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
+            border_width=1, border_color=self._t("border"),
+            corner_radius=self._t("corner"))
+        self._full_auto_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
+        return frame
+
+    def _on_fa_branch_change(self, val: str):
+        rev = {v: k for k, v in getattr(self, "_fa_branch_labels", {}).items()}
+        self._cfg["full_auto_branch_mode"] = rev.get(val, "racing")
+        save(self._cfg)
+
     def _build_buy_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
 
         # Description
         desc = ctk.CTkFrame(frame, fg_color="transparent")
@@ -739,6 +842,12 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(desc, text=_at("buy_description", self._lang),
                      anchor="w", wraplength=480,
                      font=("Arial", 12)).pack(fill="x")
+
+        # Setup panel — optional menu-navigation templates (start/end on the
+        # main menu). All best-effort: empty/partial → buy runs the macro where
+        # the user already positioned (legacy behaviour).
+        self._buy_setup = self._make_buy_setup(frame)
+        self._buy_setup.pack(fill="x", padx=8, pady=(4, 8))
 
         # Count row
         count_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -885,6 +994,28 @@ class MainWindow(ctk.CTk):
             corner_radius=self._t("corner"),
         )
 
+    def _make_buy_setup(self, parent) -> SetupPanel:
+        """Auto Buy Setup panel — optional menu-navigation templates (start/end
+        on the main menu). All best-effort; no node capture."""
+        return SetupPanel(
+            parent,
+            template_defs=[(k, _at(lk, self._lang))
+                           for k, lk in BUY_TEMPLATE_KEYS],
+            folder=get_buy_templates('custom', self._tpl_lang),
+            nodes_file=None,
+            res_cfg_key='buy_resolution',
+            mode='buy',
+            log_cb=self._log,
+            status_cb=self._set_status,
+            lang=self._lang,
+            capture_key=self._capture_key,
+            main_cfg=self._cfg,
+            tpl_lang=self._tpl_lang,
+            fg_color=self._t("surface_alt"),
+            border_width=1, border_color=self._t("border"),
+            corner_radius=self._t("corner"),
+        )
+
     def _on_spin_mode_change(self, val: str):
         rev = {v: k for k, v in getattr(self, "_spin_mode_labels", {}).items()}
         self._cfg["wheelspin_dup_mode"] = rev.get(val, "garage")
@@ -899,7 +1030,32 @@ class MainWindow(ctk.CTk):
         row = ctk.CTkFrame(card, fg_color="transparent")
         row.pack(fill="x", padx=12, pady=12)
 
-        if mode == "race":
+        if mode == "full_auto":
+            self._full_auto_start_btn = ctk.CTkButton(
+                row, text=theme.ICON_START + _at("btn_start", self._lang),
+                command=self._start_full_auto,
+                width=120, font=theme.BUTTON_FONT,
+                fg_color=theme.START_FG, hover_color=theme.START_HOVER,
+                text_color=self._t("start_text"))
+            self._full_auto_start_btn.pack(side="left", padx=(0, 8))
+
+            self._full_auto_stop_btn = ctk.CTkButton(
+                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
+                command=self._stop_auto,
+                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
+                text_color=self._t("stop_text"),
+                width=100, font=theme.BUTTON_FONT, state="disabled")
+            self._full_auto_stop_btn.pack(side="left")
+
+            self._full_auto_shortcut_lbl = ctk.CTkLabel(
+                row,
+                text=_at("shortcut_toggle", self._lang,
+                         key=self._toggle_key.upper()),
+                font=theme.HINT_FONT,
+                text_color=self._t("text_muted"))
+            self._full_auto_shortcut_lbl.pack(side="left", padx=(16, 0))
+
+        elif mode == "race":
             self._race_start_btn = ctk.CTkButton(
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_race,
@@ -1041,7 +1197,8 @@ class MainWindow(ctk.CTk):
     def _switch_tab(self, tab: str):
         # Always re-show (don't early-return on same tab): a panel may be open
         # with _current_tab still set, and clicking the tab must exit the panel.
-        frame = {"race": self._race_frame, "mastery": self._mastery_frame,
+        frame = {"full_auto": self._full_auto_frame,
+                 "race": self._race_frame, "mastery": self._mastery_frame,
                  "buy": self._buy_frame, "delete": self._delete_frame,
                  "spin": self._spin_frame}[tab]
         self._show_main(frame)
@@ -1053,13 +1210,15 @@ class MainWindow(ctk.CTk):
         self._set_nav_active(tab)
         self._page_title_var.set(_at(f"page_title_{tab}", self._lang))
 
-        self._active_log = {"race": self._race_log, "mastery": self._mastery_log,
+        self._active_log = {"full_auto": self._full_auto_log,
+                            "race": self._race_log, "mastery": self._mastery_log,
                             "buy": self._buy_log, "delete": self._delete_log,
                             "spin": self._spin_log}[tab]
         self._active_setup_panel = {
             "race":    getattr(self, "_race_setup", None),
             "mastery": getattr(self, "_mastery_setup", None),
             "spin":    getattr(self, "_spin_setup", None),
+            "buy":     getattr(self, "_buy_setup", None),
         }.get(tab)
 
     # ── Automation control ────────────────────────────────────
@@ -1176,8 +1335,6 @@ class MainWindow(ctk.CTk):
             lang = self._cfg.get('lang', 'en')
             try:
                 import time as _t
-                from delete_cars import key_press as _send_key
-                from capture import force_english_ime
                 log_cb(_at('startup_switch_to_game', lang))
                 for i in range(5, 0, -1):
                     if self._stop_event.is_set(): return
@@ -1185,30 +1342,20 @@ class MainWindow(ctk.CTk):
                     self._set_status(_at('startup_countdown', lang, i=i))
                     _t.sleep(1)
                 if self._stop_event.is_set(): return
-                log_cb(_at('buy_running', lang))
-                # Switch the game to English input only if it isn't already
-                # (see capture.force_english_ime). Disable with
-                # auto_english_ime=false.
-                if self._cfg.get("auto_english_ime", True):
-                    force_english_ime()
-                    _t.sleep(0.2)
+                import config as _cfg_mod
+                from buy import run as buy_run
                 try:
                     max_buy = int(self._buy_count_var.get())
                 except ValueError:
                     max_buy = 0
-                buy_kw = self._cfg.get('buy_post_key_wait', 0.5)
-                loop = 0
-                while not self._stop_event.is_set():
-                    loop += 1
-                    log_cb(f"-- {_at('buy_loop', lang)} #{loop}" +
-                           (f" / {max_buy}" if max_buy > 0 else "") + " --")
-                    for key in ['space', 'down', 'enter', 'enter', 'enter']:
-                        if self._stop_event.is_set(): break
-                        log_cb(_at('log_buy_key', lang, key=key.upper()))
-                        _send_key(key, post_wait=buy_kw)
-                    if max_buy > 0 and loop >= max_buy:
-                        log_cb(_at('log_buy_limit_reached', lang, n=max_buy))
-                        break
+                buy_run(
+                    cfg=_cfg_mod.load(),
+                    stop_event=self._stop_event,
+                    log_cb=log_cb,
+                    status_cb=self._set_status,
+                    max_loops=max_buy,
+                    section_cb=self._buy_log.log_section,
+                )
             except Exception as e:
                 import traceback
                 log_cb(f'ERROR: {e}')
@@ -1407,7 +1554,9 @@ class MainWindow(ctk.CTk):
         if self._auto_thread and self._auto_thread.is_alive():
             self._stop_auto()
         else:
-            if self._current_tab == 'race':
+            if self._current_tab == 'full_auto':
+                self._start_full_auto()
+            elif self._current_tab == 'race':
                 self._start_race()
             elif self._current_tab == 'mastery':
                 self._start_mastery()
@@ -1417,6 +1566,53 @@ class MainWindow(ctk.CTk):
                 self._start_spin()
             else:
                 self._start_delete()
+
+    def _start_full_auto(self):
+        if self._auto_thread and self._auto_thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._set_status(_at("status_starting_full_auto", self._lang))
+        self._full_auto_start_btn.configure(state="disabled")
+        self._full_auto_stop_btn.configure(state="normal")
+        self._full_auto_log.clear()
+
+        def _fa_safe():
+            log_cb = self._full_auto_log.log
+            lang = self._cfg.get('lang', 'en')
+            try:
+                import time as _t
+                log_cb(_at('startup_switch_to_game', lang))
+                for i in range(5, 0, -1):
+                    if self._stop_event.is_set(): return
+                    log_cb(_at('startup_countdown', lang, i=i))
+                    self._set_status(_at('startup_countdown', lang, i=i))
+                    _t.sleep(1)
+                if self._stop_event.is_set(): return
+                import config as _cfg_mod
+                from full_auto import run as fa_run
+                try:
+                    race_count = int(self._full_auto_count_var.get())
+                except ValueError:
+                    race_count = 0
+                branch = self._cfg.get('full_auto_branch_mode', 'racing')
+                fa_run(
+                    cfg=_cfg_mod.load(),
+                    stop_event=self._stop_event,
+                    log_cb=log_cb,
+                    status_cb=self._set_status,
+                    race_count=race_count,
+                    branch_mode=branch,
+                    section_cb=self._full_auto_log.log_section,
+                )
+            except Exception as e:
+                import traceback
+                log_cb(f'ERROR: {e}')
+                log_cb(traceback.format_exc())
+                self._set_status(f'Error: {e}')
+
+        self._auto_thread = threading.Thread(target=_fa_safe, daemon=True)
+        self._auto_thread.start()
+        self._poll_thread()
 
     def _stop_auto(self):
         self._stop_event.set()
@@ -1449,6 +1645,8 @@ class MainWindow(ctk.CTk):
             self._delete_stop_btn.configure(state="disabled")
             self._spin_start_btn.configure(state="normal")
             self._spin_stop_btn.configure(state="disabled")
+            self._full_auto_start_btn.configure(state="normal")
+            self._full_auto_stop_btn.configure(state="disabled")
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -1882,8 +2080,9 @@ class MainWindow(ctk.CTk):
         self._switch_tab(self._current_tab or "race")
 
     def _build_support_panel(self):
-        """Build the inline Support Me panel once. Two ways to support:
-        a 街口支付 (JKOPAY) QR image and a PayPal button sized to match it."""
+        """Build the inline Support Me panel once. Two ways to support: a
+        clickable 街口支付 (JKOPAY) logo (opens a transfer link — the old QR
+        expired) and a PayPal button sized to match it."""
         QR = 260   # QR display size; the PayPal button matches this width
         self._support_frame = ctk.CTkFrame(self._main_content, fg_color="transparent")
 
@@ -1905,21 +2104,28 @@ class MainWindow(ctk.CTk):
                      font=theme.BODY_FONT, text_color=self._t("text_muted"),
                      wraplength=320, justify="center").pack(pady=(0, 14))
 
-        # ── 街口支付 (JKOPAY) QR ──
+        # ── 街口支付 (JKOPAY) — clickable logo opening a transfer link ──
+        # (Replaces the old QR image, which expired.) The whole logo is a button.
+        JKO_URL = "https://service.jkopay.com/r/transfer?j=Transfer:906639236"
+        _open_jko = lambda: __import__("webbrowser").open(JKO_URL)
         ctk.CTkLabel(body, text=_at("support_jkopay", self._lang),
                      font=theme.LABEL_FONT).pack(pady=(0, 4))
-        # Tall bounding box so width is the binding dimension → the QR renders
-        # exactly QR px wide (matching the PayPal button) with aspect preserved,
-        # whether the source is the full portrait card or a square QR.
-        qr_img = self._load_ctk_image("assets", "support_jkopay.png", size=(QR, QR * 4))
-        if qr_img:
-            self._support_qr_img = qr_img   # keep a ref so it isn't GC'd
-            ctk.CTkLabel(body, image=qr_img, text="").pack(pady=(0, 14))
+        # Fit the (landscape) logo inside a QR×QR box → renders QR px wide,
+        # aspect preserved, matching the PayPal button width.
+        jko_img = self._load_ctk_image("assets", "support_jkopay.png", size=(QR, QR))
+        if jko_img:
+            self._support_jko_img = jko_img   # keep a ref so it isn't GC'd
+            ctk.CTkButton(
+                body, image=jko_img, text="", width=QR,
+                fg_color="transparent", hover_color=self._t("surface_alt"),
+                command=_open_jko).pack(pady=(0, 14))
         else:
-            ctk.CTkLabel(
-                body, text="assets/support_jkopay.png", width=QR, height=QR,
-                fg_color=("gray85", "gray25"), corner_radius=8,
-                text_color=self._t("text_muted")).pack(pady=(0, 14))
+            ctk.CTkButton(
+                body, text="JKOPAY", width=QR, height=46,
+                font=("Segoe UI", 14, "bold"),
+                fg_color=self._t("support_fill"), hover_color=self._t("support_hover"),
+                text_color=self._t("support_text"),
+                command=_open_jko).pack(pady=(0, 14))
 
         # ── PayPal (button sized to match the QR width) ──
         pp_img = self._load_ctk_image("assets", "paypal_logo.png", size=(20, 20))

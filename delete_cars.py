@@ -18,6 +18,7 @@ _VK_MAP = {
     'esc':    0x1B, 'escape': 0x1B,
     'down':   0x28,
     'space':  0x20,
+    'backspace': 0x08, 'back': 0x08,
 }
 
 _KEYEVENTF_EXTENDEDKEY = 0x0001

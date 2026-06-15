@@ -16,8 +16,8 @@ STRINGS = {
         "zh-tw": "如果 FAFE 為你節省了時間，小額贊助能幫助它持續維護。感謝你！",
     },
     "support_jkopay": {
-        "en":    "街口支付 (JKOPAY) — scan to tip",
-        "zh-tw": "街口支付（掃碼贊助）",
+        "en":    "JKOPAY — click to tip",
+        "zh-tw": "街口支付（點擊贊助）",
     },
     "support_btn": {
         "en":    "Support Me",
@@ -32,8 +32,8 @@ STRINGS = {
         "zh-tw": "🏁  自動掛機刷技術點",
     },
     "race_description": {
-        "en":    "Before starting, enter the race you want to grind and stop at the Start Race screen. The Start Race and race-end (Restart) screens are detected; the rest is timed.",
-        "zh-tw": "開始之前請進入到想刷的地圖中並停在開始賽事的介面上。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
+        "en":    "Before starting, you can either stay on the main menu (FAFE will navigate to your last-played EventLab event) or stop at the Start Race screen yourself. FAFE detects which screen you're on and takes over. It detects the Start Race and race-end (Restart) screens; the rest is timed.",
+        "zh-tw": "開始之前，你可以停在主選單（FAFE 會自動前往你上次遊玩的 EventLab 賽事），或自行停在開始賽事的介面上。FAFE 會偵測你所在的畫面並接手。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
     },
     "tab_mastery": {
         "en":    "⭐  Auto Unlock 22B",
@@ -49,8 +49,8 @@ STRINGS = {
         "zh-tw": "🛒  自動購買22B-STi",
     },
     "buy_description": {
-        "en":    "Before starting, navigate to: Menu → Journal → Master Explorer → Car Collection → find the 22B-STi and click on it. Leave the game on that screen, then press Start.",
-        "zh-tw": "開始前，請先在遊戲中依序進入：選單 → 收藏日記 → 探索大師 → 車輛收藏 → 找到 22B-STi 並點擊。停在該畫面後再按下開始。",
+        "en":    "Capture the navigation templates below and FAFE will start from the main menu (Collection Journal → Discover Japan / Master Explorer → Car Collection → Subaru → your target car) and return to it when done. If you skip the capture, just position on the target car yourself (Collection Journal → Master Explorer → Car Collection → click the 22B-STi) and press Start — the buy macro runs where you are.",
+        "zh-tw": "擷取下方 4 個導航樣本後，FAFE 會從主選單開始（收藏日記 → 探索大師 → 車輛收藏 → 你的目標車輛）並在完成後返回主選單。若略過擷取，請自行停在目標車輛畫面（選單 → 收藏日記 → 探索大師 → 車輛收藏 → 點擊 22B-STi）再按開始，購買巨集會在目前畫面執行。",
     },
     "status_starting_buy": {
         "en":    "Starting Auto Buy...",
@@ -63,6 +63,89 @@ STRINGS = {
     "buy_loop": {
         "en":    "Loop",
         "zh-tw": "循環",
+    },
+
+    # ── Buy template labels (optional menu-navigation) ─────────
+    "buy_tpl_collection_log": {
+        "en":    "Collection Log tile (main menu)",
+        "zh-tw": "收藏日記圖塊（主選單）",
+    },
+    "buy_tpl_discover_japan": {
+        "en":    "Discover Japan / Master Explorer card",
+        "zh-tw": "探索大師卡片",
+    },
+    "buy_tpl_car_collection": {
+        "en":    "Car Collection tile",
+        "zh-tw": "車輛收藏圖塊",
+    },
+    "buy_tpl_subaru": {
+        "en":    "Subaru brand tile (brand view)",
+        "zh-tw": "Subaru 車廠圖塊（車廠檢視）",
+    },
+    "buy_tpl_target_car": {
+        "en":    "Target car tile (e.g. Impreza 22B-STi)",
+        "zh-tw": "目標車輛圖塊（例：Impreza 22B-STi）",
+    },
+    # ── Buy menu-navigation log messages ──────────────────────
+    "log_buy_nav_begin": {
+        "en":    "Main menu detected — navigating to the Car Collection…",
+        "zh-tw": "偵測到主選單 — 正在前往車輛收藏…",
+    },
+    "log_buy_nav_skip": {
+        "en":    "  (buy navigation templates not captured — running the macro where you are)",
+        "zh-tw": "  （未擷取購買導航樣本 — 將直接在目前畫面執行巨集）",
+    },
+    "log_buy_nav_detected": {
+        "en":    "  ✓ {label} ({conf}) — {secs}s",
+        "zh-tw": "  ✓ {label}（{conf}）— {secs} 秒",
+    },
+    "log_buy_nav_click": {
+        "en":    "  → click {label}",
+        "zh-tw": "  → 點擊 {label}",
+    },
+    "log_buy_nav_key": {
+        "en":    "  → {keys}: {label}",
+        "zh-tw": "  → {keys}：{label}",
+    },
+    "log_buy_nav_fail": {
+        "en":    "  ✗ {label} not found in {secs}s — aborting. Are you on the main menu?",
+        "zh-tw": "  ✗ {secs} 秒內找不到 {label} — 中止。請確認在主選單。",
+    },
+    "log_buy_backspace": {
+        "en":    "  → Backspace: jump to brand",
+        "zh-tw": "  → Backspace：跳至車廠",
+    },
+    "log_buy_scroll": {
+        "en":    "  → scrolling to the bottom of the list ({n} notches)",
+        "zh-tw": "  → 捲動至清單底部（{n} 格）",
+    },
+    "log_buy_scroll_one": {
+        "en":    "  → scroll down 1 notch (bring the target car into view)",
+        "zh-tw": "  → 向下捲動 1 格（讓目標車輛進入畫面）",
+    },
+    "log_buy_macro_start": {
+        "en":    "Target car focused — starting the buy macro.",
+        "zh-tw": "已聚焦目標車輛 — 開始購買巨集。",
+    },
+    "log_buy_exit_begin": {
+        "en":    "Returning to the main menu…",
+        "zh-tw": "正在返回主選單…",
+    },
+    "log_buy_exit_esc": {
+        "en":    "  → Esc ({i}/{n})",
+        "zh-tw": "  → Esc（{i}/{n}）",
+    },
+    "log_buy_at_menu": {
+        "en":    "  ✓ back at the main menu.",
+        "zh-tw": "  ✓ 已返回主選單。",
+    },
+    "log_buy_exit_fail": {
+        "en":    "  ✗ couldn't confirm the main menu in {secs}s — stopping anyway.",
+        "zh-tw": "  ✗ {secs} 秒內無法確認主選單 — 仍然停止。",
+    },
+    "log_buy_stopped": {
+        "en":    "Auto Buy stopped.",
+        "zh-tw": "自動購買已停止。",
     },
 
     # ── Delete Cars ───────────────────────────────────────────
@@ -111,6 +194,75 @@ STRINGS = {
     "nav_spin": {
         "en":    "Auto Spin Wheel",
         "zh-tw": "自動轉輪",
+    },
+    "nav_full_auto": {
+        "en":    "Full Auto",
+        "zh-tw": "全自動",
+    },
+    "page_title_full_auto": {
+        "en":    "Full Auto",
+        "zh-tw": "全自動",
+    },
+    # ── Full Auto (chained orchestrator) ──────────────────────
+    "full_auto_description": {
+        "en":    "Chains everything into one farm loop: AFK race (for mastery points) → buy 33 cars → unlock their mastery trees → sell them → repeat. Set the races per cycle and whether to spin wheels each cycle. Each step needs its own templates captured (race nav, buy nav). Runs until you press Stop / F9.",
+        "zh-tw": "將所有功能串成一個循環：賽事掛機（賺取熟練點數）→ 購買 33 輛車 → 解鎖熟練樹 → 賣出 → 重複。設定每循環的賽事數，以及是否每循環轉輪。各步驟需先擷取各自的樣本（賽事導航、購買導航）。會持續執行直到你按下停止／F9。",
+    },
+    "full_auto_count_label": {
+        "en":    "Races per cycle (mastery points):",
+        "zh-tw": "每循環賽事數（熟練點數）：",
+    },
+    "full_auto_branch_label": {
+        "en":    "After selling:",
+        "zh-tw": "賣出後：",
+    },
+    "full_auto_branch_wheelspin": {
+        "en":    "Spin wheels",
+        "zh-tw": "轉動輪盤",
+    },
+    "full_auto_branch_racing": {
+        "en":    "Back to racing",
+        "zh-tw": "回到賽事",
+    },
+    "status_starting_full_auto": {
+        "en":    "Starting Full Auto...",
+        "zh-tw": "正在啟動全自動...",
+    },
+    "log_fa_started": {
+        "en":    "Full Auto started.",
+        "zh-tw": "全自動已啟動。",
+    },
+    "log_fa_race_count_warn": {
+        "en":    "  ⚠ Races per cycle is 0 (unlimited) — the cycle can't advance past racing. Set a positive number.",
+        "zh-tw": "  ⚠ 每循環賽事數為 0（無限）— 循環將卡在賽事無法繼續。請設定正整數。",
+    },
+    "log_fa_cycle": {
+        "en":    "==== Full Auto — cycle #{n} ====",
+        "zh-tw": "==== 全自動 — 第 {n} 循環 ====",
+    },
+    "log_fa_step_race": {
+        "en":    "[1/5] AFK race…",
+        "zh-tw": "[1/5] 賽事掛機…",
+    },
+    "log_fa_step_buy": {
+        "en":    "[2/5] Buy {n} cars…",
+        "zh-tw": "[2/5] 購買 {n} 輛車…",
+    },
+    "log_fa_step_mastery_todo": {
+        "en":    "[3/5] Mastery {n} cars — NOT YET WIRED (skipped).",
+        "zh-tw": "[3/5] 熟練 {n} 輛車 — 尚未接入（略過）。",
+    },
+    "log_fa_step_sell_todo": {
+        "en":    "[4/5] Sell {n} cars — NOT YET WIRED (skipped).",
+        "zh-tw": "[4/5] 賣出 {n} 輛車 — 尚未接入（略過）。",
+    },
+    "log_fa_step_spin_todo": {
+        "en":    "[5/5] Wheelspin branch — NOT YET WIRED (skipped).",
+        "zh-tw": "[5/5] 轉輪分支 — 尚未接入（略過）。",
+    },
+    "log_fa_stopped": {
+        "en":    "Full Auto stopped.",
+        "zh-tw": "全自動已停止。",
     },
     "label_activity": {
         "en":    "Activity",
@@ -177,6 +329,10 @@ STRINGS = {
         "en":    "Sell mode sells duplicates automatically — see the warning above.",
         "zh-tw": "賣出模式會自動賣掉重複車輛 — 請見上方警告。",
     },
+    "spin_tpl_my_horizon": {
+        "en":    "My Horizon tab (top nav)",
+        "zh-tw": "我的 HORIZON 分頁（頂部導覽）",
+    },
     "spin_tpl_super": {
         "en":    "Super Wheelspin tile",
         "zh-tw": "超級輪盤圖示",
@@ -213,6 +369,14 @@ STRINGS = {
         "en":    "SELL mode: duplicate cars will be sold automatically and unattended.",
         "zh-tw": "賣出模式：重複車輛將被自動且無人看管地賣出。",
     },
+    "log_spin_select_mh_tab": {
+        "en":    "Selecting the My Horizon tab (starting from the main menu)...",
+        "zh-tw": "選擇「我的 HORIZON」分頁（從主選單開始）…",
+    },
+    "log_spin_mh_tab_off": {
+        "en":    "  (no My Horizon tab template — assuming you're already on the My Horizon menu)",
+        "zh-tw": "  （無「我的 HORIZON」分頁樣本 — 假設已在「我的 HORIZON」選單）",
+    },
     "log_spin_select_super": {
         "en":    "Selecting Super Wheelspin...",
         "zh-tw": "選擇超級輪盤…",
@@ -226,32 +390,60 @@ STRINGS = {
         "zh-tw": "轉動中…",
     },
     "log_spin_wait_skip": {
-        "en":    "Waiting for the spin (skip-forward)...",
-        "zh-tw": "等待轉動畫面（快轉）…",
+        "en":    "  → waiting for skip or collect prompt",
+        "zh-tw": "  → 等待快轉或領取提示",
+    },
+    "log_spin_skip": {
+        "en":    "  → skip: Enter (fast-forward the reveal)",
+        "zh-tw": "  → 快轉：Enter（跳過開獎動畫）",
+    },
+    "log_spin_skip_off": {
+        "en":    "  (no skip template — skip-forward disabled, will wait for the reveal)",
+        "zh-tw": "  （無快轉樣本 — 已停用快轉，將等待開獎動畫）",
+    },
+    "log_spin_collect_cleared": {
+        "en":    "  · collect prompt cleared in {secs}s (collecting animation)",
+        "zh-tw": "  · 領取提示於 {secs} 秒後消失（領取動畫）",
     },
     "log_spin_wait_collect": {
-        "en":    "Waiting for the prize to collect...",
-        "zh-tw": "等待領取獎品…",
+        "en":    "  → waiting for collect prompt",
+        "zh-tw": "  → 等待領取提示出現",
     },
     "log_spin_stage_slow": {
         "en":    "Still waiting for the wheelspin screen — recheck the template/threshold if this persists.",
         "zh-tw": "仍在等待轉輪畫面 — 若持續發生，請重新檢查樣本／門檻。",
     },
     "log_spin_collect": {
-        "en":    "Collecting reward...",
-        "zh-tw": "領取獎勵…",
+        "en":    "  → collect: Enter (takes all 3 prizes)",
+        "zh-tw": "  → 領取：Enter（一次領取全部 3 個獎勵）",
+    },
+    "log_spin_end_esc": {
+        "en":    "  → final spin — collect: Esc (takes all 3 prizes, then exits to the menu)",
+        "zh-tw": "  → 最後一轉 — 領取：Esc（領取全部 3 個獎勵後返回選單）",
+    },
+    "log_spin_detected": {
+        "en":    "  ✓ {label} detected ({conf}) — {secs}s",
+        "zh-tw": "  ✓ 偵測到{label}（{conf}）— {secs} 秒",
+    },
+    "log_spin_wait_dup": {
+        "en":    "  → waiting for duplicate menu or next spin",
+        "zh-tw": "  → 等待重複選單或下一次轉動",
     },
     "log_spin_no_dup": {
-        "en":    "No duplicate menu — continuing.",
-        "zh-tw": "無重複獎勵選單 — 繼續。",
+        "en":    "  ✓ no more duplicates — next spin ({secs}s)",
+        "zh-tw": "  ✓ 沒有更多重複 — 下一次轉動（{secs} 秒）",
+    },
+    "log_spin_back_menu": {
+        "en":    "  ✓ no more duplicates — back at the My Horizon menu ({secs}s)",
+        "zh-tw": "  ✓ 沒有更多重複 — 已返回「我的 HORIZON」選單（{secs} 秒）",
     },
     "log_spin_dup_garage": {
-        "en":    "Duplicate #{n} found → Add to Garage.",
-        "zh-tw": "發現重複 #{n} → 加入車庫。",
+        "en":    "  → duplicate #{n}: Add to Garage (Enter)",
+        "zh-tw": "  → 重複 #{n}：加入車庫（Enter）",
     },
     "log_spin_dup_sell": {
-        "en":    "Duplicate #{n} found → Sell.",
-        "zh-tw": "發現重複 #{n} → 賣出。",
+        "en":    "  → duplicate #{n}: Sell (Down×2 → Enter)",
+        "zh-tw": "  → 重複 #{n}：賣出（Down×2 → Enter）",
     },
     "log_spin_limit_reached": {
         "en":    "Reached target of {n} spins. Stopping.",
@@ -284,6 +476,64 @@ STRINGS = {
     "log_race_limit_reached": {
         "en":    "Reached target of {n} races. Stopping.",
         "zh-tw": "已完成目標 {n} 場，自動停止。",
+    },
+    # ── Race menu navigation (main menu → Start screen) ──
+    "log_race_nav_begin": {
+        "en":    "Main menu detected — navigating to your last EventLab event…",
+        "zh-tw": "偵測到主選單 — 正在前往你上次的 EventLab 賽事…",
+    },
+    "log_race_at_start": {
+        "en":    "Start screen detected — skipping menu navigation.",
+        "zh-tw": "偵測到開始畫面 — 略過選單導航。",
+    },
+    "log_race_nav_detected": {
+        "en":    "  ✓ {label} ({conf}) — {secs}s",
+        "zh-tw": "  ✓ {label}（{conf}）— {secs} 秒",
+    },
+    "log_race_nav_click": {
+        "en":    "  → click {label}",
+        "zh-tw": "  → 點擊 {label}",
+    },
+    "log_race_nav_enter": {
+        "en":    "  → Enter: {label}",
+        "zh-tw": "  → Enter：{label}",
+    },
+    "log_race_nav_fail": {
+        "en":    "  ✗ {label} not found in {secs}s — aborting navigation. Are you on the main menu and connected?",
+        "zh-tw": "  ✗ {secs} 秒內找不到 {label} — 中止導航。請確認在主選單且已連線。",
+    },
+    "log_race_nav_done": {
+        "en":    "  ✓ navigation complete — at the Start screen.",
+        "zh-tw": "  ✓ 導航完成 — 已到達開始畫面。",
+    },
+    # ── Race exit (results → main menu) ──
+    "log_race_exit_begin": {
+        "en":    "Returning to the main menu…",
+        "zh-tw": "正在返回主選單…",
+    },
+    "log_race_exit_continue": {
+        "en":    "  → Enter: Continue (leaving the race)",
+        "zh-tw": "  → Enter：繼續（離開賽事）",
+    },
+    "log_race_exit_menu_detected": {
+        "en":    "  ✓ \"What's Next\" menu ({conf}) — {secs}s",
+        "zh-tw": "  ✓「接下來做什麼」選單（{conf}）— {secs} 秒",
+    },
+    "log_race_exit_esc_menu": {
+        "en":    "  → Esc: close the \"What's Next\" menu",
+        "zh-tw": "  → Esc：關閉「接下來做什麼」選單",
+    },
+    "log_race_exit_esc_world": {
+        "en":    "  → Esc: open the main menu",
+        "zh-tw": "  → Esc：開啟主選單",
+    },
+    "log_race_at_menu": {
+        "en":    "  ✓ back at the main menu.",
+        "zh-tw": "  ✓ 已返回主選單。",
+    },
+    "log_race_exit_fail": {
+        "en":    "  ✗ couldn't confirm the main menu in {secs}s — stopping anyway.",
+        "zh-tw": "  ✗ {secs} 秒內無法確認主選單 — 仍然停止。",
     },
     "log_delete_stopped": {
         "en":    "Auto Delete stopped.",
@@ -730,6 +980,38 @@ STRINGS = {
     "race_tpl_restart_menu": {
         "en":    "Restart Race menu",
         "zh-tw": "重新開始比賽選單",
+    },
+    "race_tpl_creative_hub": {
+        "en":    "Creative Hub button (top nav)",
+        "zh-tw": "創意中心按鈕（上方導覽列）",
+    },
+    "race_tpl_eventlab": {
+        "en":    "EventLab tile",
+        "zh-tw": "EventLab 圖塊",
+    },
+    "race_tpl_play_event": {
+        "en":    "Play Event tile",
+        "zh-tw": "遊玩賽事（Play Event）圖塊",
+    },
+    "race_tpl_events_arrow": {
+        "en":    "Events ◀ tab arrow (top-left)",
+        "zh-tw": "賽事 ◀ 分頁箭頭（左上角）",
+    },
+    "race_tpl_my_history": {
+        "en":    "MY HISTORY screen",
+        "zh-tw": "我的歷史（MY HISTORY）畫面",
+    },
+    "race_tpl_choose_race_type": {
+        "en":    "Choose Race Type screen",
+        "zh-tw": "選擇比賽類型畫面",
+    },
+    "race_tpl_car_select": {
+        "en":    "Car-selection screen",
+        "zh-tw": "車輛選擇畫面",
+    },
+    "race_tpl_next_activity": {
+        "en":    "\"What's Next\" menu (after a race)",
+        "zh-tw": "賽後「接下來做什麼」選單",
     },
     "race_tpl_confirm": {
         "en":    "Confirmation dialog",

@@ -61,9 +61,31 @@ DEFAULT_ROIS: dict[str, Rect] = {
     "mastery_my_cars":      (0.00, 0.10, 0.30, 0.50),  # top of left menu
     "mastery_sort_recent":  (0.30, 0.20, 0.40, 0.70),  # centre sort menu
     "wheelspin_duplicate":  (0.20, 0.20, 0.65, 0.65),  # centre duplicate-reward menu
+    "my_horizon_tab":       (0.00, 0.00, 1.00, 0.15),  # top-nav My Horizon tab
     "super_wheelspin":      (0.00, 0.20, 0.33, 0.65),  # left-column Super Wheelspin tile
     "wheelspin_skip":       (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
     "wheelspin_collect":    (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
+    # ── Race menu navigation (main menu → EventLab → MY HISTORY → Start) ──
+    # Fallback ROIs only; user captures carry a geometry box that supplies the
+    # real ROI. Generous bands here so a no-box capture still detects.
+    "creative_hub":         (0.45, 0.18, 0.45, 0.14),  # top nav bar, right side
+    "eventlab":             (0.20, 0.30, 0.45, 0.45),  # centre EventLab tile
+    "play_event":           (0.25, 0.10, 0.40, 0.55),  # centre Play Event tile
+    "events_arrow":         (0.00, 0.10, 0.12, 0.16),  # ◀ tab arrow, far top-left
+    "my_history":           (0.05, 0.04, 0.45, 0.14),  # MY HISTORY tab row, top-left
+    "choose_race_type":     (0.20, 0.00, 0.60, 0.30),  # centre yellow header
+    "car_select":           (0.00, 0.00, 1.00, 0.30),  # car-selection top band
+    # ── Buy (main menu → Car Collection → Subaru → buy) ──
+    # Fallback ROIs only; user captures carry a geometry box. Generous bands.
+    "collection_log":       (0.00, 0.30, 0.45, 0.55),  # 收藏日記 tile, main menu left
+    "discover_japan":       (0.40, 0.10, 0.55, 0.75),  # DISCOVER JAPAN series card, right
+    "car_collection":       (0.00, 0.55, 0.45, 0.40),  # 車輛收藏 tile, bottom-left of grid
+    "subaru":               (0.00, 0.45, 1.00, 0.55),  # Subaru brand tile (brand view, bottom)
+    "buy_target_car":       (0.40, 0.45, 0.60, 0.55),  # target car tile (after 1-notch scroll)
+    # ── Race exit (results → main menu) ──
+    # The recommended "What's Next" menu shown after Continue. Capture the
+    # fixed top-left "接下來做什麼" / "What's Next" heading (invariant position).
+    "next_activity":        (0.00, 0.00, 0.45, 0.20),  # top-left heading
 }
 
 
@@ -84,11 +106,38 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
     "mastery_sort_recent": ("recent", "recently", "新增", "最近"),
     # Captured prompts are the question/prompt text (see templates). Hints are
     # bilingual so OCR confirm works whichever language the game renders.
-    "wheelspin_duplicate": ("這輛車", "什麼操作", "this car", "what would",
+    # Template is now the solid-yellow "Car Already Owned" header (invariant bg);
+    # hints match that text first. Old menu-body hints ("what would", options)
+    # kept as fallback for any capture still on the body text.
+    "wheelspin_duplicate": ("already owned", "owned", "already",
+                            "這輛車", "什麼操作", "this car", "what would",
                             "garage", "sell", "車庫", "賣出", "贈送"),
+    "my_horizon_tab": ("my horizon", "horizon", "我的地平線", "地平線", "地平线"),
     "super_wheelspin": ("super", "wheelspin", "horizon", "超級", "輪盤"),
     "wheelspin_skip": ("略過", "skip", "跳過"),
-    "wheelspin_collect": ("取得", "獎勵", "抽獎", "再次", "collect", "prize", "reward"),
+    "wheelspin_collect": ("collect prize", "spin again", "collect", "prize",
+                          "reward", "取得", "獎勵", "抽獎", "再次"),
+    # Race menu navigation. Hints are best-effort confirms; at native capture
+    # resolution the pixel match is strong enough that OCR is usually skipped.
+    "creative_hub": ("creative hub", "creative", "hub", "創意中心", "創意"),
+    "eventlab": ("eventlab", "event lab", "create", "browse", "創作"),
+    "play_event": ("play event", "play", "event", "遊玩"),
+    "events_arrow": (),  # symbol, no text to confirm
+    "my_history": ("my history", "history", "歷史", "我的歷史"),
+    "choose_race_type": ("choose race type", "race type", "choose how", "賽事類型"),
+    "car_select": ("current car", "current", "choose", "car", "vehicle",
+                   "目前車輛", "選擇", "車輛"),
+    "next_activity": ("what's next", "whats next", "what next", "next",
+                      "接下來做什麼", "接下來", "做什麼"),
+    # Buy navigation. Hints best-effort; at native capture the pixel match is
+    # usually strong enough that OCR is skipped.
+    "collection_log": ("collection journal", "collection", "journal",
+                       "收藏日記", "收藏日誌", "收藏"),
+    "discover_japan": ("discover japan", "discover", "japan",
+                       "master explorer", "explorer", "探索大師", "探索"),
+    "car_collection": ("car collection", "collection", "車輛收藏", "車輛", "收藏"),
+    "subaru": ("subaru", "速霸陸", "速霸陆"),  # brand tile (logo may have no text)
+    "buy_target_car": (),  # a specific car tile (image), no reliable text hint
 }
 
 # All template images capture text UI elements. Edge matching on text is
@@ -108,6 +157,30 @@ def _scale_by_anchor(val: float, ref_dim: int, screen_dim: int,
     if val > ref_dim / 2:
         return screen_dim - (ref_dim - val) * scale
     return val * scale
+
+
+_ASPECT_16_9 = 16.0 / 9.0
+
+def _content_box(w: int, h: int) -> tuple[float, float, float, float]:
+    """The centred 16:9 region Forza anchors its MENU UI to. Pillarboxed (bars
+    left/right) when the screen is wider than 16:9, letterboxed (bars top/
+    bottom) when taller. Returns (x, y, w, h) in pixels. Same model as
+    capture._content_box used for mastery node clicks."""
+    if w <= 0 or h <= 0:
+        return 0.0, 0.0, float(w), float(h)
+    if w / h > _ASPECT_16_9:                 # wider than 16:9 → limit by height
+        bw = h * _ASPECT_16_9
+        return (w - bw) / 2.0, 0.0, bw, float(h)
+    bh = w / _ASPECT_16_9                     # taller than 16:9 → limit by width
+    return 0.0, (h - bh) / 2.0, float(w), bh
+
+
+# Geometry-ROI anchoring: menu/dialog elements live inside the centred 16:9
+# content box (above), so their box must be mapped through that box to survive
+# an aspect change (e.g. an ultrawide capture used on a 16:9 screen). Only true
+# in-game HUD (the race timer) is anchored to the raw screen edge — listed here
+# so it keeps the edge model. Everything else is treated as a centred menu.
+_GEOM_EDGE_KEYS: frozenset[str] = frozenset({"racing"})
 
 
 def _clip_roi(frame: np.ndarray, roi: Optional[Rect]) -> tuple[np.ndarray, int, int]:
@@ -290,6 +363,13 @@ class ScreenDetector:
             self.cfg.get("detector_roi_aspect_fix", True))
         self._roi_aspect_tol: float = float(
             self.cfg.get("detector_roi_aspect_tol", 0.05))
+        # Hard floor for the soft threshold: no match below this confidence ever
+        # fires, regardless of the per-template slider (`thresh_<key>`). Raised
+        # from 0.45 → 0.70 because matches in the 45–70% band misfired a lot on
+        # real hardware (Ally X). Soft threshold = max(this, slider * 0.92).
+        # Tunable via config `detector_min_threshold`.
+        self._min_thresh: float = float(
+            self.cfg.get("detector_min_threshold", 0.70))
         # Geometry-derived ROI (Stage 2): when a template carries its capture
         # box (x,y,w,h) + capture resolution, derive an anchor-aware search ROI
         # from it instead of the hand-tuned DEFAULT_ROIS. Only applies to keys
@@ -302,6 +382,15 @@ class ScreenDetector:
         self._geom_variance: float = float(
             self.cfg.get("detector_geom_variance", 0.05))
         self._geom: dict[str, dict] = {}
+        # ROI-only matching (default ON): every tracked element is fixed-position
+        # and covered by its (geometry-/DEFAULT_) ROI, so the full-screen
+        # fallback matchTemplate — the single most expensive per-check op (~680ms
+        # over an 11MP 5120x2160 frame; the duplicate poll ran it twice/cycle for
+        # ~1.5s of reaction lag) — buys nothing and is skipped. Detection becomes
+        # ROI-only (~35ms). Kill-switch: detector_roi_only=false restores the
+        # ROI-first + full-screen-fallback behaviour (for setups where an element
+        # can land outside its expected ROI).
+        self._roi_only: bool = bool(self.cfg.get("detector_roi_only", True))
         # OCR cooldown: minimum seconds between actual OCR calls for the same
         # key.  Without this, a score stuck in the borderline zone triggers
         # rapidocr on every check interval (~0.5 s), causing CPU spikes.
@@ -421,11 +510,30 @@ class ScreenDetector:
             return None
         bx, by, bw, bh = g["box"]
         cap_w, cap_h = g["cap_w"], g["cap_h"]
-        scale = frame_h / cap_h
-        x = _scale_by_anchor(bx, cap_w, frame_w, scale)
-        y = _scale_by_anchor(by, cap_h, frame_h, scale)
-        w = bw * scale
-        h = bh * scale
+        if key in _GEOM_EDGE_KEYS:
+            # Edge-anchored HUD: scale by height, anchor to the nearest screen
+            # edge (the timer/HUD stays glued to the edge on any aspect).
+            scale = frame_h / cap_h
+            x = _scale_by_anchor(bx, cap_w, frame_w, scale)
+            y = _scale_by_anchor(by, cap_h, frame_h, scale)
+            w = bw * scale
+            h = bh * scale
+        else:
+            # Centred-16:9 menu element: map the box through the content box of
+            # BOTH the capture and the live frame, so the pillarbox/letterbox
+            # offset is handled across aspect changes — e.g. a 5120x2160
+            # ultrawide capture (menu pillarboxed ~640px in) used on a 1920x1080
+            # 16:9 screen would otherwise land the ROI ~320px off and miss. The
+            # element's fraction WITHIN the capture box is preserved into the
+            # live box. (capture box ≥16:9 → height-limited → scale == frame_h/
+            # cap_h, matching load_template's height-based template scaling.)
+            ccx, ccy, ccw, cch = _content_box(cap_w, cap_h)
+            lcx, lcy, lcw, lch = _content_box(frame_w, frame_h)
+            sx = lcw / ccw if ccw else 1.0     # == lch/cch (both 16:9)
+            x = lcx + (bx - ccx) * sx
+            y = lcy + (by - ccy) * sx
+            w = bw * sx
+            h = bh * sx
         vx = frame_w * self._geom_variance
         vy = frame_h * self._geom_variance
         rx = max(0.0, x - vx)
@@ -452,6 +560,12 @@ class ScreenDetector:
         if roi_result.matched:
             return roi_result
 
+        # ROI-only mode (default): elements are fixed-position within their ROI,
+        # so the full-screen fallback is pure cost — skip it entirely. This is
+        # what makes detection fast enough to react promptly (see _roi_only).
+        if self._roi_only:
+            return roi_result
+
         # Skip the costly full-screen fallback on stable (wait_for) checks
         # where the ROI score is clearly low — see _should_run_full. Single
         # shot detect (stable=False) always runs it so click ops never miss.
@@ -469,7 +583,7 @@ class ScreenDetector:
             full_result.score *= 0.94
         full_result.matched = (
             self._stable_match(f"{key}:full", full_result.score, threshold)
-            if stable else full_result.score >= max(0.45, threshold * 0.92)
+            if stable else full_result.score >= max(self._min_thresh, threshold * 0.92)
         )
         return full_result
 
@@ -570,7 +684,7 @@ class ScreenDetector:
                         threshold: float, roi: Optional[Rect],
                         source: str, stable: bool) -> MatchResult:
         area, off_x, off_y = _clip_roi(frame, roi)
-        soft_threshold = max(0.45, threshold * 0.92)
+        soft_threshold = max(self._min_thresh, threshold * 0.92)
 
         gray_area = _prepare_gray(area)
         gray_tpl, edge_tpl = self._prepared_template(template)
@@ -714,7 +828,7 @@ class ScreenDetector:
         del hist[:-needed]
         if len(hist) < needed:
             return False
-        soft_threshold = max(0.45, threshold * 0.92)
+        soft_threshold = max(self._min_thresh, threshold * 0.92)
         return all(v >= soft_threshold for v in hist)
 
     def save_debug(self, frame: np.ndarray, key: str, result: MatchResult):
