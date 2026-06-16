@@ -32,16 +32,16 @@ STRINGS = {
         "zh-tw": "🏁  自動掛機刷技術點",
     },
     "race_description": {
-        "en":    "Two requirements before starting: (1) you're already in the car you want to AFK-race with, and (2) the EventLab event you last played is the one you want to grind. Then either stay on the main menu (FAFE navigates to your last-played EventLab event and back) or stop at the Start Race screen yourself — FAFE detects which screen you're on and takes over. It detects the Start Race and race-end (Restart) screens; the rest is timed.",
-        "zh-tw": "開始前有兩個前提：(1) 你已經在要掛機使用的車上，(2) 你上次遊玩的 EventLab 賽事就是你想刷的地圖。接著你可以停在主選單（FAFE 會自動前往你上次遊玩的 EventLab 賽事並返回），或自行停在開始賽事的介面上 — FAFE 會偵測你所在的畫面並接手。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
+        "en":    "AFK-races an EventLab event for skill points — holds W the whole way and restarts each time.\n\nBefore you start:\n•  Be in the car you want to race with.\n•  Make sure your last-played EventLab event is the one you want to grind.\n\nThen either stay on the main menu (FAFE drives to your last event and back) or stop on the Start Race screen yourself. FAFE detects which screen you're on and takes over — it detects the Start Race and race-end screens; the rest is timed.",
+        "zh-tw": "在 EventLab 賽事中掛機刷技術點——全程按住 W，每場結束自動重開。\n\n開始前：\n•  先進入你要掛機使用的車輛。\n•  確認你上次遊玩的 EventLab 賽事就是你想刷的地圖。\n\n接著你可以停在主選單（FAFE 會自動前往你上次的賽事並返回），或自行停在開始賽事畫面。FAFE 會偵測你所在的畫面並接手——它偵測開始賽事與賽事結束畫面，其餘以定時操作。",
     },
     "tab_mastery": {
         "en":    "⭐  Auto Unlock 22B",
         "zh-tw": "⭐  自動解鎖22B轉輪",
     },
     "mastery_description": {
-        "en":    "Before starting, make sure you are in your My Home garage (not the Horizon Festival map menu) and the newest 22B in the top-left is brand new. The tool will snake downward and process each car one by one.",
-        "zh-tw": "開始前請確保在我的住所裡的車庫（非大世界選單），並且左上角最新的是全新的22B，程式會用蛇行的方式往下開始一台一台處理。",
+        "en":    "Unlocks the mastery tree on every 22B-STi in your garage, one car at a time.\n\nBefore you start:\n•  Be in your My Home garage (not the Horizon Festival map menu).\n•  Make sure the newest 22B in the top-left is brand new.\n\nThe tool snakes downward through the grid, processing each car automatically.",
+        "zh-tw": "自動為車庫中每一輛 22B-STi 解鎖熟練度樹，一輛接一輛。\n\n開始前：\n•  停在我的住所裡的車庫（非大世界選單）。\n•  確認左上角最新的 22B 是全新的。\n\n程式會以蛇行方式往下遍歷整個車庫，自動處理每一輛車。",
     },
 
     "tab_buy": {
@@ -49,8 +49,8 @@ STRINGS = {
         "zh-tw": "🛒  自動購買22B-STi",
     },
     "buy_description": {
-        "en":    "Auto Buy is purpose-built to farm the Subaru Impreza 22B-STi. Leave FAFE on the main menu and it navigates to the 22B-STi on its own (Collection Journal → Discover Japan / Master Explorer → Car Collection → Subaru → 22B-STi), buys it the set number of times, then returns to the main menu. You can also position on the 22B-STi yourself and press Start — the buy macro runs from wherever you are.",
-        "zh-tw": "自動購買專為刷取 Subaru Impreza 22B-STi 設計。停在主選單，FAFE 會自動前往 22B-STi（收藏日記 → 探索大師 → 車輛收藏 → Subaru → 22B-STi），購買指定次數後返回主選單。你也可以自行停在 22B-STi 畫面再按開始，購買巨集會在目前畫面執行。",
+        "en":    "Purpose-built to farm the Subaru Impreza 22B-STi.\n\nStay on the main menu and FAFE navigates there on its own:\nCollection Journal → Discover Japan / Master Explorer → Car Collection → Subaru → 22B-STi\nIt buys the set number of times, then returns to the main menu.\n\nYou can also position on the 22B-STi yourself and press Start — the buy macro runs from wherever you are.",
+        "zh-tw": "專為刷取 Subaru Impreza 22B-STi 設計。\n\n停在主選單即可，FAFE 會自動前往：\n收藏日記 → 探索大師 → 車輛收藏 → Subaru → 22B-STi\n購買指定次數後返回主選單。\n\n你也可以自行停在 22B-STi 畫面再按開始，購買巨集會在目前畫面執行。",
     },
     "status_starting_buy": {
         "en":    "Starting Auto Buy...",
@@ -205,8 +205,8 @@ STRINGS = {
     },
     # ── Full Auto (chained orchestrator) ──────────────────────
     "full_auto_description": {
-        "en":    "Chains everything into one farm loop: AFK race (for mastery points) → buy 33 cars → unlock their mastery trees → sell them → repeat. Set the races per cycle and whether to spin wheels each cycle. Each step needs its own templates captured (race nav, buy nav). Runs until you press Stop / F9.",
-        "zh-tw": "將所有功能串成一個循環：賽事掛機（賺取熟練點數）→ 購買 33 輛車 → 解鎖熟練樹 → 賣出 → 重複。設定每循環的賽事數，以及是否每循環轉輪。各步驟需先擷取各自的樣本（賽事導航、購買導航）。會持續執行直到你按下停止／F9。",
+        "en":    "Chains everything into one farm loop:\nAFK race (for mastery points) → buy 33 cars → unlock their mastery trees → sell them → repeat.\n\nSet the races per cycle and whether to spin wheels each cycle. Each step needs its own templates captured (race nav, buy nav). Runs until you press Stop / F9.",
+        "zh-tw": "將所有功能串成一個循環：\n賽事掛機（賺取熟練點數）→ 購買 33 輛車 → 解鎖熟練樹 → 賣出 → 重複。\n\n設定每循環的賽事數，以及是否每循環轉輪。各步驟需先擷取各自的樣本（賽事導航、購買導航）。會持續執行直到你按下停止／F9。",
     },
     "full_auto_count_label": {
         "en":    "Races per cycle (mastery points):",
@@ -269,8 +269,8 @@ STRINGS = {
         "zh-tw": "活動記錄",
     },
     "delete_description": {
-        "en":    "Automatically deletes cars one by one. For each car: opens action menu → navigates down 4 times → confirms → navigates down once → confirms deletion.\n\nBefore starting, go to your garage and select the oldest car you want to start deleting from (bottom-right of the grid). The tool deletes from oldest to newest.\n\nIf there is a car you don't want to delete in the path, press Stop to cancel.",
-        "zh-tw": "自動逐一刪除車輛。每輛車的操作：開啟動作選單 → 下鍵 ×4 → 確認 → 下鍵 ×1 → 確認刪除。\n\n使用前停在車庫裡你想批量刪除中最舊的那台（最右下角的），程式會由舊到最新去刪除。\n\n如果路徑上有不想刪除的車請記得按停止鍵取消。",
+        "en":    "Deletes cars one by one, from oldest to newest.\n\nBefore you start:\n•  Go to your garage and stop on the oldest car you want to start from (bottom-right of the grid).\n•  Make sure the deletion path holds only cars you want gone — it can't skip any.\n\nFor each car it presses: action menu → Down ×4 → confirm → Down ×1 → confirm. If a car you want to keep is in the path, press Stop to cancel.",
+        "zh-tw": "由舊到新逐一刪除車輛。\n\n開始前：\n•  停在車庫，選取你想開始刪除中最舊的那台（網格最右下角）。\n•  確認刪除路徑上只有你想刪掉的車——途中無法跳過任何一台。\n\n每輛車的操作：開啟動作選單 → 下鍵 ×4 → 確認 → 下鍵 ×1 → 確認刪除。若路徑上有想保留的車，請按停止取消。",
     },
     "status_starting_delete": {
         "en":    "Starting Delete Used Cars...",
@@ -306,12 +306,24 @@ STRINGS = {
     },
     # ── Auto Spin Wheel ───────────────────────────────────────
     "spin_description": {
-        "en":    "Automatically spins the Super Wheelspin over and over. From the My Horizon menu it selects Super Wheelspin, then each spin waits for the on-screen prompt before acting: skip-forward → collect. If a duplicate-reward menu appears, it is handled per the mode below.\n\nBefore starting, open the My Horizon menu with the Super Wheelspin tile visible.\n\n⚠ Sell mode sells duplicate cars automatically and UNATTENDED — once started it sells every duplicate it sees, with no confirmation. Use Add to Garage if unsure.",
-        "zh-tw": "自動連續轉動超級輪盤。從「我的 HORIZON」選單選擇超級輪盤後，每次轉動都會等待畫面提示再操作：快轉 → 領取。若出現重複獎勵選單，會依下方模式處理。\n\n開始前請開啟「我的 HORIZON」選單，並確保看得到超級輪盤圖示。\n\n⚠ 賣出模式會自動且無人看管地賣掉重複車輛 — 一旦啟動，看到任何重複車輛都會直接賣出、不會再次確認。不確定請選「加入車庫」。",
+        "en":    "Spins the Super Wheelspin over and over. From the My Horizon menu it selects Super Wheelspin, then each spin waits for the on-screen prompt: skip-forward → collect all 3 prizes. Duplicate-reward menus are handled per the mode below.\n\nBefore you start:\n•  Open the My Horizon menu with the Super Wheelspin tile visible.\n\n⚠  Sell mode sells duplicate cars automatically and UNATTENDED — once started it sells every duplicate it sees, with no confirmation. Use Add to Garage if unsure.",
+        "zh-tw": "連續轉動超級輪盤。從「我的 HORIZON」選單選擇超級輪盤後，每次轉動都會等待畫面提示：快轉 → 一次領取全部 3 個獎勵。重複獎勵選單會依下方模式處理。\n\n開始前：\n•  開啟「我的 HORIZON」選單，並確保看得到超級輪盤圖示。\n\n⚠  賣出模式會自動且無人看管地賣掉重複車輛——一旦啟動，看到任何重複車輛都會直接賣出、不會再次確認。不確定請選「加入車庫」。",
     },
     "spin_count_label": {
         "en":    "Number of spins to run:",
         "zh-tw": "要轉動的次數：",
+    },
+    "spin_type_label": {
+        "en":    "Wheel:",
+        "zh-tw": "輪盤：",
+    },
+    "spin_type_super": {
+        "en":    "Super (3 prizes)",
+        "zh-tw": "超級（3 獎）",
+    },
+    "spin_type_normal": {
+        "en":    "Normal (1 prize)",
+        "zh-tw": "一般（1 獎）",
     },
     "spin_mode_label": {
         "en":    "Duplicate handling:",
@@ -336,6 +348,10 @@ STRINGS = {
     "spin_tpl_super": {
         "en":    "Super Wheelspin tile",
         "zh-tw": "超級輪盤圖示",
+    },
+    "spin_tpl_normal": {
+        "en":    "Wheelspin tile (normal)",
+        "zh-tw": "一般輪盤圖示",
     },
     "spin_tpl_skip": {
         "en":    "Skip-forward prompt (bottom-left)",
@@ -377,6 +393,10 @@ STRINGS = {
         "en":    "  (no My Horizon tab template — assuming you're already on the My Horizon menu)",
         "zh-tw": "  （無「我的 HORIZON」分頁樣本 — 假設已在「我的 HORIZON」選單）",
     },
+    "log_spin_on_my_horizon": {
+        "en":    "  Already on the My Horizon menu ({label} visible) — clicking the wheel, skipping the tab.",
+        "zh-tw": "  已在「我的 HORIZON」選單（可見{label}）— 直接點擊輪盤，略過分頁。",
+    },
     "log_spin_select_super": {
         "en":    "Selecting Super Wheelspin...",
         "zh-tw": "選擇超級輪盤…",
@@ -384,6 +404,14 @@ STRINGS = {
     "log_spin_super_not_found": {
         "en":    "Super Wheelspin tile not found — start on the My Horizon menu with it visible, then try again.",
         "zh-tw": "找不到超級輪盤圖示 — 請在「我的 HORIZON」選單（可看到超級輪盤）開始後再試一次。",
+    },
+    "log_spin_select_tile": {
+        "en":    "Selecting {label}...",
+        "zh-tw": "選擇{label}…",
+    },
+    "log_spin_tile_not_found": {
+        "en":    "{label} not found — start on the My Horizon menu with it visible, then try again.",
+        "zh-tw": "找不到{label} — 請在「我的 HORIZON」選單（可看到該圖示）開始後再試一次。",
     },
     "log_spin_spin": {
         "en":    "Spinning...",
@@ -498,6 +526,10 @@ STRINGS = {
         "en":    "  → Enter: {label}",
         "zh-tw": "  → Enter：{label}",
     },
+    "log_race_nav_retry": {
+        "en":    "  ↻ {label} not detected yet (load in progress) — pressing Enter again",
+        "zh-tw": "  ↻ 尚未偵測到{label}（載入中）— 再按一次 Enter",
+    },
     "log_race_nav_fail": {
         "en":    "  ✗ {label} not found in {secs}s — aborting navigation. Are you on the main menu and connected?",
         "zh-tw": "  ✗ {secs} 秒內找不到 {label} — 中止導航。請確認在主選單且已連線。",
@@ -599,6 +631,10 @@ STRINGS = {
         "en":    "Appearance",
         "zh-tw": "外觀",
     },
+    "settings_system_section": {
+        "en":    "System",
+        "zh-tw": "系統",
+    },
     "settings_shortcuts_section": {
         "en":    "Shortcuts",
         "zh-tw": "快捷鍵",
@@ -630,6 +666,10 @@ STRINGS = {
     "setting_overlay": {
         "en":    "Game status overlay:",
         "zh-tw": "遊戲狀態浮層：",
+    },
+    "setting_mute": {
+        "en":    "Mute game while running:",
+        "zh-tw": "執行時將遊戲靜音：",
     },
     "overlay_indicator": {
         "en":    "Overlay",
@@ -695,18 +735,6 @@ STRINGS = {
     "res_builtin": {
         "en":    "Built-in (auto-scaled)",
         "zh-tw": "內建（自動縮放）",
-    },
-    "res_1080p": {
-        "en":    "1080p (Built-in)",
-        "zh-tw": "1080p（內建）",
-    },
-    "res_1440p": {
-        "en":    "1440p (Built-in)",
-        "zh-tw": "1440p（內建）",
-    },
-    "res_2160p": {
-        "en":    "4K (Built-in)",
-        "zh-tw": "4K（內建）",
     },
     "res_custom": {
         "en":    "Custom (Capture your own)",
@@ -1040,6 +1068,34 @@ STRINGS = {
     "log_race_started": {
         "en":    "Race automation started.",
         "zh-tw": "自動競速已啟動。",
+    },
+    "log_bg_input_on": {
+        "en":    "⚙ Background input ON (experimental) — sending to the game window without focus. Note: driving (held W) may not register this way.",
+        "zh-tw": "⚙ 背景輸入已開啟（實驗性）— 不需切到遊戲也能送出輸入。注意：駕駛（按住 W）可能無法以此方式生效。",
+    },
+    "log_bg_input_not_found": {
+        "en":    "⚠ Background input ON but no window titled '{title}' was found — using normal (focused) input instead.",
+        "zh-tw": "⚠ 已開啟背景輸入，但找不到標題含「{title}」的視窗 — 改用一般（需聚焦）輸入。",
+    },
+    "log_bg_window_size": {
+        "en":    "  Detecting against game window: {w}×{h} (don't move/resize it while running).",
+        "zh-tw": "  以遊戲視窗為偵測範圍：{w}×{h}（執行期間請勿移動或縮放視窗）。",
+    },
+    "log_bg_keep_active": {
+        "en":    "  Keep-alive ON — telling the game it's active so it won't auto-pause (experimental; only works if the game trusts it).",
+        "zh-tw": "  保持作用中已開啟 — 持續告知遊戲它仍為作用中視窗以避免自動暫停（實驗性；僅在遊戲採信時有效）。",
+    },
+    "log_bg_capture_window": {
+        "en":    "  Window capture ON (PrintWindow) — sees the game even when covered by another window. NOTE: may be black for DirectX games; if detection fails, set background_capture back to 'region'.",
+        "zh-tw": "  視窗擷取已開啟（PrintWindow）— 即使被其他視窗遮住也能擷取遊戲畫面。注意：DirectX 遊戲可能擷取到全黑；若偵測失敗，請將 background_capture 改回 'region'。",
+    },
+    "log_game_muted": {
+        "en":    "  Game muted for this run (other apps unaffected).",
+        "zh-tw": "  本次執行已將遊戲靜音（不影響其他程式）。",
+    },
+    "log_game_unmuted": {
+        "en":    "  Game unmuted.",
+        "zh-tw": "  已取消遊戲靜音。",
     },
     "log_race_stopped": {
         "en":    "Race automation stopped.",

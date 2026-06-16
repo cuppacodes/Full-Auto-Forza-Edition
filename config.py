@@ -22,14 +22,16 @@ else:
 CONFIG_FILE       = os.path.join(BASE_DIR, "config.json")
 TEMPLATES_DIR     = os.path.join(BASE_DIR, "templates")
 
-RESOLUTION_SETS = ["1080p", "1440p", "2160p", "custom"]
+RESOLUTION_SETS = ["built-in", "custom"]
 
-# Single bundled reference resolution. Built-in templates are authored once at
-# this (highest) resolution and DOWNSCALED to lower ones at load time — clean,
-# since downscaling preserves edges/text far better than upscaling a low-res
-# crop. Lets one template set serve every preset resolution (see
-# capture.load_template ref_folder / template_prefer_reference).
-REFERENCE_RES = "2160p"
+# The bundled template set lives in the "built-in" folder. It's authored once at
+# the highest resolution (4K) and DOWNSCALED at load time to the detected
+# monitor — downscaling preserves edges/text far better than upscaling — so one
+# set serves every resolution (see capture.load_template ref_folder /
+# template_prefer_reference). The folder was renamed from "2160p" to "built-in"
+# once the per-resolution picks (1080p/1440p/2160p) were dropped; config.load
+# migrates any stored preset value to this.
+REFERENCE_RES = "built-in"
 
 # ── Template languages ───────────────────────────────────────
 # Templates are organised by the language of the GAME's on-screen menus (NOT
@@ -165,8 +167,8 @@ DEFAULTS = {
     "report_key":        "f12",
     "overlay_key":       "f10",
     "monitor_index":     _get_primary_monitor_index(),
-    "race_resolution":    "1080p",
-    "mastery_resolution": "1080p",
+    "race_resolution":    "built-in",
+    "mastery_resolution": "built-in",
     # Game-menu language for templates: "auto" (follow app UI lang) / cht / en
     "template_lang":      "auto",
     # Race settings
@@ -217,11 +219,16 @@ DEFAULTS = {
     "wheelspin_resolution":      "custom",
     "thresh_wheelspin_duplicate": 0.60,
     "thresh_super_wheelspin":     0.60,
+    "thresh_normal_wheelspin":    0.60,
     "thresh_my_horizon_tab":      0.60,
     "thresh_wheelspin_skip":      0.60,
     "thresh_wheelspin_collect":   0.60,
     "wheelspin_post_key_wait":   0.5,
     "wheelspin_dup_mode":        "garage",
+    # Which wheel to spin: "super" (Super Wheelspin, 3 prizes) | "normal"
+    # (Wheelspin, 1 prize). Only changes which tile template is clicked to
+    # start; the rest of the flow is identical.
+    "wheelspin_type":            "super",
     # Use the single REFERENCE_RES template set for ALL preset resolutions
     # (downscaled), instead of per-resolution captures. Reversible kill-switch:
     # set false to go back to using each resolution's own folder. Custom
@@ -232,6 +239,26 @@ DEFAULTS = {
     "ui_scale":               "auto",
     "nodes_aspect_fix":       True,
     "auto_english_ime":       True,
+    # Window-aware IO (gameio.GameIO), used by EVERY function. When the game
+    # window is found by title, FAFE drives it through that window: capturing its
+    # client area (works windowed OR borderless, even when covered) and sending
+    # input via PostMessage (works whether the game is focused or not). If the
+    # window isn't found, it falls back to whole-monitor capture + SendInput to
+    # the focused window. KILL-SWITCH: set false to force the legacy path
+    # everywhere. No user-facing toggle — it adapts automatically.
+    "background_input":       True,
+    "background_window_title": "Forza Horizon 6",
+    # Re-assert "active" to the window so it doesn't auto-pause while unfocused
+    # (best-effort; only works if the game trusts WM_ACTIVATE/ACTIVATEAPP).
+    "background_fake_focus":  True,
+    # Capture method when driving the window: "window" = PrintWindow the window's
+    # content directly (works even when another window covers it) | "region" =
+    # grab the screen rectangle it occupies (fast, but blank if occluded).
+    # PrintWindow may return black for some DirectX games — switch to "region".
+    "background_capture":     "window",
+    # Mute ONLY the game's audio while an automation run is active (per-app;
+    # leaves other apps' sound alone), and unmute when it stops. Settings toggle.
+    "mute_game":              False,
     "overlay_enabled":        False,
     # Read-only version check on startup (no download — opens the releases page
     # if a newer version exists). Set false for a fully offline build that makes
@@ -267,6 +294,15 @@ def load() -> dict:
         if data.get("template_lang") == "chs":
             data["template_lang"] = "auto"
             added = True
+        # The resolution model collapsed to Built-in / Custom: the per-pixel
+        # preset folders (1080p/1440p/2160p) were renamed/removed in favour of
+        # one auto-scaled "built-in" set. Migrate any stored preset value so it
+        # points at the built-in set (and the Setup picker shows Built-in).
+        for _rk in ("race_resolution", "mastery_resolution",
+                    "wheelspin_resolution", "buy_resolution"):
+            if data.get(_rk) in ("1080p", "1440p", "2160p"):
+                data[_rk] = REFERENCE_RES
+                added = True
         # Validate monitor index against available monitors (runtime-only;
         # doesn't itself trigger a rewrite).
         try:

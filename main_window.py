@@ -29,12 +29,11 @@ from version import VERSION
 # built (so its widgets/handlers stay valid); only the nav entry is gated.
 SHOW_FULL_AUTO = False
 
-# Race / Buy / Auto Spin Wheel ship pre-captured templates, so their Setup &
-# Templates panel is hidden to declutter the UI. The panel object is still
-# created (capture-session routing references it), just never packed/shown.
-# Mastery keeps its panel — it needs user-clicked node positions. Flip to True
-# to expose the capture/retake controls again.
-SHOW_SETUP_PANELS = False
+# Show the Setup & Templates panel on Race / Buy / Auto Spin Wheel. These ship
+# pre-captured templates, but the panel stays visible so users can switch
+# resolution or recapture. Set False to hide it (templates still work via the
+# bundled set). Mastery always shows its panel — it needs node positions.
+SHOW_SETUP_PANELS = True
 
 # Race Auto detects two screens: the Start Race screen (start_menu) and the
 # race-END screen (restart_menu). racing/confirm are blind timing, so only
@@ -67,6 +66,7 @@ SPIN_TEMPLATE_KEYS = [
     # not captured, wheelspin assumes you're already on the My Horizon menu.
     ("my_horizon_tab",      "spin_tpl_my_horizon"),
     ("super_wheelspin",     "spin_tpl_super"),
+    ("normal_wheelspin",    "spin_tpl_normal"),
     ("wheelspin_skip",      "spin_tpl_skip"),
     ("wheelspin_collect",   "spin_tpl_collect"),
     ("wheelspin_duplicate", "spin_tpl_duplicate"),
@@ -848,7 +848,7 @@ class MainWindow(ctk.CTk):
         desc = ctk.CTkFrame(frame, fg_color="transparent")
         desc.pack(fill="x", padx=12, pady=(12, 4))
         ctk.CTkLabel(desc, text=_at("buy_description", self._lang),
-                     anchor="w", wraplength=480,
+                     anchor="w", wraplength=480, justify="left",
                      font=("Arial", 12)).pack(fill="x")
 
         # Setup panel — optional menu-navigation templates (start/end on the
@@ -927,6 +927,31 @@ class MainWindow(ctk.CTk):
         self._spin_setup = self._make_spin_setup(frame)
         if SHOW_SETUP_PANELS:
             self._spin_setup.pack(fill="x", padx=8, pady=(4, 8))
+
+        # Wheel-type toggle (Super Wheelspin / normal Wheelspin) — only changes
+        # which tile is clicked to start; the rest of the flow is identical.
+        type_row = ctk.CTkFrame(frame, fg_color="transparent")
+        type_row.pack(fill="x", padx=12, pady=(4, 0))
+        ctk.CTkLabel(type_row, text=_at("spin_type_label", self._lang),
+                     font=theme.LABEL_FONT).pack(side="left")
+        self._spin_type_labels = {
+            "super":  _at("spin_type_super", self._lang),
+            "normal": _at("spin_type_normal", self._lang),
+        }
+        cur_type = self._cfg.get("wheelspin_type", "super")
+        if cur_type not in self._spin_type_labels:
+            cur_type = "super"
+        self._spin_type_var = ctk.StringVar(
+            value=self._spin_type_labels[cur_type])
+        ctk.CTkSegmentedButton(
+            type_row,
+            values=[self._spin_type_labels["super"],
+                    self._spin_type_labels["normal"]],
+            variable=self._spin_type_var,
+            command=self._on_spin_type_change,
+            height=32,
+            **theme.segbtn_kwargs(self._cfg),
+        ).pack(side="left", padx=theme.PAD_INLINE)
 
         # Duplicate-handling mode toggle (garage / sell)
         mode_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -1025,6 +1050,11 @@ class MainWindow(ctk.CTk):
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"),
         )
+
+    def _on_spin_type_change(self, val: str):
+        rev = {v: k for k, v in getattr(self, "_spin_type_labels", {}).items()}
+        self._cfg["wheelspin_type"] = rev.get(val, "super")
+        save(self._cfg)
 
     def _on_spin_mode_change(self, val: str):
         rev = {v: k for k, v in getattr(self, "_spin_mode_labels", {}).items()}
@@ -1251,12 +1281,8 @@ class MainWindow(ctk.CTk):
                 lang = cfg.get('lang', 'en')
                 log_cb(_at('startup_switch_to_game', lang))
                 import time as _t
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
-                    if not self._is_game_focused():
-                        log_cb(_at('startup_game_not_focused', lang))
-                    else:
-                        log_cb(_at('startup_game_focused', lang))
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
                     _t.sleep(1)
@@ -1300,12 +1326,8 @@ class MainWindow(ctk.CTk):
                 lang = cfg.get('lang', 'en')
                 log_cb(_at('startup_switch_to_game', lang))
                 import time as _t
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
-                    if not self._is_game_focused():
-                        log_cb(_at('startup_game_not_focused', lang))
-                    else:
-                        log_cb(_at('startup_game_focused', lang))
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
                     _t.sleep(1)
@@ -1346,7 +1368,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1392,7 +1414,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1437,7 +1459,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1592,7 +1614,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1807,6 +1829,11 @@ class MainWindow(ctk.CTk):
 
     def _on_overlay_toggle(self):
         self._set_overlay_enabled(self._overlay_var.get())
+
+    def _on_mute_toggle(self):
+        """Persist the 'mute game while running' setting (applied at run start)."""
+        self._cfg['mute_game'] = bool(self._mute_var.get())
+        save(self._cfg)
 
     def _on_overlay_move(self, x, y):
         """Persist the overlay position after the user drags it."""
@@ -2333,6 +2360,18 @@ class MainWindow(ctk.CTk):
             value=bool(self._cfg.get('overlay_enabled', False)))
         ctk.CTkSwitch(_ov_row, text='', variable=self._overlay_var,
                       command=self._on_overlay_toggle).pack(side='left', padx=8)
+
+        # ── System ────────────────────────────────────────
+        section('settings_system_section')
+        # Mute the game while a run is active (per-app, leaves other apps alone)
+        _mute_row = ctk.CTkFrame(scroll, fg_color='transparent')
+        _mute_row.pack(fill='x', padx=12, pady=4)
+        ctk.CTkLabel(_mute_row, text=_at('setting_mute', self._lang),
+                     width=160, anchor='w').pack(side='left')
+        self._mute_var = ctk.BooleanVar(
+            value=bool(self._cfg.get('mute_game', False)))
+        ctk.CTkSwitch(_mute_row, text='', variable=self._mute_var,
+                      command=self._on_mute_toggle).pack(side='left', padx=8)
 
         # ── Shortcuts ─────────────────────────────────────
         section('settings_shortcuts_section')

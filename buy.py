@@ -35,13 +35,17 @@ from capture import (grab_frame, load_template, get_monitor_dims,
 # IME-safe (dual VK+scancode) key sender shared by Delete/Buy.
 from delete_cars import key_press
 from detector import ScreenDetector
+from gameio import GameIO
 
 
 # Buy macro per loop (unchanged from the old inline implementation).
 BUY_MACRO = ['space', 'down', 'enter', 'enter', 'enter']
 
-NAV_KEYS = ["collection_log", "discover_japan", "car_collection",
-            "subaru", "buy_target_car"]
+# buy_target_car is intentionally NOT here: the target car is now reached by
+# keyboard (S → Enter from the BRAT GL tile that's selected after picking
+# Subaru), not template detection — the tile collided with look-alike Subaru
+# tiles. So nav only needs the four screens it clicks/gates on.
+NAV_KEYS = ["collection_log", "discover_japan", "car_collection", "subaru"]
 _LABELS = {
     "collection_log": "buy_tpl_collection_log",
     "discover_japan": "buy_tpl_discover_japan",
@@ -54,7 +58,7 @@ _NAV_STEP_WINDOW     = 12.0   # per-step detection window before aborting
 _START_STATE_WINDOW  = 8.0    # detect the main menu (collection_log) at start
 _SCROLL_NOTCHES      = 12     # generous: scroll past the bottom (list clamps)
 _SCROLL_PAUSE        = 0.12   # gap between scroll notches
-_TARGET_SETTLE       = 0.5    # settle after the 1-notch scroll before clicking the target car
+_TARGET_SETTLE       = 2.0    # settle after the 1-notch scroll before clicking the target car
 _EXIT_ESC_COUNT      = 4      # Esc presses from the detail view → main menu
 _EXIT_ESC_GAP        = 0.5    # gap between Esc presses
 _EXIT_CONFIRM_WINDOW = 10.0   # detect the main menu after the Esc chain
@@ -88,7 +92,9 @@ def run(cfg: dict, stop_event: threading.Event,
     def _thr(key):
         return _fresh.get(f"thresh_{key}", 0.60)
 
-    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
+    io = GameIO(_fresh, log_cb)
+    current_w, current_h = io.width, io.height
+    mon_left, mon_top = io.cap_left, io.cap_top
     folder   = get_buy_templates(res, tpl_lang)
     ref_folder = None
     prefer_ref = False
@@ -135,7 +141,7 @@ def run(cfg: dict, stop_event: threading.Event,
         status_cb(msg)
 
     def press(key, post_wait=None):
-        key_press(key, post_wait=post_kw if post_wait is None else post_wait)
+        io.press(key, post_wait=post_kw if post_wait is None else post_wait)
 
     def _detect(key, window_s):
         """TIME-BOXED detection: poll detect() up to window_s, return the
@@ -145,7 +151,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return None
             try:
-                r = detector.detect(grab_frame(monitor_index), key,
+                r = detector.detect(io.grab(), key,
                                     nav_tpls[key], _thr(key), stable=False)
                 if r.matched:
                     return r
@@ -154,9 +160,11 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
-    def _nav_click(key):
+    def _nav_click(key, pre_click_wait=0.0):
         """Detect a clickable nav element (time-boxed) and click its centre.
-        Returns True on success, False if it never appears (abort) or stopped."""
+        pre_click_wait pauses AFTER detection, BEFORE the click — lets the screen
+        finish settling so the click lands on the right tile. Returns True on
+        success, False if it never appears (abort) or stopped."""
         lbl = _at(_LABELS[key], lang)
         t0 = time.time()
         r = _detect(key, _NAV_STEP_WINDOW)
@@ -167,8 +175,12 @@ def run(cfg: dict, stop_event: threading.Event,
             return False
         log_cb(_at("log_buy_nav_detected", lang, label=lbl,
                    conf=f"{r.score:.0%}, {r.source}", secs=secs))
+        if pre_click_wait:
+            wait(pre_click_wait)
+            if stop():
+                return False
         log_cb(_at("log_buy_nav_click", lang, label=lbl))
-        mouse_click(r.location[0], r.location[1], mon_left, mon_top, post_kw)
+        io.click(r.location[0], r.location[1], post_kw)
         return True
 
     def _navigate_to_target(start_hit):
@@ -180,8 +192,7 @@ def run(cfg: dict, stop_event: threading.Event,
         # 1. Collection Log (already detected — click it)
         lbl = _at("buy_tpl_collection_log", lang)
         log_cb(_at("log_buy_nav_click", lang, label=lbl))
-        mouse_click(start_hit.location[0], start_hit.location[1],
-                    mon_left, mon_top, post_kw)
+        io.click(start_hit.location[0], start_hit.location[1], post_kw)
         if stop():
             return False
         # 2. Discover Japan card
@@ -216,23 +227,25 @@ def run(cfg: dict, stop_event: threading.Event,
         for _ in range(_SCROLL_NOTCHES):
             if stop():
                 return False
-            mouse_scroll(-1, post_wait=_SCROLL_PAUSE)
+            io.scroll(-1, post_wait=_SCROLL_PAUSE)
         wait(0.3)   # let the brand view settle at the bottom
         if stop():
             return False
-        # 6. Click Subaru → drops back into the car-list view at the Subaru cars
+        # 6. Click Subaru → drops into the car-list view; the cursor reliably
+        #    lands on the BRAT GL tile.
         if not _nav_click("subaru"):
             return False
-        # 7. Scroll down ONE notch so the target car (22B-STi) comes into view,
-        #    then let the list settle before detecting/clicking it — without this
-        #    the click can fire mid-scroll and land off the still-moving tile.
-        log_cb(_at("log_buy_scroll_one", lang))
-        mouse_scroll(-1, post_wait=_SCROLL_PAUSE)
-        wait(_TARGET_SETTLE)
+        # 7. From BRAT GL the 22B-STi is one row down, so move down once and
+        #    select it with Enter. Keyboard nav is reliable here — detecting the
+        #    tile collided with the look-alike Subaru tiles (BRAT GL etc.), so the
+        #    template detection for the target car is ditched in favour of S→Enter.
+        log_cb(_at("log_buy_nav_key", lang, keys="S → Enter",
+                   label=_at("buy_tpl_target_car", lang)))
+        press('s')
         if stop():
             return False
-        # 8. Click the target car → focuses it (the buy macro starts here)
-        if not _nav_click("buy_target_car"):
+        press('enter')
+        if stop():
             return False
         log_cb(_at("log_buy_macro_start", lang))
         return True
@@ -258,10 +271,13 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_buy_at_menu", lang))
 
     log_cb(_at("buy_running", lang))
-    # Switch the game to English input only if it isn't already.
-    if _fresh.get("auto_english_ime", True):
+    # Switch the game to English input only if it isn't already (foreground
+    # only — background mode would target the wrong window).
+    if not io.bg and _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+    io.mute(_fresh)
+    io.start_keepalive(stop, _fresh)
 
     # ── Optional entry navigation ──
     did_nav = False
@@ -272,6 +288,7 @@ def run(cfg: dict, stop_event: threading.Event,
         start_hit = _detect("collection_log", _START_STATE_WINDOW)
         if start_hit is not None:
             if not _navigate_to_target(start_hit):
+                io.cleanup()
                 log_cb(_at("log_buy_stopped", lang))
                 status_cb(_at("status_stopped", lang))
                 return
@@ -299,5 +316,6 @@ def run(cfg: dict, stop_event: threading.Event,
     if did_nav and not stop():
         _return_to_menu()
 
+    io.cleanup()     # stop keep-alive + unmute
     log_cb(_at("log_buy_stopped", lang))
     status_cb(_at("status_stopped", lang))
