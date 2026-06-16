@@ -29,12 +29,11 @@ from version import VERSION
 # built (so its widgets/handlers stay valid); only the nav entry is gated.
 SHOW_FULL_AUTO = False
 
-# Race / Buy / Auto Spin Wheel ship pre-captured templates, so their Setup &
-# Templates panel is hidden to declutter the UI. The panel object is still
-# created (capture-session routing references it), just never packed/shown.
-# Mastery keeps its panel — it needs user-clicked node positions. Flip to True
-# to expose the capture/retake controls again.
-SHOW_SETUP_PANELS = False
+# Show the Setup & Templates panel on Race / Buy / Auto Spin Wheel. These ship
+# pre-captured templates, but the panel stays visible so users can switch
+# resolution or recapture. Set False to hide it (templates still work via the
+# bundled set). Mastery always shows its panel — it needs node positions.
+SHOW_SETUP_PANELS = True
 
 # Race Auto detects two screens: the Start Race screen (start_menu) and the
 # race-END screen (restart_menu). racing/confirm are blind timing, so only
@@ -848,7 +847,7 @@ class MainWindow(ctk.CTk):
         desc = ctk.CTkFrame(frame, fg_color="transparent")
         desc.pack(fill="x", padx=12, pady=(12, 4))
         ctk.CTkLabel(desc, text=_at("buy_description", self._lang),
-                     anchor="w", wraplength=480,
+                     anchor="w", wraplength=480, justify="left",
                      font=("Arial", 12)).pack(fill="x")
 
         # Setup panel — optional menu-navigation templates (start/end on the
