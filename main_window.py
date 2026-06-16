@@ -1281,12 +1281,8 @@ class MainWindow(ctk.CTk):
                 lang = cfg.get('lang', 'en')
                 log_cb(_at('startup_switch_to_game', lang))
                 import time as _t
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
-                    if not self._is_game_focused():
-                        log_cb(_at('startup_game_not_focused', lang))
-                    else:
-                        log_cb(_at('startup_game_focused', lang))
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
                     _t.sleep(1)
@@ -1330,12 +1326,8 @@ class MainWindow(ctk.CTk):
                 lang = cfg.get('lang', 'en')
                 log_cb(_at('startup_switch_to_game', lang))
                 import time as _t
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
-                    if not self._is_game_focused():
-                        log_cb(_at('startup_game_not_focused', lang))
-                    else:
-                        log_cb(_at('startup_game_focused', lang))
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
                     _t.sleep(1)
@@ -1376,7 +1368,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1422,7 +1414,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1467,7 +1459,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
@@ -1622,7 +1614,7 @@ class MainWindow(ctk.CTk):
             try:
                 import time as _t
                 log_cb(_at('startup_switch_to_game', lang))
-                for i in range(5, 0, -1):
+                for i in range(3, 0, -1):
                     if self._stop_event.is_set(): return
                     log_cb(_at('startup_countdown', lang, i=i))
                     self._set_status(_at('startup_countdown', lang, i=i))
