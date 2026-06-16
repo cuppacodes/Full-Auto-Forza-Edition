@@ -29,6 +29,13 @@ from version import VERSION
 # built (so its widgets/handlers stay valid); only the nav entry is gated.
 SHOW_FULL_AUTO = False
 
+# Race / Buy / Auto Spin Wheel ship pre-captured templates, so their Setup &
+# Templates panel is hidden to declutter the UI. The panel object is still
+# created (capture-session routing references it), just never packed/shown.
+# Mastery keeps its panel — it needs user-clicked node positions. Flip to True
+# to expose the capture/retake controls again.
+SHOW_SETUP_PANELS = False
+
 # Race Auto detects two screens: the Start Race screen (start_menu) and the
 # race-END screen (restart_menu). racing/confirm are blind timing, so only
 # these two need capturing.
@@ -642,7 +649,8 @@ class MainWindow(ctk.CTk):
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"),
         )
-        self._race_setup.pack(fill="x", padx=8, pady=(4, 8))
+        if SHOW_SETUP_PANELS:
+            self._race_setup.pack(fill="x", padx=8, pady=(4, 8))
 
         # Race count row (0 = unlimited)
         count_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -847,7 +855,8 @@ class MainWindow(ctk.CTk):
         # main menu). All best-effort: empty/partial → buy runs the macro where
         # the user already positioned (legacy behaviour).
         self._buy_setup = self._make_buy_setup(frame)
-        self._buy_setup.pack(fill="x", padx=8, pady=(4, 8))
+        if SHOW_SETUP_PANELS:
+            self._buy_setup.pack(fill="x", padx=8, pady=(4, 8))
 
         # Count row
         count_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -916,7 +925,8 @@ class MainWindow(ctk.CTk):
 
         # Setup panel — ONE detect-only template (the duplicate-reward menu).
         self._spin_setup = self._make_spin_setup(frame)
-        self._spin_setup.pack(fill="x", padx=8, pady=(4, 8))
+        if SHOW_SETUP_PANELS:
+            self._spin_setup.pack(fill="x", padx=8, pady=(4, 8))
 
         # Duplicate-handling mode toggle (garage / sell)
         mode_row = ctk.CTkFrame(frame, fg_color="transparent")

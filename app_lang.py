@@ -32,8 +32,8 @@ STRINGS = {
         "zh-tw": "🏁  自動掛機刷技術點",
     },
     "race_description": {
-        "en":    "Before starting, you can either stay on the main menu (FAFE will navigate to your last-played EventLab event) or stop at the Start Race screen yourself. FAFE detects which screen you're on and takes over. It detects the Start Race and race-end (Restart) screens; the rest is timed.",
-        "zh-tw": "開始之前，你可以停在主選單（FAFE 會自動前往你上次遊玩的 EventLab 賽事），或自行停在開始賽事的介面上。FAFE 會偵測你所在的畫面並接手。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
+        "en":    "Two requirements before starting: (1) you're already in the car you want to AFK-race with, and (2) the EventLab event you last played is the one you want to grind. Then either stay on the main menu (FAFE navigates to your last-played EventLab event and back) or stop at the Start Race screen yourself — FAFE detects which screen you're on and takes over. It detects the Start Race and race-end (Restart) screens; the rest is timed.",
+        "zh-tw": "開始前有兩個前提：(1) 你已經在要掛機使用的車上，(2) 你上次遊玩的 EventLab 賽事就是你想刷的地圖。接著你可以停在主選單（FAFE 會自動前往你上次遊玩的 EventLab 賽事並返回），或自行停在開始賽事的介面上 — FAFE 會偵測你所在的畫面並接手。本模式會偵測開始賽事與賽事結束（重新開始）畫面，其餘以定時操作。",
     },
     "tab_mastery": {
         "en":    "⭐  Auto Unlock 22B",
@@ -49,8 +49,8 @@ STRINGS = {
         "zh-tw": "🛒  自動購買22B-STi",
     },
     "buy_description": {
-        "en":    "Capture the navigation templates below and FAFE will start from the main menu (Collection Journal → Discover Japan / Master Explorer → Car Collection → Subaru → your target car) and return to it when done. If you skip the capture, just position on the target car yourself (Collection Journal → Master Explorer → Car Collection → click the 22B-STi) and press Start — the buy macro runs where you are.",
-        "zh-tw": "擷取下方 4 個導航樣本後，FAFE 會從主選單開始（收藏日記 → 探索大師 → 車輛收藏 → 你的目標車輛）並在完成後返回主選單。若略過擷取，請自行停在目標車輛畫面（選單 → 收藏日記 → 探索大師 → 車輛收藏 → 點擊 22B-STi）再按開始，購買巨集會在目前畫面執行。",
+        "en":    "Auto Buy is purpose-built to farm the Subaru Impreza 22B-STi. Leave FAFE on the main menu and it navigates to the 22B-STi on its own (Collection Journal → Discover Japan / Master Explorer → Car Collection → Subaru → 22B-STi), buys it the set number of times, then returns to the main menu. You can also position on the 22B-STi yourself and press Start — the buy macro runs from wherever you are.",
+        "zh-tw": "自動購買專為刷取 Subaru Impreza 22B-STi 設計。停在主選單，FAFE 會自動前往 22B-STi（收藏日記 → 探索大師 → 車輛收藏 → Subaru → 22B-STi），購買指定次數後返回主選單。你也可以自行停在 22B-STi 畫面再按開始，購買巨集會在目前畫面執行。",
     },
     "status_starting_buy": {
         "en":    "Starting Auto Buy...",
