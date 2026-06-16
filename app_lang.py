@@ -313,6 +313,18 @@ STRINGS = {
         "en":    "Number of spins to run:",
         "zh-tw": "要轉動的次數：",
     },
+    "spin_type_label": {
+        "en":    "Wheel:",
+        "zh-tw": "輪盤：",
+    },
+    "spin_type_super": {
+        "en":    "Super (3 prizes)",
+        "zh-tw": "超級（3 獎）",
+    },
+    "spin_type_normal": {
+        "en":    "Normal (1 prize)",
+        "zh-tw": "一般（1 獎）",
+    },
     "spin_mode_label": {
         "en":    "Duplicate handling:",
         "zh-tw": "重複獎勵處理：",
@@ -336,6 +348,10 @@ STRINGS = {
     "spin_tpl_super": {
         "en":    "Super Wheelspin tile",
         "zh-tw": "超級輪盤圖示",
+    },
+    "spin_tpl_normal": {
+        "en":    "Wheelspin tile (normal)",
+        "zh-tw": "一般輪盤圖示",
     },
     "spin_tpl_skip": {
         "en":    "Skip-forward prompt (bottom-left)",
@@ -377,6 +393,10 @@ STRINGS = {
         "en":    "  (no My Horizon tab template — assuming you're already on the My Horizon menu)",
         "zh-tw": "  （無「我的 HORIZON」分頁樣本 — 假設已在「我的 HORIZON」選單）",
     },
+    "log_spin_on_my_horizon": {
+        "en":    "  Already on the My Horizon menu ({label} visible) — clicking the wheel, skipping the tab.",
+        "zh-tw": "  已在「我的 HORIZON」選單（可見{label}）— 直接點擊輪盤，略過分頁。",
+    },
     "log_spin_select_super": {
         "en":    "Selecting Super Wheelspin...",
         "zh-tw": "選擇超級輪盤…",
@@ -384,6 +404,14 @@ STRINGS = {
     "log_spin_super_not_found": {
         "en":    "Super Wheelspin tile not found — start on the My Horizon menu with it visible, then try again.",
         "zh-tw": "找不到超級輪盤圖示 — 請在「我的 HORIZON」選單（可看到超級輪盤）開始後再試一次。",
+    },
+    "log_spin_select_tile": {
+        "en":    "Selecting {label}...",
+        "zh-tw": "選擇{label}…",
+    },
+    "log_spin_tile_not_found": {
+        "en":    "{label} not found — start on the My Horizon menu with it visible, then try again.",
+        "zh-tw": "找不到{label} — 請在「我的 HORIZON」選單（可看到該圖示）開始後再試一次。",
     },
     "log_spin_spin": {
         "en":    "Spinning...",
@@ -498,6 +526,10 @@ STRINGS = {
         "en":    "  → Enter: {label}",
         "zh-tw": "  → Enter：{label}",
     },
+    "log_race_nav_retry": {
+        "en":    "  ↻ {label} not detected yet (load in progress) — pressing Enter again",
+        "zh-tw": "  ↻ 尚未偵測到{label}（載入中）— 再按一次 Enter",
+    },
     "log_race_nav_fail": {
         "en":    "  ✗ {label} not found in {secs}s — aborting navigation. Are you on the main menu and connected?",
         "zh-tw": "  ✗ {secs} 秒內找不到 {label} — 中止導航。請確認在主選單且已連線。",
@@ -599,6 +631,10 @@ STRINGS = {
         "en":    "Appearance",
         "zh-tw": "外觀",
     },
+    "settings_system_section": {
+        "en":    "System",
+        "zh-tw": "系統",
+    },
     "settings_shortcuts_section": {
         "en":    "Shortcuts",
         "zh-tw": "快捷鍵",
@@ -630,6 +666,10 @@ STRINGS = {
     "setting_overlay": {
         "en":    "Game status overlay:",
         "zh-tw": "遊戲狀態浮層：",
+    },
+    "setting_mute": {
+        "en":    "Mute game while running:",
+        "zh-tw": "執行時將遊戲靜音：",
     },
     "overlay_indicator": {
         "en":    "Overlay",
@@ -695,18 +735,6 @@ STRINGS = {
     "res_builtin": {
         "en":    "Built-in (auto-scaled)",
         "zh-tw": "內建（自動縮放）",
-    },
-    "res_1080p": {
-        "en":    "1080p (Built-in)",
-        "zh-tw": "1080p（內建）",
-    },
-    "res_1440p": {
-        "en":    "1440p (Built-in)",
-        "zh-tw": "1440p（內建）",
-    },
-    "res_2160p": {
-        "en":    "4K (Built-in)",
-        "zh-tw": "4K（內建）",
     },
     "res_custom": {
         "en":    "Custom (Capture your own)",
@@ -1040,6 +1068,34 @@ STRINGS = {
     "log_race_started": {
         "en":    "Race automation started.",
         "zh-tw": "自動競速已啟動。",
+    },
+    "log_bg_input_on": {
+        "en":    "⚙ Background input ON (experimental) — sending to the game window without focus. Note: driving (held W) may not register this way.",
+        "zh-tw": "⚙ 背景輸入已開啟（實驗性）— 不需切到遊戲也能送出輸入。注意：駕駛（按住 W）可能無法以此方式生效。",
+    },
+    "log_bg_input_not_found": {
+        "en":    "⚠ Background input ON but no window titled '{title}' was found — using normal (focused) input instead.",
+        "zh-tw": "⚠ 已開啟背景輸入，但找不到標題含「{title}」的視窗 — 改用一般（需聚焦）輸入。",
+    },
+    "log_bg_window_size": {
+        "en":    "  Detecting against game window: {w}×{h} (don't move/resize it while running).",
+        "zh-tw": "  以遊戲視窗為偵測範圍：{w}×{h}（執行期間請勿移動或縮放視窗）。",
+    },
+    "log_bg_keep_active": {
+        "en":    "  Keep-alive ON — telling the game it's active so it won't auto-pause (experimental; only works if the game trusts it).",
+        "zh-tw": "  保持作用中已開啟 — 持續告知遊戲它仍為作用中視窗以避免自動暫停（實驗性；僅在遊戲採信時有效）。",
+    },
+    "log_bg_capture_window": {
+        "en":    "  Window capture ON (PrintWindow) — sees the game even when covered by another window. NOTE: may be black for DirectX games; if detection fails, set background_capture back to 'region'.",
+        "zh-tw": "  視窗擷取已開啟（PrintWindow）— 即使被其他視窗遮住也能擷取遊戲畫面。注意：DirectX 遊戲可能擷取到全黑；若偵測失敗，請將 background_capture 改回 'region'。",
+    },
+    "log_game_muted": {
+        "en":    "  Game muted for this run (other apps unaffected).",
+        "zh-tw": "  本次執行已將遊戲靜音（不影響其他程式）。",
+    },
+    "log_game_unmuted": {
+        "en":    "  Game unmuted.",
+        "zh-tw": "  已取消遊戲靜音。",
     },
     "log_race_stopped": {
         "en":    "Race automation stopped.",

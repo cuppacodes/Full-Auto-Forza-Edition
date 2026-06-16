@@ -11,6 +11,7 @@ from ctypes import wintypes
 
 from app_lang import t as _at
 from capture import force_english_ime
+from gameio import GameIO
 
 
 _VK_MAP = {
@@ -79,6 +80,7 @@ def run(cfg: dict, stop_event: threading.Event,
 
     lang    = cfg.get('lang', 'en')
     post_kw = cfg.get('delete_post_key_wait', 0.5)
+    io = GameIO(cfg, log_cb)
 
     def stop():
         return stop_event.is_set()
@@ -86,7 +88,7 @@ def run(cfg: dict, stop_event: threading.Event,
     def press(key, label='', wait=None):
         w = wait if wait is not None else post_kw
         log_cb(f'  [{key.upper()}] {label}')
-        _key_press(key, post_wait=w)
+        io.press(key, post_wait=w)
 
     if max_cars > 0:
         log_cb(_at('log_delete_started_count', lang, n=max_cars))
@@ -94,9 +96,11 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at('log_delete_started', lang))
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable with auto_english_ime=false.
-    if cfg.get("auto_english_ime", True):
+    if not io.bg and cfg.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+    io.mute(cfg)
+    io.start_keepalive(stop, cfg)
     loop_count = 0
 
     while not stop():
@@ -132,4 +136,5 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at('log_delete_limit_reached', lang, n=max_cars))
             break
 
+    io.cleanup()
     log_cb(_at('log_delete_stopped', lang))

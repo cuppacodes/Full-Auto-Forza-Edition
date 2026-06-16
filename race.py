@@ -16,8 +16,11 @@ from config import get_race_templates, get_nodes_file
 from app_lang import t as _at
 from capture import (grab_frame, load_template, get_monitor_dims,
                      force_english_ime, get_foreground_window, focus_window,
-                     mouse_click)
+                     mouse_click, find_game_window, post_key, post_click,
+                     get_client_rect, grab_region, set_window_active, grab_window,
+                     post_client_click, get_window_pid, set_process_muted)
 from detector import ScreenDetector
+from gameio import GameIO
 
 
 
@@ -123,10 +126,6 @@ def _screen_matches(screen, template, threshold):
     return best_conf >= threshold, best_conf
 
 
-def _capture_frame(monitor_index):
-    return grab_frame(monitor_index)
-
-
 # ── Main runner ───────────────────────────────────────────────
 
 # Two detections: the Start Race screen (start_menu) and the race-END screen
@@ -138,6 +137,11 @@ TEMPLATE_KEYS = ["start_menu", "restart_menu"]
 # Fixed step waits (seconds) for the timed steps.
 _PRE_W_WAIT   = 4.0    # step 3: after pressing Enter, wait before holding W
 _CONFIRM_WAIT = 1.25   # step 6: after pressing X, wait before Enter (confirm)
+# Settle before each menu-navigation action: the element is often detected mid-
+# animation, but the game drops input until the transition finishes. A short
+# wait before acting makes the click/Enter land reliably (esp. in background
+# mode, where PostMessage taps can arrive even earlier in the animation).
+_NAV_SETTLE   = 0.3
 
 
 def run(cfg: dict, stop_event: threading.Event,
@@ -191,6 +195,26 @@ def run(cfg: dict, stop_event: threading.Event,
     # VK of the stop hotkey, for the hook-independent stop poll in stop().
     _toggle_vk = _vk_for_key(_fresh.get('toggle_key', 'f9'))
     detector = ScreenDetector(_fresh)
+
+    # ── Window-aware IO (gameio.GameIO) — shared by every function ──
+    # Auto-adapts: if the game window is found, FAFE drives it through the window
+    # (client-area capture + PostMessage) so detection sizes to the window
+    # (windowed OR borderless) and input works whether the game is focused or
+    # not; a keep-alive stops it auto-pausing while unfocused. If the window
+    # isn't found, it falls back to whole-monitor capture + SendInput.
+    io = GameIO(_fresh, log_cb)
+    current_w, current_h = io.width, io.height
+    mon_left, mon_top = io.cap_left, io.cap_top
+    io.mute(_fresh)
+
+    def _grab():
+        return io.grab()
+
+    def _kp(key, post_wait=post_kw):
+        io.press(key, post_wait=post_wait)
+
+    def _click(fx, fy):
+        io.click(fx, fy, post_kw)
     for key in TEMPLATE_KEYS:
         try:
             img, scale, meta = load_template(folder, key,
@@ -285,7 +309,7 @@ def run(cfg: dict, stop_event: threading.Event,
             (warn_cb or log_cb)(msg)
 
         result = detector.wait_for(
-            frame_cb=lambda: _capture_frame(monitor_index),
+            frame_cb=_grab,
             key=key,
             template=template,
             threshold=_thresh(key),
@@ -302,7 +326,7 @@ def run(cfg: dict, stop_event: threading.Event,
 
     def press(key, label):
         log_cb(_at("log_pressing", lang, key=key.upper(), label=label))
-        key_press(key, post_wait=post_kw)
+        _kp(key, post_wait=post_kw)
 
     def wait(seconds):
         """Stop-aware sleep so F9/Stop isn't blocked by the fixed timing waits."""
@@ -324,9 +348,17 @@ def run(cfg: dict, stop_event: threading.Event,
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable entirely with auto_english_ime=false
     # for users who manage their IME themselves.
-    if _fresh.get("auto_english_ime", True):
+    # force_english_ime acts on the FOREGROUND window; in background mode the
+    # game isn't focused, so skip it (it would target the wrong window).
+    if not io.bg and _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+
+    # Background keep-alive: re-assert "active" to the game window so it doesn't
+    # auto-pause while unfocused. Experimental — works only if the game trusts
+    # the activation messages (see capture.set_window_active). Runs for the whole
+    # run (menus + race) on a daemon thread; stopped in the cleanup below.
+    io.start_keepalive(stop, _fresh)
 
     # ── Optional: navigate the menus to the Start screen ──
     # Each step is detection-GATED and TIME-BOXED (unlike the in-race loop's
@@ -334,6 +366,12 @@ def run(cfg: dict, stop_event: threading.Event,
     # beats hanging. Steps detect distinct screens in sequence, so there's no
     # lingering/re-press problem.
     _NAV_STEP_WINDOW = 12.0
+    # MY HISTORY → Race type: selecting the history entry loads the event for an
+    # uncertain time, and the first Enter can be dropped. Re-press Enter every
+    # _NAV_RETRY_EVERY until Race type appears, up to _NAV_LOAD_WINDOW (generous,
+    # to cover a slow load). Extra Enters on a loading screen are harmless.
+    _NAV_RETRY_EVERY = 3.0
+    _NAV_LOAD_WINDOW = 45.0
 
     def _detect_nav(key, window_s):
         end = time.time() + window_s
@@ -341,7 +379,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return None
             try:
-                r = detector.detect(grab_frame(monitor_index), key,
+                r = detector.detect(_grab(), key,
                                     nav_tpls[key], _thresh(key), stable=False)
                 if r.matched:
                     return r
@@ -349,6 +387,36 @@ def run(cfg: dict, stop_event: threading.Event,
                 pass
             time.sleep(0.15)
         return None
+
+    def _enter_until(next_key, retry_every, window):
+        """Press Enter, then poll for next_key, re-pressing Enter every
+        retry_every seconds until it appears or the window elapses. Failsafe for
+        the MY HISTORY step: the event loads for an uncertain time and the first
+        Enter can be dropped, so re-trigger until Race type shows. We only re-
+        press while next_key is NOT detected, so we never advance past it."""
+        tpl = nav_tpls[next_key]
+        end = time.time() + window
+        last = 0.0
+        presses = 0
+        while time.time() < end:
+            if stop():
+                return False
+            try:
+                r = detector.detect(_grab(), next_key, tpl,
+                                    _thresh(next_key), stable=False)
+                if r.matched:
+                    return True
+            except Exception:
+                pass
+            if time.time() - last >= retry_every:
+                _kp('enter', post_wait=0.0)
+                presses += 1
+                if presses > 1:
+                    log_cb(_at("log_race_nav_retry", lang,
+                               label=_at("race_tpl_" + next_key, lang)))
+                last = time.time()
+            time.sleep(0.2)
+        return False
 
     def _detect_start_state(window_s):
         """Decide where we are: ('creative_hub'|'start_menu', result) for
@@ -358,7 +426,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return (None, None)
             try:
-                frame = grab_frame(monitor_index)
+                frame = _grab()
                 rc = detector.detect(frame, "creative_hub",
                                      nav_tpls["creative_hub"],
                                      _thresh("creative_hub"), stable=False)
@@ -382,16 +450,24 @@ def run(cfg: dict, stop_event: threading.Event,
         announce(_at("log_race_nav_begin", lang))
         lbl = _at("race_tpl_creative_hub", lang)
         log_cb(_at("log_race_nav_click", lang, label=lbl))
-        mouse_click(ch_hit.location[0], ch_hit.location[1],
-                    mon_left, mon_top, post_kw)
+        wait(_NAV_SETTLE)
+        _click(ch_hit.location[0], ch_hit.location[1])
         # Per step: (key, action, pre_wait). pre_wait is a settle BEFORE acting,
         # for screens that animate in — the element is detected mid-transition
-        # but the game drops input until the transition finishes (the ◀ arrow
-        # and the MY HISTORY Enter both needed ~0.25s or the press was missed).
-        steps = [("eventlab", "click", 0.0), ("play_event", "click", 0.0),
-                 ("events_arrow", "click", 0.25), ("my_history", "enter", 0.25),
-                 ("choose_race_type", "enter", 0.0), ("car_select", "enter", 0.0)]
-        for key, action, pre_wait in steps:
+        # but the game drops input until the transition finishes. A uniform
+        # _NAV_SETTLE before every step keeps the click/Enter from landing too
+        # early (the main fix for nav breaking in background mode).
+        # 4th field = retry_to: after Entering this step, re-press Enter until
+        # that next screen appears (failsafe for an uncertain load). Only
+        # MY HISTORY uses it (the event load time varies; a dropped Enter would
+        # otherwise time out and abort).
+        steps = [("eventlab", "click", _NAV_SETTLE, None),
+                 ("play_event", "click", _NAV_SETTLE, None),
+                 ("events_arrow", "click", _NAV_SETTLE, None),
+                 ("my_history", "enter", _NAV_SETTLE, "choose_race_type"),
+                 ("choose_race_type", "enter", _NAV_SETTLE, None),
+                 ("car_select", "enter", _NAV_SETTLE, None)]
+        for key, action, pre_wait, retry_to in steps:
             lbl = _at("race_tpl_" + key, lang)
             t0 = time.time()
             r = _detect_nav(key, _NAV_STEP_WINDOW)
@@ -408,11 +484,18 @@ def run(cfg: dict, stop_event: threading.Event,
                     return False
             if action == "click":
                 log_cb(_at("log_race_nav_click", lang, label=lbl))
-                mouse_click(r.location[0], r.location[1],
-                            mon_left, mon_top, post_kw)
+                _click(r.location[0], r.location[1])
+            elif retry_to:
+                log_cb(_at("log_race_nav_enter", lang, label=lbl))
+                if not _enter_until(retry_to, _NAV_RETRY_EVERY, _NAV_LOAD_WINDOW):
+                    if not stop():
+                        log_cb(_at("log_race_nav_fail", lang,
+                                   label=_at("race_tpl_" + retry_to, lang),
+                                   secs=f"{_NAV_LOAD_WINDOW:.0f}"))
+                    return False
             else:
                 log_cb(_at("log_race_nav_enter", lang, label=lbl))
-                key_press('enter', post_wait=post_kw)
+                _kp('enter', post_wait=post_kw)
             if stop():
                 return False
         log_cb(_at("log_race_nav_done", lang))
@@ -431,21 +514,10 @@ def run(cfg: dict, stop_event: threading.Event,
         # wait_for(start_menu), which handles wherever the user actually is.
 
     loop_count = 0
-    # Foreground (game) window captured while racing, so W can be released to
-    # the GAME even if the user stopped via the FAFE UI button (which moves
-    # focus to FAFE). See _release_w / capture.focus_window.
-    game_hwnd = None
-
     def _release_w():
-        # Restore game focus first: if stopped via the FAFE UI button, focus is
-        # now on FAFE, so a keyup sent now would go to FAFE and the game would
-        # keep W held (stuck throttle). Refocusing the game (a no-op on the
-        # hotkey/detection path, where it's already foreground) makes the
-        # release reach the game on BOTH scancode and VK paths.
-        if game_hwnd:
-            focus_window(game_hwnd)
-        key_up('w')
-        _send_scancode('w', key_up=True)
+        # GameIO posts the keyup straight to the game window (background) or sends
+        # VK + scancode keyups (foreground) — focus-independent either way.
+        io.release('w')
 
     # ── Race exit → main menu (fires once, on the count-reached clean exit) ──
     # Generous window: after Continue the game shows a ~12s loading screen
@@ -460,7 +532,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return None
             try:
-                r = detector.detect(grab_frame(monitor_index), key, tpl,
+                r = detector.detect(_grab(), key, tpl,
                                     _thresh(key), stable=False)
                 if r.matched:
                     return r
@@ -477,7 +549,7 @@ def run(cfg: dict, stop_event: threading.Event,
         than hanging."""
         announce(_at("log_race_exit_begin", lang))
         log_cb(_at("log_race_exit_continue", lang))
-        key_press('enter', post_wait=post_kw)          # Continue, leave the race
+        _kp('enter', post_wait=post_kw)                 # Continue, leave the race
         if stop():
             return
         t0 = time.time()
@@ -490,7 +562,7 @@ def run(cfg: dict, stop_event: threading.Event,
                    conf=f"{r.score:.0%}, {r.source}", secs=f"{time.time()-t0:.1f}"))
         # Esc the recommended menu (→ open world), then Esc again (→ main menu).
         log_cb(_at("log_race_exit_esc_menu", lang))
-        key_press('escape', post_wait=post_kw)
+        _kp('escape', post_wait=post_kw)
         if stop():
             return
         # The first Esc plays a transition INTO open-world gameplay; the second
@@ -499,7 +571,7 @@ def run(cfg: dict, stop_event: threading.Event,
         if stop():
             return
         log_cb(_at("log_race_exit_esc_world", lang))
-        key_press('escape', post_wait=post_kw)
+        _kp('escape', post_wait=post_kw)
         if stop():
             return
         t0 = time.time()
@@ -538,11 +610,10 @@ def run(cfg: dict, stop_event: threading.Event,
         # the car coasts/slows. Re-pressing keeps it at full throttle whether the
         # game reads key STATE or keydown EVENTS. A single key_up at the end
         # releases it (auto-repeat is many keydowns + one keyup).
-        game_hwnd = get_foreground_window()   # game is focused while racing
         _hold = threading.Event(); _hold.set()
         def _hold_w():
             while _hold.is_set() and not stop():
-                _send_scancode('w', key_up=False)   # flagged scancode = held
+                io.hold_press('w')   # PostMessage (bg) or flagged scancode (fg)
                 time.sleep(0.03)
         _ht = threading.Thread(target=_hold_w, daemon=True)
         _ht.start()
@@ -577,6 +648,7 @@ def run(cfg: dict, stop_event: threading.Event,
         if stop(): break
         press(CONFIRM_KEY, "Confirm")
 
-    _release_w()   # safety release (focus game first, both VK + scancode paths)
+    io.cleanup()     # stop keep-alive + unmute
+    _release_w()     # safety release (W up to the game)
     log_cb(_at("log_race_stopped", cfg.get("lang","en")))
     status_cb(_at("status_stopped", lang))

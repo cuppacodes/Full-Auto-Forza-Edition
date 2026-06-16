@@ -188,6 +188,275 @@ def mouse_scroll(notches: int, post_wait: float = 0.1):
         time.sleep(post_wait)
 
 
+# ── Background-window input (PostMessage) ─────────────────────
+# EXPERIMENTAL: send input to a specific window WITHOUT giving it focus, so the
+# user can keep working in another window while a script runs (game visible but
+# unfocused, e.g. on a second monitor). Caveat: many games read GAMEPLAY input
+# via DirectInput / Raw Input, which does NOT consume posted window messages —
+# so a held key for driving may not register this way even when menu keys (which
+# read the window message queue) do. SendInput-to-focused-window stays the
+# reliable path; this is opt-in via the background_input config flag.
+
+_WM_KEYDOWN     = 0x0100
+_WM_KEYUP       = 0x0101
+_WM_MOUSEMOVE   = 0x0200
+_WM_LBUTTONDOWN = 0x0201
+_WM_LBUTTONUP   = 0x0202
+_MK_LBUTTON     = 0x0001
+
+
+def find_game_window(title_substr: str = "Forza Horizon 6"):
+    """First visible top-level window whose title contains `title_substr`
+    (case-insensitive), or None. Used for experimental background input."""
+    try:
+        u32 = ctypes.windll.user32
+        u32.IsWindowVisible.argtypes = [ctypes.c_void_p]
+        u32.GetWindowTextLengthW.argtypes = [ctypes.c_void_p]
+        u32.GetWindowTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+        target = (title_substr or "").lower()
+        found = []
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        def _cb(hwnd, _lparam):
+            try:
+                if not u32.IsWindowVisible(hwnd):
+                    return True
+                n = u32.GetWindowTextLengthW(hwnd)
+                if n <= 0:
+                    return True
+                buf = ctypes.create_unicode_buffer(n + 1)
+                u32.GetWindowTextW(hwnd, buf, n + 1)
+                if target and target in buf.value.lower():
+                    found.append(hwnd)
+                    return False   # stop enumeration on first match
+            except Exception:
+                pass
+            return True
+
+        u32.EnumWindows(WNDENUMPROC(_cb), 0)
+        return found[0] if found else None
+    except Exception:
+        return None
+
+
+def get_client_rect(hwnd):
+    """Client (content) area of `hwnd` in absolute screen pixels:
+    (left, top, width, height), or None. Excludes the title bar/borders. Used to
+    capture and reason about a windowed game whose window doesn't fill the
+    monitor — detection must size templates/ROIs to the window, not the screen.
+    The process is DPI-aware, so these are physical pixels (matching mss)."""
+    if not hwnd:
+        return None
+    try:
+        u32 = ctypes.windll.user32
+
+        class _RECT(ctypes.Structure):
+            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                        ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+        class _PT(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+        u32.GetClientRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(_RECT)]
+        u32.ClientToScreen.argtypes = [ctypes.c_void_p, ctypes.POINTER(_PT)]
+        r = _RECT()
+        if not u32.GetClientRect(hwnd, ctypes.byref(r)):
+            return None
+        w, h = r.right - r.left, r.bottom - r.top
+        if w <= 0 or h <= 0:
+            return None
+        pt = _PT(0, 0)
+        u32.ClientToScreen(hwnd, ctypes.byref(pt))
+        return (int(pt.x), int(pt.y), int(w), int(h))
+    except Exception:
+        return None
+
+
+def post_key(hwnd, vk: int, key_up: bool = False,
+             extended: bool = False, repeat: bool = False):
+    """Post a key event (WM_KEYDOWN/WM_KEYUP) to `hwnd` via PostMessage so it
+    reaches the window even when unfocused. `repeat` sets the previous-key-down
+    bit for sustained/auto-repeat keydowns. See the section note re: DirectInput."""
+    if not hwnd:
+        return
+    try:
+        u32 = ctypes.windll.user32
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_size_t]
+        u32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
+        scan = u32.MapVirtualKeyW(vk, 0) & 0xFF   # MAPVK_VK_TO_VSC
+        lparam = 1 | (scan << 16)                 # repeat count 1 + scancode
+        if extended:
+            lparam |= (1 << 24)
+        if key_up:
+            lparam |= (1 << 30) | (1 << 31)       # prev-down + transition(up)
+            msg = _WM_KEYUP
+        else:
+            if repeat:
+                lparam |= (1 << 30)               # previous state down
+            msg = _WM_KEYDOWN
+        u32.PostMessageW(hwnd, msg, vk, lparam)
+    except Exception:
+        pass
+
+
+def post_click(hwnd, screen_x: int, screen_y: int, post_wait: float = 0.5):
+    """Left-click at absolute screen (x, y) on `hwnd` via PostMessage, converting
+    to the window's client coords first — reaches an unfocused window."""
+    if not hwnd:
+        return
+    try:
+        u32 = ctypes.windll.user32
+
+        class _PT(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+        u32.ScreenToClient.argtypes = [ctypes.c_void_p, ctypes.POINTER(_PT)]
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_size_t]
+        pt = _PT(int(screen_x), int(screen_y))
+        u32.ScreenToClient(hwnd, ctypes.byref(pt))
+        lparam = ((pt.y & 0xFFFF) << 16) | (pt.x & 0xFFFF)
+        u32.PostMessageW(hwnd, _WM_MOUSEMOVE, 0, lparam)
+        time.sleep(0.02)
+        u32.PostMessageW(hwnd, _WM_LBUTTONDOWN, _MK_LBUTTON, lparam)
+        time.sleep(0.05)
+        u32.PostMessageW(hwnd, _WM_LBUTTONUP, 0, lparam)
+        if post_wait:
+            time.sleep(post_wait)
+    except Exception:
+        pass
+
+
+def post_client_click(hwnd, client_x: int, client_y: int, post_wait: float = 0.5):
+    """Left-click at CLIENT coords (x, y) on `hwnd` via PostMessage — no screen
+    conversion, so it's independent of the window's screen POSITION (robust to
+    the window being moved). For window-capture mode, where detections are
+    already in the window's client space."""
+    if not hwnd:
+        return
+    try:
+        u32 = ctypes.windll.user32
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_size_t]
+        lparam = ((int(client_y) & 0xFFFF) << 16) | (int(client_x) & 0xFFFF)
+        u32.PostMessageW(hwnd, _WM_MOUSEMOVE, 0, lparam)
+        time.sleep(0.02)
+        u32.PostMessageW(hwnd, _WM_LBUTTONDOWN, _MK_LBUTTON, lparam)
+        time.sleep(0.05)
+        u32.PostMessageW(hwnd, _WM_LBUTTONUP, 0, lparam)
+        if post_wait:
+            time.sleep(post_wait)
+    except Exception:
+        pass
+
+
+_WM_ACTIVATE    = 0x0006
+_WM_SETFOCUS    = 0x0007
+_WM_ACTIVATEAPP = 0x001C
+_WM_NCACTIVATE  = 0x0086
+_WA_ACTIVE      = 1
+
+
+def set_window_active(hwnd):
+    """Post the messages that tell a window it has become the active window —
+    WITHOUT actually focusing it — to try to stop a game that auto-pauses when
+    it loses focus. Best-effort: works only for games that trust these messages;
+    games that poll GetForegroundWindow/GetActiveWindow each frame ignore it,
+    and there's no external (no-injection) fix for those."""
+    if not hwnd:
+        return
+    try:
+        u32 = ctypes.windll.user32
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_size_t]
+        u32.PostMessageW(hwnd, _WM_ACTIVATEAPP, 1, 0)
+        u32.PostMessageW(hwnd, _WM_NCACTIVATE, 1, 0)
+        u32.PostMessageW(hwnd, _WM_ACTIVATE, _WA_ACTIVE, 0)
+        u32.PostMessageW(hwnd, _WM_SETFOCUS, 0, 0)
+    except Exception:
+        pass
+
+
+_WM_MOUSEWHEEL = 0x020A
+
+
+def post_scroll(hwnd, notches, post_wait: float = 0.1):
+    """Mouse-wheel scroll posted to a specific window (background-safe). Positive
+    notches scroll up, negative down (Windows convention). lParam is the cursor
+    point in SCREEN coords (per WM_MOUSEWHEEL) — we use the window's centre."""
+    if not hwnd:
+        return
+    try:
+        u32 = ctypes.windll.user32
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_size_t]
+        rect = get_client_rect(hwnd)
+        if rect:
+            l, t, w, h = rect
+            cx, cy = l + w // 2, t + h // 2
+        else:
+            cx = cy = 0
+        delta = int(notches) * 120                 # WHEEL_DELTA
+        wparam = (delta & 0xFFFF) << 16            # HIWORD = signed delta, LOWORD = 0
+        lparam = ((cy & 0xFFFF) << 16) | (cx & 0xFFFF)
+        u32.PostMessageW(hwnd, _WM_MOUSEWHEEL, wparam, lparam)
+        if post_wait:
+            time.sleep(post_wait)
+    except Exception:
+        pass
+
+
+def get_window_pid(hwnd):
+    """Process id that owns `hwnd`, or None."""
+    if not hwnd:
+        return None
+    try:
+        u32 = ctypes.windll.user32
+        u32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p,
+                                                 ctypes.POINTER(ctypes.c_ulong)]
+        pid = ctypes.c_ulong(0)
+        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return int(pid.value) or None
+    except Exception:
+        return None
+
+
+def set_process_muted(pid, mute: bool) -> bool:
+    """Mute/unmute one process's audio session (per-app — other apps' audio is
+    untouched). Returns True if a matching session was found and set. Uses
+    pycaw/Core Audio; returns False (no-op) if pycaw isn't available. Safe to
+    call from a worker thread (initialises COM for that thread)."""
+    if not pid:
+        return False
+    try:
+        from pycaw.pycaw import AudioUtilities
+        import comtypes
+    except Exception:
+        return False
+    try:
+        comtypes.CoInitialize()
+    except Exception:
+        pass
+    try:
+        done = False
+        for s in AudioUtilities.GetAllSessions():
+            try:
+                if s.ProcessId == pid and s.SimpleAudioVolume is not None:
+                    s.SimpleAudioVolume.SetMute(1 if mute else 0, None)
+                    done = True
+            except Exception:
+                continue
+        return done
+    except Exception:
+        return False
+    finally:
+        try:
+            comtypes.CoUninitialize()
+        except Exception:
+            pass
+
+
 # ── mss screen capture ───────────────────────────────────────
 
 # An mss instance is bound to the thread that created it, so we keep one
@@ -304,6 +573,117 @@ def grab_frame(monitor_index: int, mask_overlay: bool = True) -> np.ndarray:
             if x1 > x0 and y1 > y0:
                 frame[y0:y1, x0:x1] = 0
     return frame
+
+
+def grab_region(left: int, top: int, width: int, height: int,
+                mask_overlay: bool = True) -> np.ndarray:
+    """Capture an arbitrary screen rectangle (absolute px) via mss. Returns BGR.
+    Used to capture a windowed game's client area instead of the whole monitor
+    (see get_client_rect). mask_overlay blanks the app's own overlay rect, same
+    as grab_frame."""
+    sct = _get_sct()
+    region = {"left": int(left), "top": int(top),
+              "width": int(width), "height": int(height)}
+    try:
+        shot = sct.grab(region)
+    except Exception:
+        try:
+            sct.close()
+        except Exception:
+            pass
+        _tls.sct = None
+        sct = _get_sct()
+        shot = sct.grab(region)
+    if shot is None:
+        raise RuntimeError("Region capture returned no image.")
+    frame = cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+    if mask_overlay:
+        rect = _overlay_rect
+        if rect is not None:
+            ox, oy, ow, oh = rect
+            lx, ly = ox - int(left), oy - int(top)
+            fh, fw = frame.shape[:2]
+            x0, y0 = max(0, lx), max(0, ly)
+            x1, y1 = min(fw, lx + ow), min(fh, ly + oh)
+            if x1 > x0 and y1 > y0:
+                frame[y0:y1, x0:x1] = 0
+    return frame
+
+
+class _BMIH(ctypes.Structure):
+    _fields_ = [("biSize", _wintypes.DWORD), ("biWidth", _wintypes.LONG),
+                ("biHeight", _wintypes.LONG), ("biPlanes", _wintypes.WORD),
+                ("biBitCount", _wintypes.WORD), ("biCompression", _wintypes.DWORD),
+                ("biSizeImage", _wintypes.DWORD), ("biXPelsPerMeter", _wintypes.LONG),
+                ("biYPelsPerMeter", _wintypes.LONG), ("biClrUsed", _wintypes.DWORD),
+                ("biClrImportant", _wintypes.DWORD)]
+
+
+class _BMI(ctypes.Structure):
+    _fields_ = [("bmiHeader", _BMIH), ("bmiColors", _wintypes.DWORD * 3)]
+
+
+def grab_window(hwnd) -> np.ndarray:
+    """Capture a window's CLIENT area via PrintWindow — works even when the
+    window is OCCLUDED by other windows (unlike screen-region capture). Returns
+    a BGR ndarray, or None on failure.
+
+    CAVEAT: for hardware-accelerated / DirectX games this often returns an
+    all-black image (the 3D swapchain isn't rendered into the GDI DC even with
+    PW_RENDERFULLCONTENT). If so, this method isn't viable and the Windows
+    Graphics Capture API would be required instead. Window must not be minimized."""
+    if not hwnd:
+        return None
+    rect = get_client_rect(hwnd)
+    if not rect:
+        return None
+    _, _, w, h = rect
+    if w <= 0 or h <= 0:
+        return None
+    user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+    user32.GetDC.argtypes = [ctypes.c_void_p]; user32.GetDC.restype = ctypes.c_void_p
+    gdi32.CreateCompatibleDC.argtypes = [ctypes.c_void_p]; gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
+    gdi32.CreateCompatibleBitmap.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+    gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
+    gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]; gdi32.SelectObject.restype = ctypes.c_void_p
+    user32.PrintWindow.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]; user32.PrintWindow.restype = ctypes.c_int
+    gdi32.GetDIBits.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint,
+                                ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
+    gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+    gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
+    user32.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    hdc = memdc = bmp = None
+    try:
+        hdc = user32.GetDC(hwnd)
+        memdc = gdi32.CreateCompatibleDC(hdc)
+        bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
+        old = gdi32.SelectObject(memdc, bmp)
+        _PW_CLIENTONLY = 1
+        _PW_RENDERFULLCONTENT = 2
+        ok = user32.PrintWindow(hwnd, memdc, _PW_CLIENTONLY | _PW_RENDERFULLCONTENT)
+        bmi = _BMI()
+        bmi.bmiHeader.biSize = ctypes.sizeof(_BMIH)
+        bmi.bmiHeader.biWidth = w
+        bmi.bmiHeader.biHeight = -h          # negative = top-down rows
+        bmi.bmiHeader.biPlanes = 1
+        bmi.bmiHeader.biBitCount = 32
+        bmi.bmiHeader.biCompression = 0      # BI_RGB
+        buf = (ctypes.c_ubyte * (w * h * 4))()
+        lines = gdi32.GetDIBits(memdc, bmp, 0, h, buf, ctypes.byref(bmi), 0)
+        gdi32.SelectObject(memdc, old)
+        if not ok or lines == 0:
+            return None
+        arr = np.frombuffer(buf, dtype=np.uint8).reshape(h, w, 4)
+        return cv2.cvtColor(arr, cv2.COLOR_BGRA2BGR)
+    except Exception:
+        return None
+    finally:
+        if bmp:
+            gdi32.DeleteObject(bmp)
+        if memdc:
+            gdi32.DeleteDC(memdc)
+        if hdc:
+            user32.ReleaseDC(hwnd, hdc)
 
 
 def list_monitors() -> list:

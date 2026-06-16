@@ -63,6 +63,7 @@ DEFAULT_ROIS: dict[str, Rect] = {
     "wheelspin_duplicate":  (0.20, 0.20, 0.65, 0.65),  # centre duplicate-reward menu
     "my_horizon_tab":       (0.00, 0.00, 1.00, 0.15),  # top-nav My Horizon tab
     "super_wheelspin":      (0.00, 0.20, 0.33, 0.65),  # left-column Super Wheelspin tile
+    "normal_wheelspin":     (0.00, 0.20, 0.33, 0.65),  # left-column (normal) Wheelspin tile
     "wheelspin_skip":       (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
     "wheelspin_collect":    (0.00, 0.86, 0.40, 0.14),  # bottom-left button prompt
     # ── Race menu navigation (main menu → EventLab → MY HISTORY → Start) ──
@@ -114,6 +115,7 @@ OCR_HINTS: dict[str, tuple[str, ...]] = {
                             "garage", "sell", "車庫", "賣出", "贈送"),
     "my_horizon_tab": ("my horizon", "horizon", "我的地平線", "地平線", "地平线"),
     "super_wheelspin": ("super", "wheelspin", "horizon", "超級", "輪盤"),
+    "normal_wheelspin": ("wheelspin", "wheel spin", "horizon", "輪盤", "轉輪"),
     "wheelspin_skip": ("略過", "skip", "跳過"),
     "wheelspin_collect": ("collect prize", "spin again", "collect", "prize",
                           "reward", "取得", "獎勵", "抽獎", "再次"),

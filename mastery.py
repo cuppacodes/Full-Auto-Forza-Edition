@@ -14,6 +14,7 @@ from app_lang import t as _at
 import config
 from config import get_nodes_file
 from capture import load_nodes, get_monitor_dims, force_english_ime
+from gameio import GameIO
 
 
 
@@ -163,7 +164,9 @@ def run(cfg: dict, stop_event: threading.Event,
     screen_wait = _KEYS_SCREEN_WAIT
     tap_wait    = _TAP_WAIT
 
-    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
+    io = GameIO(_fresh, log_cb)
+    current_w, current_h = io.width, io.height
+    mon_left, mon_top = io.cap_left, io.cap_top
 
     # Nodes are the ONLY capture this mode needs (no templates).
     res      = _fresh.get('mastery_resolution', 'custom')
@@ -194,7 +197,7 @@ def run(cfg: dict, stop_event: threading.Event,
         for _ in range(n):
             if stop():
                 return
-            _key_press(key, post_wait=tap_wait)
+            io.press(key, post_wait=tap_wait)
 
     def announce(msg):
         """Log a step AND reflect it in the status bar / overlay. Keys mode has
@@ -209,9 +212,11 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_mastery_started", lang))
     # Switch the game to English input only if it isn't already (see
     # capture.force_english_ime). Disable with auto_english_ime=false.
-    if _fresh.get("auto_english_ime", True):
+    if not io.bg and _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+    io.mute(_fresh)
+    io.start_keepalive(stop, _fresh)
 
     loop_count = start_loop - 1
     car_num    = 0
@@ -230,7 +235,7 @@ def run(cfg: dict, stop_event: threading.Event,
             announce(_at("log_navigating", lang,
                          keys=' '.join(k.upper() for k in nav_keys)))
             for key in nav_keys:
-                pydirectinput.press(key)
+                io.press(key, scancode=True)
                 time.sleep(0.4)
             time.sleep(0.3)
         else:
@@ -238,30 +243,30 @@ def run(cfg: dict, stop_event: threading.Event,
 
         # ── 2. Enter → open action menu ───────────────────────
         announce(_at("log_open_action_menu", lang))
-        _key_press('enter', post_wait=post_kw)
+        io.press('enter', post_wait=post_kw)
         if stop(): break
 
         # ── 3. Enter → Ride This Car ──────────────────────────
         announce(_at("log_mkeys_ride", lang))
-        _key_press('enter', post_wait=0.0)
+        io.press('enter', post_wait=0.0)
 
         # ── 4. Timed cutscene skip → ESC ──────────────────────
         announce(_at("log_mkeys_cutscene", lang))
         wait(cut_wait)
         if stop(): break
-        _key_press('esc', post_wait=_POST_CUTSCENE_ESC_WAIT)
+        io.press('esc', post_wait=_POST_CUTSCENE_ESC_WAIT)
 
         # ── 5. Down ×1 + Enter → Upgrade & Tuning ─────────────
         announce(_at("log_mkeys_upgrade", lang))
         taps('down', 1)
         if stop(): break
-        _key_press('enter', post_wait=post_kw)
+        io.press('enter', post_wait=post_kw)
 
         # ── 6. Down ×7 + Enter → Car Mastery ──────────────────
         announce(_at("log_mkeys_mastery", lang))
         taps('down', 7)
         if stop(): break
-        _key_press('enter', post_wait=0.0)
+        io.press('enter', post_wait=0.0)
 
         # ── 7. Wait for the Mastery screen to load ────────────
         announce(_at("log_mkeys_wait_mastery", lang))
@@ -273,32 +278,33 @@ def run(cfg: dict, stop_event: threading.Event,
         for i, (nx, ny) in enumerate(nodes, start=1):
             if stop(): break
             log_cb(_at("log_node", lang, i=i, n=len(nodes), x=nx, y=ny))
-            _mouse_click(nx, ny, mon_left, mon_top, post_ncw)
+            io.click(nx, ny, post_ncw)
             time.sleep(0.3)
         if stop(): break
 
         # ── 9. ESC ×2 to exit ─────────────────────────────────
         announce(_at("log_esc_back", lang))
-        _key_press('esc', post_wait=post_kw)
-        _key_press('esc', post_wait=post_kw)
+        io.press('esc', post_wait=post_kw)
+        io.press('esc', post_wait=post_kw)
         if stop(): break
 
         # ── 10. Up ×1 + Enter → My Cars ───────────────────────
         announce(_at("log_mkeys_mycars", lang))
         taps('up', 1)
         if stop(): break
-        _key_press('enter', post_wait=post_kw)
+        io.press('enter', post_wait=post_kw)
 
         # ── 11. X + Down ×6 + Enter → sort by Recently Added ──
         announce(_at("log_mkeys_sort", lang))
-        _key_press('x', post_wait=post_kw)
+        io.press('x', post_wait=post_kw)
         taps('down', 6)
         if stop(): break
-        _key_press('enter', post_wait=post_kw)
+        io.press('enter', post_wait=post_kw)
 
         if max_cars > 0 and car_num >= max_cars:
             log_cb(_at("log_mastery_limit_reached", lang, n=max_cars))
             break
 
+    io.cleanup()
     log_cb(_at("log_mastery_stopped", lang))
     status_cb(_at("status_stopped", lang))

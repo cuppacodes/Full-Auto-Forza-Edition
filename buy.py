@@ -35,6 +35,7 @@ from capture import (grab_frame, load_template, get_monitor_dims,
 # IME-safe (dual VK+scancode) key sender shared by Delete/Buy.
 from delete_cars import key_press
 from detector import ScreenDetector
+from gameio import GameIO
 
 
 # Buy macro per loop (unchanged from the old inline implementation).
@@ -88,7 +89,9 @@ def run(cfg: dict, stop_event: threading.Event,
     def _thr(key):
         return _fresh.get(f"thresh_{key}", 0.60)
 
-    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
+    io = GameIO(_fresh, log_cb)
+    current_w, current_h = io.width, io.height
+    mon_left, mon_top = io.cap_left, io.cap_top
     folder   = get_buy_templates(res, tpl_lang)
     ref_folder = None
     prefer_ref = False
@@ -135,7 +138,7 @@ def run(cfg: dict, stop_event: threading.Event,
         status_cb(msg)
 
     def press(key, post_wait=None):
-        key_press(key, post_wait=post_kw if post_wait is None else post_wait)
+        io.press(key, post_wait=post_kw if post_wait is None else post_wait)
 
     def _detect(key, window_s):
         """TIME-BOXED detection: poll detect() up to window_s, return the
@@ -145,7 +148,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return None
             try:
-                r = detector.detect(grab_frame(monitor_index), key,
+                r = detector.detect(io.grab(), key,
                                     nav_tpls[key], _thr(key), stable=False)
                 if r.matched:
                     return r
@@ -168,7 +171,7 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_buy_nav_detected", lang, label=lbl,
                    conf=f"{r.score:.0%}, {r.source}", secs=secs))
         log_cb(_at("log_buy_nav_click", lang, label=lbl))
-        mouse_click(r.location[0], r.location[1], mon_left, mon_top, post_kw)
+        io.click(r.location[0], r.location[1], post_kw)
         return True
 
     def _navigate_to_target(start_hit):
@@ -180,8 +183,7 @@ def run(cfg: dict, stop_event: threading.Event,
         # 1. Collection Log (already detected — click it)
         lbl = _at("buy_tpl_collection_log", lang)
         log_cb(_at("log_buy_nav_click", lang, label=lbl))
-        mouse_click(start_hit.location[0], start_hit.location[1],
-                    mon_left, mon_top, post_kw)
+        io.click(start_hit.location[0], start_hit.location[1], post_kw)
         if stop():
             return False
         # 2. Discover Japan card
@@ -216,7 +218,7 @@ def run(cfg: dict, stop_event: threading.Event,
         for _ in range(_SCROLL_NOTCHES):
             if stop():
                 return False
-            mouse_scroll(-1, post_wait=_SCROLL_PAUSE)
+            io.scroll(-1, post_wait=_SCROLL_PAUSE)
         wait(0.3)   # let the brand view settle at the bottom
         if stop():
             return False
@@ -227,7 +229,7 @@ def run(cfg: dict, stop_event: threading.Event,
         #    then let the list settle before detecting/clicking it — without this
         #    the click can fire mid-scroll and land off the still-moving tile.
         log_cb(_at("log_buy_scroll_one", lang))
-        mouse_scroll(-1, post_wait=_SCROLL_PAUSE)
+        io.scroll(-1, post_wait=_SCROLL_PAUSE)
         wait(_TARGET_SETTLE)
         if stop():
             return False
@@ -258,10 +260,13 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_buy_at_menu", lang))
 
     log_cb(_at("buy_running", lang))
-    # Switch the game to English input only if it isn't already.
-    if _fresh.get("auto_english_ime", True):
+    # Switch the game to English input only if it isn't already (foreground
+    # only — background mode would target the wrong window).
+    if not io.bg and _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+    io.mute(_fresh)
+    io.start_keepalive(stop, _fresh)
 
     # ── Optional entry navigation ──
     did_nav = False
@@ -272,6 +277,7 @@ def run(cfg: dict, stop_event: threading.Event,
         start_hit = _detect("collection_log", _START_STATE_WINDOW)
         if start_hit is not None:
             if not _navigate_to_target(start_hit):
+                io.cleanup()
                 log_cb(_at("log_buy_stopped", lang))
                 status_cb(_at("status_stopped", lang))
                 return
@@ -299,5 +305,6 @@ def run(cfg: dict, stop_event: threading.Event,
     if did_nav and not stop():
         _return_to_menu()
 
+    io.cleanup()     # stop keep-alive + unmute
     log_cb(_at("log_buy_stopped", lang))
     status_cb(_at("status_stopped", lang))

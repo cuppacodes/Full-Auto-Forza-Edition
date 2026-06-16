@@ -62,11 +62,15 @@ class TemplateRow(ctk.CTkFrame):
         init_val = 0.80
         if main_cfg:
             init_val = main_cfg.get(self._cfg_key, 0.80)
+        # The slider minimum matches the hard match-floor (detector_min_threshold,
+        # 0.70): a target below that has no effect, since detection applies
+        # max(0.70, target × 0.92). Clamp a stale stored value into range.
+        init_val = min(0.90, max(0.70, init_val))
         self._thresh_var = ctk.DoubleVar(value=init_val)
         _thresh_slider = ctk.CTkSlider(
             thresh_row,
             variable=self._thresh_var,
-            from_=0.50, to=0.90,
+            from_=0.70, to=0.90,
             command=self._on_thresh_move,
             height=14,
             **theme.slider_kwargs(main_cfg or {}),

@@ -26,7 +26,8 @@ echo  -----------------------------------------------------
 pip install --upgrade pyinstaller customtkinter Pillow ^
     pydirectinput opencv-python ^
     mss numpy keyboard requests certifi ^
-    rapidocr-onnxruntime
+    rapidocr-onnxruntime ^
+    pycaw comtypes
 if errorlevel 1 (
     echo.
     echo  ERROR: pip failed. Check Python installation.
@@ -49,6 +50,7 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\detector.py;." ^
     --add-data "%CD%\theme.py;." ^
     --add-data "%CD%\race.py;." ^
+    --add-data "%CD%\gameio.py;." ^
     --add-data "%CD%\mastery.py;." ^
     --add-data "%CD%\main_window.py;." ^
     --add-data "%CD%\setup_panel.py;." ^
@@ -75,9 +77,13 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --hidden-import urllib.request ^
     --hidden-import zipfile ^
     --hidden-import certifi ^
+    --hidden-import pycaw ^
+    --hidden-import comtypes ^
     --collect-all customtkinter ^
     --collect-all rapidocr_onnxruntime ^
     --collect-all certifi ^
+    --collect-all comtypes ^
+    --collect-submodules pycaw ^
     forza_app.py
 if errorlevel 1 (
     echo.
@@ -105,8 +111,8 @@ echo  [+]    Writing default config.json...
   echo   "toggle_key": "f9",
   echo   "capture_key": "caps lock",
   echo   "monitor_index": 1,
-  echo   "race_resolution": "1080p",
-  echo   "mastery_resolution": "1080p",
+  echo   "race_resolution": "built-in",
+  echo   "mastery_resolution": "built-in",
   echo   "race_threshold": 0.6,
   echo   "thresh_start_menu": 0.5,
   echo   "thresh_racing": 0.5,

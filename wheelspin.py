@@ -29,6 +29,7 @@ from app_lang import t as _at
 from capture import (grab_frame, load_template, get_monitor_dims,
                      force_english_ime, mouse_click)
 from detector import ScreenDetector
+from gameio import GameIO
 # Reuse the IME-safe (dual VK+scancode) key sender shared by Delete/Buy.
 # wheelspin only presses 'enter' and 'down' (down is an extended VK there).
 from delete_cars import key_press
@@ -45,6 +46,9 @@ MAX_DUP_CHAIN    = 3
 
 MH_TAB_KEY   = "my_horizon_tab"       # top-nav tab, clicked to start from main menu
 SUPER_KEY    = "super_wheelspin"      # left-column tile, clicked to start a run
+NORMAL_KEY   = "normal_wheelspin"     # the normal Wheelspin tile (1 prize); chosen
+                                      # via wheelspin_type. Only the START tile
+                                      # differs from super — the rest is identical.
 SKIP_KEY     = "wheelspin_skip"       # reveal "Skip" prompt — Enter fast-forwards
 COLLECT_KEY  = "wheelspin_collect"    # prize/result — Enter collects
 TEMPLATE_KEY = "wheelspin_duplicate"  # the 3-option duplicate-reward menu
@@ -75,7 +79,11 @@ def run(cfg: dict, stop_event: threading.Event,
     _fresh   = _cfg_mod.load()
     post_kw  = _fresh.get("wheelspin_post_key_wait", 0.5)
     dup_mode = _fresh.get("wheelspin_dup_mode", "garage")
+    wtype    = _fresh.get("wheelspin_type", "super")   # "super" | "normal"
     res      = _fresh.get("wheelspin_resolution", "custom")
+    # Which tile starts the run: Super Wheelspin (3 prizes) or normal Wheelspin
+    # (1 prize). Only this start tile differs — collect/duplicate flow is the same.
+    TILE_KEY = NORMAL_KEY if wtype == "normal" else SUPER_KEY
     tpl_lang = _cfg_mod.resolve_template_lang(_fresh)
     # Detection mode follows the template type (preset → default/OCR-confirm,
     # custom → pixel-only), same rule as race/mastery. See ScreenDetector.
@@ -84,7 +92,9 @@ def run(cfg: dict, stop_event: threading.Event,
     def _thr(key):
         return _fresh.get(f"thresh_{key}", 0.60)
 
-    current_w, current_h, mon_left, mon_top = get_monitor_dims(monitor_index)
+    io = GameIO(_fresh, log_cb)
+    current_w, current_h = io.width, io.height
+    mon_left, mon_top = io.cap_left, io.cap_top
     folder   = get_wheelspin_templates(res, tpl_lang)
     # Single-reference fallback for preset resolutions. Custom uses the user's
     # own capture.
@@ -109,15 +119,17 @@ def run(cfg: dict, stop_event: threading.Event,
         return img
 
     templates = {}
-    for key in (SUPER_KEY, COLLECT_KEY, TEMPLATE_KEY):
+    for key in (TILE_KEY, COLLECT_KEY, TEMPLATE_KEY):
         try:
             templates[key] = _load(key)
         except FileNotFoundError:
             log_cb(_at("log_template_missing", lang, key=key))
             status_cb(_at("status_setup_incomplete", lang))
             return
-    super_tpl             = templates[SUPER_KEY]
+    tile_tpl              = templates[TILE_KEY]   # super OR normal, per wheelspin_type
     collect_tpl, dup_tpl  = templates[COLLECT_KEY], templates[TEMPLATE_KEY]
+    # Label for logs/status, matching the chosen tile.
+    tile_label = _at("spin_tpl_normal" if wtype == "normal" else "spin_tpl_super", lang)
     # Skip is best-effort: load it if present, else disable skip-forward (the
     # collect wait alone still works — just no speed-up). Never aborts the run.
     try:
@@ -150,7 +162,7 @@ def run(cfg: dict, stop_event: threading.Event,
         status_cb(msg)
 
     def press(key, post_wait=None):
-        key_press(key, post_wait=post_kw if post_wait is None else post_wait)
+        io.press(key, post_wait=post_kw if post_wait is None else post_wait)
 
     def _detect(key, tpl, window_s):
         """TIME-BOXED detection: poll detect() for up to window_s seconds and
@@ -162,7 +174,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return None
             try:
-                frame = grab_frame(monitor_index)
+                frame = io.grab()
                 r = detector.detect(frame, key, tpl, _thr(key), stable=False)
                 if r.matched:
                     return r
@@ -170,6 +182,31 @@ def run(cfg: dict, stop_event: threading.Event,
                 pass
             time.sleep(0.15)
         return None
+
+    def _detect_tile_or_tab(window_s):
+        """First step: poll for the wheel TILE or the My Horizon TAB, TILE
+        prioritized. If the tile is already visible we're on the My Horizon menu,
+        so we should click the tile — NOT re-navigate via the tab. Returns
+        ('tile'|'tab', result) for whichever shows (tile wins ties), or
+        (None, None) if the window elapses / stopped."""
+        end = time.time() + window_s
+        while time.time() < end:
+            if stop():
+                return (None, None)
+            try:
+                frame = io.grab()
+                tr = detector.detect(frame, TILE_KEY, tile_tpl,
+                                     _thr(TILE_KEY), stable=False)
+                if tr.matched:
+                    return ('tile', tr)
+                br = detector.detect(frame, MH_TAB_KEY, mh_tab_tpl,
+                                     _thr(MH_TAB_KEY), stable=False)
+                if br.matched:
+                    return ('tab', br)
+            except Exception:
+                pass
+            time.sleep(0.15)
+        return (None, None)
 
     def _wait_either(key_a, tpl_a, key_b, tpl_b):
         """Wait until EITHER template is on screen; return ('a'|'b', result), or
@@ -179,7 +216,7 @@ def run(cfg: dict, stop_event: threading.Event,
         `a` is checked first as the tiebreak."""
         while not stop():
             try:
-                frame = grab_frame(monitor_index)
+                frame = io.grab()
                 ra = detector.detect(frame, key_a, tpl_a, _thr(key_a),
                                      stable=False)
                 if ra.matched:
@@ -204,7 +241,7 @@ def run(cfg: dict, stop_event: threading.Event,
         serves all checks; dup is checked first as the tiebreak."""
         while not stop():
             try:
-                frame = grab_frame(monitor_index)
+                frame = io.grab()
                 dr = detector.detect(frame, TEMPLATE_KEY, dup_tpl,
                                      _thr(TEMPLATE_KEY), stable=False)
                 if dr.matched:
@@ -233,13 +270,13 @@ def run(cfg: dict, stop_event: threading.Event,
         duplicate, never a premature 'menu'."""
         while not stop():
             try:
-                frame = grab_frame(monitor_index)
+                frame = io.grab()
                 dr = detector.detect(frame, TEMPLATE_KEY, dup_tpl,
                                      _thr(TEMPLATE_KEY), stable=False)
                 if dr.matched:
                     return ('dup', dr)
-                mr = detector.detect(frame, SUPER_KEY, super_tpl,
-                                     _thr(SUPER_KEY), stable=False)
+                mr = detector.detect(frame, TILE_KEY, tile_tpl,
+                                     _thr(TILE_KEY), stable=False)
                 if mr.matched:
                     return ('menu', mr)
             except Exception:
@@ -264,7 +301,7 @@ def run(cfg: dict, stop_event: threading.Event,
             if stop():
                 return
             try:
-                frame = grab_frame(monitor_index)
+                frame = io.grab()
                 if not detector.detect(frame, key, tpl, _thr(key),
                                        stable=False).matched:
                     return
@@ -285,7 +322,7 @@ def run(cfg: dict, stop_event: threading.Event,
                    f" ({best.source}: {best.score:.0%})")
         t0 = time.time()
         res = detector.wait_for(
-            frame_cb=lambda: grab_frame(monitor_index),
+            frame_cb=lambda: io.grab(),
             key=key, template=tpl, threshold=_thr(key),
             stop_cb=stop, interval=0.2, on_warn=_warn)
         if res.matched:
@@ -303,10 +340,13 @@ def run(cfg: dict, stop_event: threading.Event,
         log_cb(_at("log_spin_started", lang))
     if dup_mode == "sell":
         log_cb(_at("log_spin_sell_warn", lang))
-    # Switch the game to English input only if it isn't already.
-    if _fresh.get("auto_english_ime", True):
+    # Switch the game to English input only if it isn't already (foreground
+    # only — in background mode it would target the wrong window).
+    if not io.bg and _fresh.get("auto_english_ime", True):
         force_english_ime()
         time.sleep(0.2)
+    io.mute(_fresh)
+    io.start_keepalive(stop, _fresh)
 
     # ── Optional menu-start (ONCE): if the My Horizon tab template is captured,
     #    click it first so the run can START from the main menu (the chaining
@@ -318,34 +358,41 @@ def run(cfg: dict, stop_event: threading.Event,
     if mh_tab_tpl is not None and not stop():
         announce(_at("log_spin_select_mh_tab", lang))
         _t_mh = time.time()
-        res_mh = _detect(MH_TAB_KEY, mh_tab_tpl, MH_TAB_WINDOW)
-        if res_mh is not None:
+        # Prioritize the wheel tile: if it's already on screen we're on the My
+        # Horizon menu (both the tile and the top-nav tab are visible there), so
+        # clicking the tab would needlessly re-navigate. Only click the tab when
+        # the tile ISN'T visible (i.e. we're elsewhere and need to get to My
+        # Horizon). When the tile IS visible we skip the tab — the entry step
+        # below clicks the tile.
+        which_first, r_first = _detect_tile_or_tab(MH_TAB_WINDOW)
+        if which_first == 'tab':
             log_cb(_at("log_spin_detected", lang,
                        label=_at("spin_tpl_my_horizon", lang),
-                       conf=f"{res_mh.score:.0%}, {res_mh.source}",
+                       conf=f"{r_first.score:.0%}, {r_first.source}",
                        secs=f"{time.time() - _t_mh:.1f}"))
-            mouse_click(res_mh.location[0], res_mh.location[1],
-                        mon_left, mon_top, post_kw)   # → My Horizon menu
+            io.click(r_first.location[0], r_first.location[1], post_kw)  # → My Horizon menu
+        elif which_first == 'tile':
+            log_cb(_at("log_spin_on_my_horizon", lang, label=tile_label))
 
     # ── Entry (ONCE): from the My Horizon menu, find the Super Wheelspin tile
     #    and click its centre. Clicking it starts the first spin and moves to
     #    the spin screen, which then persists. Every later spin auto-starts from
     #    the previous collect ("…and Spin Again"), so FAFE never presses to spin
     #    again — it just waits for each spin's skip/collect prompts. ──
-    announce(_at("log_spin_select_super", lang))
+    announce(_at("log_spin_select_tile", lang, label=tile_label))
     _t_super = time.time()
-    res_super = _detect(SUPER_KEY, super_tpl, SUPER_FIND_WINDOW)
+    res_super = _detect(TILE_KEY, tile_tpl, SUPER_FIND_WINDOW)
     if res_super is None:
         if not stop():
-            log_cb(_at("log_spin_super_not_found", lang))
+            log_cb(_at("log_spin_tile_not_found", lang, label=tile_label))
+        io.cleanup()
         log_cb(_at("log_spin_stopped", lang))
         status_cb(_at("status_stopped", lang))
         return
-    log_cb(_at("log_spin_detected", lang, label=_at("spin_tpl_super", lang),
+    log_cb(_at("log_spin_detected", lang, label=tile_label,
                conf=f"{res_super.score:.0%}, {res_super.source}",
                secs=f"{time.time() - _t_super:.1f}"))
-    mouse_click(res_super.location[0], res_super.location[1],
-                mon_left, mon_top, post_kw)   # starts spin #1
+    io.click(res_super.location[0], res_super.location[1], post_kw)  # starts spin #1
 
     loop_count = 0
     while not stop():
@@ -492,5 +539,6 @@ def run(cfg: dict, stop_event: threading.Event,
             log_cb(_at("log_spin_limit_reached", lang, n=max_loops))
             break
 
+    io.cleanup()     # stop keep-alive + unmute
     log_cb(_at("log_spin_stopped", lang))
     status_cb(_at("status_stopped", lang))
