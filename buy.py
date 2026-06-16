@@ -41,8 +41,11 @@ from gameio import GameIO
 # Buy macro per loop (unchanged from the old inline implementation).
 BUY_MACRO = ['space', 'down', 'enter', 'enter', 'enter']
 
-NAV_KEYS = ["collection_log", "discover_japan", "car_collection",
-            "subaru", "buy_target_car"]
+# buy_target_car is intentionally NOT here: the target car is now reached by
+# keyboard (S → Enter from the BRAT GL tile that's selected after picking
+# Subaru), not template detection — the tile collided with look-alike Subaru
+# tiles. So nav only needs the four screens it clicks/gates on.
+NAV_KEYS = ["collection_log", "discover_japan", "car_collection", "subaru"]
 _LABELS = {
     "collection_log": "buy_tpl_collection_log",
     "discover_japan": "buy_tpl_discover_japan",
@@ -55,7 +58,7 @@ _NAV_STEP_WINDOW     = 12.0   # per-step detection window before aborting
 _START_STATE_WINDOW  = 8.0    # detect the main menu (collection_log) at start
 _SCROLL_NOTCHES      = 12     # generous: scroll past the bottom (list clamps)
 _SCROLL_PAUSE        = 0.12   # gap between scroll notches
-_TARGET_SETTLE       = 0.5    # settle after the 1-notch scroll before clicking the target car
+_TARGET_SETTLE       = 2.0    # settle after the 1-notch scroll before clicking the target car
 _EXIT_ESC_COUNT      = 4      # Esc presses from the detail view → main menu
 _EXIT_ESC_GAP        = 0.5    # gap between Esc presses
 _EXIT_CONFIRM_WINDOW = 10.0   # detect the main menu after the Esc chain
@@ -157,9 +160,11 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.15)
         return None
 
-    def _nav_click(key):
+    def _nav_click(key, pre_click_wait=0.0):
         """Detect a clickable nav element (time-boxed) and click its centre.
-        Returns True on success, False if it never appears (abort) or stopped."""
+        pre_click_wait pauses AFTER detection, BEFORE the click — lets the screen
+        finish settling so the click lands on the right tile. Returns True on
+        success, False if it never appears (abort) or stopped."""
         lbl = _at(_LABELS[key], lang)
         t0 = time.time()
         r = _detect(key, _NAV_STEP_WINDOW)
@@ -170,6 +175,10 @@ def run(cfg: dict, stop_event: threading.Event,
             return False
         log_cb(_at("log_buy_nav_detected", lang, label=lbl,
                    conf=f"{r.score:.0%}, {r.source}", secs=secs))
+        if pre_click_wait:
+            wait(pre_click_wait)
+            if stop():
+                return False
         log_cb(_at("log_buy_nav_click", lang, label=lbl))
         io.click(r.location[0], r.location[1], post_kw)
         return True
@@ -222,19 +231,21 @@ def run(cfg: dict, stop_event: threading.Event,
         wait(0.3)   # let the brand view settle at the bottom
         if stop():
             return False
-        # 6. Click Subaru → drops back into the car-list view at the Subaru cars
+        # 6. Click Subaru → drops into the car-list view; the cursor reliably
+        #    lands on the BRAT GL tile.
         if not _nav_click("subaru"):
             return False
-        # 7. Scroll down ONE notch so the target car (22B-STi) comes into view,
-        #    then let the list settle before detecting/clicking it — without this
-        #    the click can fire mid-scroll and land off the still-moving tile.
-        log_cb(_at("log_buy_scroll_one", lang))
-        io.scroll(-1, post_wait=_SCROLL_PAUSE)
-        wait(_TARGET_SETTLE)
+        # 7. From BRAT GL the 22B-STi is one row down, so move down once and
+        #    select it with Enter. Keyboard nav is reliable here — detecting the
+        #    tile collided with the look-alike Subaru tiles (BRAT GL etc.), so the
+        #    template detection for the target car is ditched in favour of S→Enter.
+        log_cb(_at("log_buy_nav_key", lang, keys="S → Enter",
+                   label=_at("buy_tpl_target_car", lang)))
+        press('s')
         if stop():
             return False
-        # 8. Click the target car → focuses it (the buy macro starts here)
-        if not _nav_click("buy_target_car"):
+        press('enter')
+        if stop():
             return False
         log_cb(_at("log_buy_macro_start", lang))
         return True
