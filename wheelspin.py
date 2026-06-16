@@ -230,15 +230,22 @@ def run(cfg: dict, stop_event: threading.Event,
             time.sleep(0.10)
         return (None, None)
 
-    def _wait_dup_or_next():
+    def _wait_dup_or_next(collect_cleared):
         """Wait until a duplicate menu OR the next spin appears; return
-        ('dup', result) or ('next', result), or (None, None) if stopped. Used
-        after handling a duplicate. The "next spin" is detected by its SKIP
-        prompt (when skip is enabled) OR its collect prompt — watching skip too
-        means we break the instant the next spin starts, so its skip window
-        isn't waited past (otherwise the next spin's reveal would play out fully
-        and skip would never apply beyond the first spin). Indefinite; one grab
-        serves all checks; dup is checked first as the tiebreak."""
+        ('dup', result), ('next', result), ('cleared', None), or (None, None) if
+        stopped. Used after a collect press. The "next spin" is detected by its
+        SKIP prompt (when skip is enabled) OR its collect prompt — watching skip
+        too means we break the instant the next spin starts, so its skip window
+        isn't waited past.
+
+        The just-pressed collect prompt LINGERS during the collecting animation
+        and can overlap the first duplicate menu. dup is checked first, so a
+        duplicate that pops up mid-animation wins. Crucially, a collect/skip
+        prompt is only treated as 'next' once the lingering same-spin collect has
+        gone absent at least once (`collect_cleared`): until then its ABSENCE is
+        reported as 'cleared' (the caller sets the flag) and its presence is
+        ignored, so the lingering prompt can't short-circuit the duplicate loop.
+        Indefinite; one grab serves all checks."""
         while not stop():
             try:
                 frame = io.grab()
@@ -246,15 +253,25 @@ def run(cfg: dict, stop_event: threading.Event,
                                      _thr(TEMPLATE_KEY), stable=False)
                 if dr.matched:
                     return ('dup', dr)
+                prompt_up = False
                 if skip_tpl is not None:
                     skr = detector.detect(frame, SKIP_KEY, skip_tpl,
                                           _thr(SKIP_KEY), stable=False)
                     if skr.matched:
-                        return ('next', skr)
+                        if collect_cleared:
+                            return ('next', skr)
+                        prompt_up = True
                 cr = detector.detect(frame, COLLECT_KEY, collect_tpl,
                                      _thr(COLLECT_KEY), stable=False)
                 if cr.matched:
-                    return ('next', cr)
+                    if collect_cleared:
+                        return ('next', cr)
+                    prompt_up = True
+                # Before the lingering same-spin collect prompt has cleared once,
+                # its ABSENCE (no collect/skip prompt up) is the 'cleared' signal,
+                # never 'next'.
+                if not collect_cleared and not prompt_up:
+                    return ('cleared', None)
             except Exception:
                 pass
             time.sleep(0.10)
@@ -283,31 +300,6 @@ def run(cfg: dict, stop_event: threading.Event,
                 pass
             time.sleep(0.10)
         return (None, None)
-
-    def _wait_gone(key, tpl, timeout=8.0):
-        """Wait (bounded) until `key` is NO LONGER on screen. Used for the
-        COLLECT prompt after pressing it, so the lingering just-pressed prompt
-        isn't re-detected and double-pressed. Safe for collect because the NEXT
-        collect is a whole spin away (seconds), so this can't overshoot onto it.
-
-        NOTE: do NOT use this between consecutive DUPLICATE menus — they're only
-        ~0.23s apart, which is shorter than the post-key wait the action already
-        did, so by the time this ran the next menu would already be up and it
-        would sit waiting for THAT menu to vanish until timeout (stalling every
-        stacked duplicate). Bounded timeout so a genuinely stuck screen can't
-        hang the loop."""
-        end = time.time() + timeout
-        while time.time() < end:
-            if stop():
-                return
-            try:
-                frame = io.grab()
-                if not detector.detect(frame, key, tpl, _thr(key),
-                                       stable=False).matched:
-                    return
-            except Exception:
-                pass
-            time.sleep(0.15)
 
     def _wait_stage(key, tpl, waiting_msg, label):
         """Wait until a spin STAGE that always occurs is on screen (the
@@ -459,48 +451,54 @@ def run(cfg: dict, stop_event: threading.Event,
             press('escape', post_wait=0.0)         # collect all 3 + exit to menu
         else:
             announce(_at("log_spin_collect", lang))
-            press('enter', post_wait=0.0)          # _wait_gone below is the guard
-        if stop(): break
-        # Let the collect prompt dismiss before watching for the next screen, so
-        # the prompt we just pressed isn't re-detected (which would fire a second
-        # collect and desync). Bounded inside _wait_gone. This wait is the game's
-        # collecting animation — log how long it takes so any post-collect lag is
-        # visible (the duplicate menu can't be detected until this clears).
-        _t_clear = time.time()
-        _wait_gone(COLLECT_KEY, collect_tpl)
-        log_cb(_at("log_spin_collect_cleared", lang,
-                   secs=f"{time.time() - _t_clear:.1f}"))
+            press('enter', post_wait=0.0)          # collect-clear gated below
         if stop(): break
 
-        # ── 2. Resolve duplicates — detect-after-settle ──
-        # After the collect, 0–3 duplicate menus appear in sequence (one per
-        # duplicate car). We detect a duplicate, handle it, then the confirming
-        # key's post-wait (0.5s, > the ~0.23s it takes the menu to advance to the
-        # next car / dismiss) settles before we look again — so the menu has
-        # MOVED ON to the next duplicate (or to the spin) before the next check,
-        # and the one we just handled can't be re-counted.
+        # ── 2. Resolve duplicates — duplicate-or-collect-clear merged wait ──
+        # After collect, 0–3 duplicate menus appear in sequence (one per
+        # duplicate car). The just-pressed collect prompt LINGERS on screen
+        # during the ~5s collecting animation, and a duplicate menu can pop up
+        # WHILE it's still showing. So we no longer blind-wait for the collect
+        # prompt to clear before looking for duplicates (that delayed catching a
+        # mid-animation duplicate by ~2s — the reported lag). Each wait now
+        # watches for the duplicate menu AND the collect-clear at once; dup wins
+        # ties, so a duplicate that appears during the animation is caught the
+        # instant it shows.
         #
-        # NOT rising-edge: the "Car Already Owned" header is so stable it stays
-        # detected continuously from one duplicate straight into the next (no
-        # absent gap), so edge-counting would never see dup #2 and would get
-        # stuck. NOT _wait_gone: the header never goes absent between dupes, so
-        # it would just time out. The header template is precise (it won't false-
-        # match the spinning wheel) and reliable, which is exactly what makes the
-        # simple settle-then-detect correct — no re-count, no missed menu.
+        # The lingering SAME-spin collect prompt must not be mistaken for the
+        # NEXT spin (which would short-circuit the loop and skip every duplicate).
+        # So a collect/skip prompt is only treated as 'next' once the lingering
+        # prompt has gone absent at least once (`collect_cleared`); until then its
+        # absence is the 'cleared' signal, not 'next'.
         #
-        # "No more duplicates" is signalled by the NEXT spin starting — detected
-        # via its skip OR collect prompt (`_wait_dup_or_next`). We break on the
-        # skip prompt (not just collect) so the next spin's skip window isn't
-        # waited past; the top-of-loop skip step then catches it.
+        # Duplicate handling itself is detect-after-settle: handle a duplicate,
+        # then the confirming key's post-wait (0.5s, > the ~0.23s the menu takes
+        # to advance) settles before the next check, so the menu has MOVED ON and
+        # the one just handled can't be re-counted. (NOT rising-edge: the "Car
+        # Already Owned" header stays detected continuously from one duplicate
+        # into the next, so edge-counting would never see dup #2.)
+        collect_cleared = False
         chain = 0
         while not stop():
             announce(_at("log_spin_wait_dup", lang))
             _t_dup = time.time()
             # Last spin ended with Esc → no next spin; the "done" signal is the
-            # My Horizon menu (Super Wheelspin tile) reappearing. Otherwise the
-            # next spin's skip/collect prompt signals "no more duplicates".
-            which, r = _wait_dup_or_menu() if is_last else _wait_dup_or_next()
+            # My Horizon menu (wheel tile) reappearing — the lingering collect
+            # prompt can't false-match the tile, so the last-spin wait needs no
+            # collect-clear gate. Otherwise gate on collect_cleared.
+            if is_last:
+                which, r = _wait_dup_or_menu()
+            else:
+                which, r = _wait_dup_or_next(collect_cleared)
             _el = f"{time.time() - _t_dup:.1f}"
+            if which == 'cleared':
+                # The lingering same-spin collect prompt vanished with no
+                # duplicate — a collect/skip prompt now genuinely means the next
+                # spin. This wait IS the collecting animation; its elapsed time
+                # exposes any post-collect lag.
+                collect_cleared = True
+                log_cb(_at("log_spin_collect_cleared", lang, secs=_el))
+                continue
             if which != 'dup':
                 # 'next'  = next spin's skip/collect prompt (top-of-loop presses it)
                 # 'menu'  = back on the My Horizon menu (last spin done)
