@@ -71,13 +71,13 @@ python -m PyInstaller --onedir --windowed --name FAFE ^
     --add-data "%CD%\mastery.py;." ^
     --add-data "%CD%\main_window.py;." ^
     --add-data "%CD%\setup_panel.py;." ^
+    --add-data "%CD%\grid_widget.py;." ^
     --add-data "%CD%\log_widget.py;." ^
     --add-data "%CD%\version.py;." ^
     --add-data "%CD%\updater.py;." ^
     --add-data "%CD%\delete_cars.py;." ^
     --add-data "%CD%\wheelspin.py;." ^
     --add-data "%CD%\buy.py;." ^
-    --add-data "%CD%\full_auto.py;." ^
     --add-data "%CD%\report.py;." ^
     --add-data "%CD%\overlay.py;." ^
     --hidden-import customtkinter ^

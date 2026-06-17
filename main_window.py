@@ -13,8 +13,10 @@ import config
 import theme
 from app_lang import t as _at
 from config import (load, save, resolve_template_lang,
-                    get_race_templates, get_mastery_templates, get_nodes_file,
-                    get_wheelspin_templates, get_buy_templates)
+                    get_race_templates, get_mastery_templates,
+                    get_wheelspin_templates, get_buy_templates,
+                    get_mastery_grid_file)
+from grid_widget import MasteryGridWidget
 from log_widget import LogWidget
 from setup_panel import SetupPanel
 from updater import check_async, RELEASES_PAGE
@@ -23,12 +25,6 @@ from version import VERSION
 
 # ── Race template definitions ─────────────────────────────────
 # Template label keys looked up via app_lang at runtime
-# Full Auto is a WIP scaffold (race+buy wired; mastery/sell/wheelspin-branch are
-# TODO placeholders). Hidden for the v1.6.0 release — flip to True to show the
-# sidebar nav item again when resuming the chain work. The tab frame is still
-# built (so its widgets/handlers stay valid); only the nav entry is gated.
-SHOW_FULL_AUTO = False
-
 # Show the Setup & Templates panel on Race / Buy / Auto Spin Wheel. These ship
 # pre-captured templates, but the panel stays visible so users can switch
 # resolution or recapture. Set False to hide it (templates still work via the
@@ -86,8 +82,6 @@ BUY_TEMPLATE_KEYS = [
 ]
 # Mastery is keyboard-driven (no detection), so it has no template list — the
 # Setup panel shows node capture only.
-
-
 
 
 class Tooltip:
@@ -438,7 +432,6 @@ class MainWindow(ctk.CTk):
         self._main_content.pack(side="top", fill="both", expand=True)
 
         # Tab content frames (parented to the content area).
-        self._full_auto_frame = self._build_full_auto_tab()
         self._race_frame    = self._build_race_tab()
         self._mastery_frame = self._build_mastery_tab()
         self._buy_frame     = self._build_buy_tab()
@@ -488,8 +481,7 @@ class MainWindow(ctk.CTk):
         # inactive items sit at the exact same position (no off-centre shift).
         self._nav_buttons = {}
         self._nav_bars = {}
-        _nav_keys = (("full_auto",) if SHOW_FULL_AUTO else ()) + \
-                    ("race", "mastery", "buy", "delete", "spin")
+        _nav_keys = ("race", "mastery", "buy", "delete", "spin")
         for key in _nav_keys:
             item = ctk.CTkFrame(sb, fg_color="transparent", height=42)
             item.pack(fill="x", padx=10, pady=2)
@@ -689,8 +681,8 @@ class MainWindow(ctk.CTk):
                      anchor="w", wraplength=480, justify="left",
                      font=("Arial", 12)).pack(fill="x", padx=12, pady=(8, 0))
 
-        # Setup panel — mastery is keyboard-driven, so it only needs node
-        # capture (no templates, no threshold sliders).
+        # Mastery is keyboard-driven and walks the tree with WASD, so its only
+        # config is the unlock-path grid (no templates, no node-click capture).
         self._mastery_setup = self._make_mastery_setup(frame)
         self._mastery_setup.pack(fill="x", padx=8, pady=(4, 8))
 
@@ -779,67 +771,6 @@ class MainWindow(ctk.CTk):
             slider.bind('<ButtonRelease-1>',
                         lambda e, k=key, va=var: self._on_setting_change(k, va))
             slider.pack(side="left", fill="x", expand=True, padx=4)
-
-    def _build_full_auto_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
-
-        # Description
-        ctk.CTkLabel(frame, text=_at("full_auto_description", self._lang),
-                     anchor="w", wraplength=480, justify="left",
-                     font=("Arial", 12)).pack(fill="x", padx=12, pady=(8, 0))
-
-        # Races-per-cycle count row (user-defined; for mastery points)
-        count_row = ctk.CTkFrame(frame, fg_color="transparent")
-        count_row.pack(fill="x", padx=12, pady=(8, 0))
-        ctk.CTkLabel(count_row, text=_at("full_auto_count_label", self._lang),
-                     font=("Arial", 12)).pack(side="left")
-        self._full_auto_count_var = ctk.StringVar(value="0")
-        ctk.CTkEntry(count_row, textvariable=self._full_auto_count_var,
-                     width=70, justify="center").pack(side="left", padx=8)
-
-        # Branch toggle: spin wheels each cycle, or straight back to racing
-        branch_row = ctk.CTkFrame(frame, fg_color="transparent")
-        branch_row.pack(fill="x", padx=12, pady=(8, 0))
-        ctk.CTkLabel(branch_row, text=_at("full_auto_branch_label", self._lang),
-                     font=theme.LABEL_FONT).pack(side="left")
-        self._fa_branch_labels = {
-            "racing":    _at("full_auto_branch_racing", self._lang),
-            "wheelspin": _at("full_auto_branch_wheelspin", self._lang),
-        }
-        cur_branch = self._cfg.get("full_auto_branch_mode", "racing")
-        if cur_branch not in self._fa_branch_labels:
-            cur_branch = "racing"
-        self._fa_branch_var = ctk.StringVar(
-            value=self._fa_branch_labels[cur_branch])
-        ctk.CTkSegmentedButton(
-            branch_row,
-            values=[self._fa_branch_labels["racing"],
-                    self._fa_branch_labels["wheelspin"]],
-            variable=self._fa_branch_var,
-            command=self._on_fa_branch_change,
-            height=32,
-            **theme.segbtn_kwargs(self._cfg),
-        ).pack(side="left", padx=theme.PAD_INLINE)
-
-        # Run controls
-        self._build_run_controls(frame, mode="full_auto")
-
-        # Log
-        self._full_auto_log = LogWidget(frame,
-            placeholder=_at('log_placeholder', self._lang),
-            warn_color=self._t("warn"),
-            title=_at("label_activity", self._lang),
-            title_color=self._t("text"), loop_color=self._t("log_accent"),
-            sep_color=self._t("border"), fg_color=self._t("surface_alt"),
-            border_width=1, border_color=self._t("border"),
-            corner_radius=self._t("corner"))
-        self._full_auto_log.pack(fill="both", expand=True, padx=8, pady=(4, 8))
-        return frame
-
-    def _on_fa_branch_change(self, val: str):
-        rev = {v: k for k, v in getattr(self, "_fa_branch_labels", {}).items()}
-        self._cfg["full_auto_branch_mode"] = rev.get(val, "racing")
-        save(self._cfg)
 
     def _build_buy_tab(self) -> ctk.CTkFrame:
         frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
@@ -1070,32 +1001,7 @@ class MainWindow(ctk.CTk):
         row = ctk.CTkFrame(card, fg_color="transparent")
         row.pack(fill="x", padx=12, pady=12)
 
-        if mode == "full_auto":
-            self._full_auto_start_btn = ctk.CTkButton(
-                row, text=theme.ICON_START + _at("btn_start", self._lang),
-                command=self._start_full_auto,
-                width=120, font=theme.BUTTON_FONT,
-                fg_color=theme.START_FG, hover_color=theme.START_HOVER,
-                text_color=self._t("start_text"))
-            self._full_auto_start_btn.pack(side="left", padx=(0, 8))
-
-            self._full_auto_stop_btn = ctk.CTkButton(
-                row, text=theme.ICON_STOP + _at("btn_stop", self._lang),
-                command=self._stop_auto,
-                fg_color=theme.STOP_FG, hover_color=theme.STOP_HOVER,
-                text_color=self._t("stop_text"),
-                width=100, font=theme.BUTTON_FONT, state="disabled")
-            self._full_auto_stop_btn.pack(side="left")
-
-            self._full_auto_shortcut_lbl = ctk.CTkLabel(
-                row,
-                text=_at("shortcut_toggle", self._lang,
-                         key=self._toggle_key.upper()),
-                font=theme.HINT_FONT,
-                text_color=self._t("text_muted"))
-            self._full_auto_shortcut_lbl.pack(side="left", padx=(16, 0))
-
-        elif mode == "race":
+        if mode == "race":
             self._race_start_btn = ctk.CTkButton(
                 row, text=theme.ICON_START + _at("btn_start", self._lang),
                 command=self._start_race,
@@ -1237,8 +1143,7 @@ class MainWindow(ctk.CTk):
     def _switch_tab(self, tab: str):
         # Always re-show (don't early-return on same tab): a panel may be open
         # with _current_tab still set, and clicking the tab must exit the panel.
-        frame = {"full_auto": self._full_auto_frame,
-                 "race": self._race_frame, "mastery": self._mastery_frame,
+        frame = {"race": self._race_frame, "mastery": self._mastery_frame,
                  "buy": self._buy_frame, "delete": self._delete_frame,
                  "spin": self._spin_frame}[tab]
         self._show_main(frame)
@@ -1250,8 +1155,7 @@ class MainWindow(ctk.CTk):
         self._set_nav_active(tab)
         self._page_title_var.set(_at(f"page_title_{tab}", self._lang))
 
-        self._active_log = {"full_auto": self._full_auto_log,
-                            "race": self._race_log, "mastery": self._mastery_log,
+        self._active_log = {"race": self._race_log, "mastery": self._mastery_log,
                             "buy": self._buy_log, "delete": self._delete_log,
                             "spin": self._spin_log}[tab]
         self._active_setup_panel = {
@@ -1586,9 +1490,7 @@ class MainWindow(ctk.CTk):
         if self._auto_thread and self._auto_thread.is_alive():
             self._stop_auto()
         else:
-            if self._current_tab == 'full_auto':
-                self._start_full_auto()
-            elif self._current_tab == 'race':
+            if self._current_tab == 'race':
                 self._start_race()
             elif self._current_tab == 'mastery':
                 self._start_mastery()
@@ -1598,53 +1500,6 @@ class MainWindow(ctk.CTk):
                 self._start_spin()
             else:
                 self._start_delete()
-
-    def _start_full_auto(self):
-        if self._auto_thread and self._auto_thread.is_alive():
-            return
-        self._stop_event.clear()
-        self._set_status(_at("status_starting_full_auto", self._lang))
-        self._full_auto_start_btn.configure(state="disabled")
-        self._full_auto_stop_btn.configure(state="normal")
-        self._full_auto_log.clear()
-
-        def _fa_safe():
-            log_cb = self._full_auto_log.log
-            lang = self._cfg.get('lang', 'en')
-            try:
-                import time as _t
-                log_cb(_at('startup_switch_to_game', lang))
-                for i in range(3, 0, -1):
-                    if self._stop_event.is_set(): return
-                    log_cb(_at('startup_countdown', lang, i=i))
-                    self._set_status(_at('startup_countdown', lang, i=i))
-                    _t.sleep(1)
-                if self._stop_event.is_set(): return
-                import config as _cfg_mod
-                from full_auto import run as fa_run
-                try:
-                    race_count = int(self._full_auto_count_var.get())
-                except ValueError:
-                    race_count = 0
-                branch = self._cfg.get('full_auto_branch_mode', 'racing')
-                fa_run(
-                    cfg=_cfg_mod.load(),
-                    stop_event=self._stop_event,
-                    log_cb=log_cb,
-                    status_cb=self._set_status,
-                    race_count=race_count,
-                    branch_mode=branch,
-                    section_cb=self._full_auto_log.log_section,
-                )
-            except Exception as e:
-                import traceback
-                log_cb(f'ERROR: {e}')
-                log_cb(traceback.format_exc())
-                self._set_status(f'Error: {e}')
-
-        self._auto_thread = threading.Thread(target=_fa_safe, daemon=True)
-        self._auto_thread.start()
-        self._poll_thread()
 
     def _stop_auto(self):
         self._stop_event.set()
@@ -1677,8 +1532,6 @@ class MainWindow(ctk.CTk):
             self._delete_stop_btn.configure(state="disabled")
             self._spin_start_btn.configure(state="normal")
             self._spin_stop_btn.configure(state="disabled")
-            self._full_auto_start_btn.configure(state="normal")
-            self._full_auto_stop_btn.configure(state="disabled")
 
     # ── Helpers ───────────────────────────────────────────────
 
@@ -2438,24 +2291,13 @@ class MainWindow(ctk.CTk):
             self._cfg["mastery_start_loop"] = 1
         save(self._cfg)
 
-    def _make_mastery_setup(self, parent) -> SetupPanel:
-        """Build the mastery Setup panel. Mastery is keyboard-driven, so it
-        needs NO templates — only node capture. The panel gets an empty
-        template_defs, showing just the resolution selector + node capture (no
-        template rows, hence no per-template threshold sliders)."""
-        return SetupPanel(
+    def _make_mastery_setup(self, parent) -> MasteryGridWidget:
+        """Mastery is keyboard-driven and walks the tree with WASD, so the only
+        config is the unlock-path grid (no templates, no node-click capture)."""
+        return MasteryGridWidget(
             parent,
-            template_defs=[],
-            folder=get_mastery_templates('custom', self._tpl_lang),
-            nodes_file=get_nodes_file('custom', self._tpl_lang),
-            res_cfg_key='mastery_resolution',
-            mode='mastery',
-            log_cb=self._log,
-            status_cb=self._set_status,
+            grid_file=get_mastery_grid_file(self._tpl_lang),
             lang=self._lang,
-            capture_key=self._capture_key,
-            main_cfg=self._cfg,
-            tpl_lang=self._tpl_lang,
             fg_color=self._t("surface_alt"),
             border_width=1, border_color=self._t("border"),
             corner_radius=self._t("corner"),

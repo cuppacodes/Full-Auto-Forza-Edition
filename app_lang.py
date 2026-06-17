@@ -195,75 +195,6 @@ STRINGS = {
         "en":    "Auto Spin Wheel",
         "zh-tw": "自動轉輪",
     },
-    "nav_full_auto": {
-        "en":    "Full Auto",
-        "zh-tw": "全自動",
-    },
-    "page_title_full_auto": {
-        "en":    "Full Auto",
-        "zh-tw": "全自動",
-    },
-    # ── Full Auto (chained orchestrator) ──────────────────────
-    "full_auto_description": {
-        "en":    "Chains everything into one farm loop:\nAFK race (for mastery points) → buy 33 cars → unlock their mastery trees → sell them → repeat.\n\nSet the races per cycle and whether to spin wheels each cycle. Each step needs its own templates captured (race nav, buy nav). Runs until you press Stop / F9.",
-        "zh-tw": "將所有功能串成一個循環：\n賽事掛機（賺取熟練點數）→ 購買 33 輛車 → 解鎖熟練樹 → 賣出 → 重複。\n\n設定每循環的賽事數，以及是否每循環轉輪。各步驟需先擷取各自的樣本（賽事導航、購買導航）。會持續執行直到你按下停止／F9。",
-    },
-    "full_auto_count_label": {
-        "en":    "Races per cycle (mastery points):",
-        "zh-tw": "每循環賽事數（熟練點數）：",
-    },
-    "full_auto_branch_label": {
-        "en":    "After selling:",
-        "zh-tw": "賣出後：",
-    },
-    "full_auto_branch_wheelspin": {
-        "en":    "Spin wheels",
-        "zh-tw": "轉動輪盤",
-    },
-    "full_auto_branch_racing": {
-        "en":    "Back to racing",
-        "zh-tw": "回到賽事",
-    },
-    "status_starting_full_auto": {
-        "en":    "Starting Full Auto...",
-        "zh-tw": "正在啟動全自動...",
-    },
-    "log_fa_started": {
-        "en":    "Full Auto started.",
-        "zh-tw": "全自動已啟動。",
-    },
-    "log_fa_race_count_warn": {
-        "en":    "  ⚠ Races per cycle is 0 (unlimited) — the cycle can't advance past racing. Set a positive number.",
-        "zh-tw": "  ⚠ 每循環賽事數為 0（無限）— 循環將卡在賽事無法繼續。請設定正整數。",
-    },
-    "log_fa_cycle": {
-        "en":    "==== Full Auto — cycle #{n} ====",
-        "zh-tw": "==== 全自動 — 第 {n} 循環 ====",
-    },
-    "log_fa_step_race": {
-        "en":    "[1/5] AFK race…",
-        "zh-tw": "[1/5] 賽事掛機…",
-    },
-    "log_fa_step_buy": {
-        "en":    "[2/5] Buy {n} cars…",
-        "zh-tw": "[2/5] 購買 {n} 輛車…",
-    },
-    "log_fa_step_mastery_todo": {
-        "en":    "[3/5] Mastery {n} cars — NOT YET WIRED (skipped).",
-        "zh-tw": "[3/5] 熟練 {n} 輛車 — 尚未接入（略過）。",
-    },
-    "log_fa_step_sell_todo": {
-        "en":    "[4/5] Sell {n} cars — NOT YET WIRED (skipped).",
-        "zh-tw": "[4/5] 賣出 {n} 輛車 — 尚未接入（略過）。",
-    },
-    "log_fa_step_spin_todo": {
-        "en":    "[5/5] Wheelspin branch — NOT YET WIRED (skipped).",
-        "zh-tw": "[5/5] 轉輪分支 — 尚未接入（略過）。",
-    },
-    "log_fa_stopped": {
-        "en":    "Full Auto stopped.",
-        "zh-tw": "全自動已停止。",
-    },
     "label_activity": {
         "en":    "Activity",
         "zh-tw": "活動記錄",
@@ -1168,6 +1099,32 @@ STRINGS = {
     "log_node": {
         "en":    "    Node {i}/{n} at ({x},{y})",
         "zh-tw": "    節點 {i}/{n} 位於 ({x},{y})",
+    },
+    # Keyboard grid navigation of the mastery tree (replaces node clicking)
+    "log_grid_unlock": {
+        "en":    "  Unlocking {n} nodes via keyboard (WASD + Enter)...",
+        "zh-tw": "  以鍵盤解鎖 {n} 個節點（WASD + Enter）...",
+    },
+    "log_grid_step": {
+        "en":    "    Node {i}/{n}: {keys}",
+        "zh-tw": "    節點 {i}/{n}：{keys}",
+    },
+    "log_grid_missing": {
+        "en":    "  Mastery tree path not set — open Setup and pick the nodes on the grid.",
+        "zh-tw": "  尚未設定熟練度路徑 — 請開啟設定並在格子上選取節點。",
+    },
+    # Mastery grid picker widget
+    "grid_title": {
+        "en":    "Mastery tree — unlock path",
+        "zh-tw": "熟練度樹 — 解鎖路徑",
+    },
+    "grid_hint": {
+        "en":    "Click nodes in unlock order (S = start, bottom-left). Click the last one again to undo. The bot navigates them with WASD + Enter.",
+        "zh-tw": "依解鎖順序點擊節點（S = 起點，左下角）。再次點擊最後一個可取消。程式會以 WASD + Enter 導航。",
+    },
+    "grid_clear": {
+        "en":    "Clear",
+        "zh-tw": "清除",
     },
     "log_loop": {
         "en":    "Loop",

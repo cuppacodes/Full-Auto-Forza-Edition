@@ -96,6 +96,15 @@ def get_buy_templates(res: str = "custom",
     return path
 
 
+def get_mastery_grid_file(lang: str = DEFAULT_TEMPLATE_LANG) -> str:
+    """The mastery-tree unlock path spec (an ordered list of 4x4 grid cells).
+    Resolution-independent — it's a logical cell sequence, not pixel coords — so
+    it lives directly under the category folder, not a per-resolution subfolder."""
+    d = os.path.join(_lang_dir(lang), "mastery_full")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "mastery_grid.json")
+
+
 def get_examples_dir(lang: str = DEFAULT_TEMPLATE_LANG) -> str:
     path = os.path.join(_lang_dir(lang), "examples")
     os.makedirs(path, exist_ok=True)
@@ -198,10 +207,6 @@ DEFAULTS = {
     # via a Settings slider (min 11). The other mastery step waits
     # (screen/tap + menu-transition delays) stay FIXED constants in mastery.py.
     "mastery_cutscene_wait":  11.0,
-    # Full Auto (chained orchestrator): branch after selling — "racing" (loop
-    # straight back to racing, no wheelspin) | "wheelspin" (run wheelspin each
-    # cycle). The buy/master/sell count is fixed (33) in full_auto.py.
-    "full_auto_branch_mode":  "racing",
     # Buy / Delete settings
     "buy_post_key_wait":      0.5,
     "delete_post_key_wait":   0.5,
