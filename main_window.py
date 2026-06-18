@@ -616,7 +616,11 @@ class MainWindow(ctk.CTk):
         save(self._cfg)
 
     def _build_race_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+        # Solid bg (not transparent): a transparent CTkScrollableFrame canvas
+        # has nothing to repaint over old child positions while scrolling, so
+        # widgets ghost/smear. "surface" is what sits behind it anyway, so the
+        # look is unchanged — just solid enough to clear cleanly on scroll.
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color=self._t("surface"))
 
         # Description
         ctk.CTkLabel(frame, text=_at("race_description", self._lang),
@@ -674,7 +678,11 @@ class MainWindow(ctk.CTk):
         return frame
 
     def _build_mastery_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+        # Solid bg (not transparent): a transparent CTkScrollableFrame canvas
+        # has nothing to repaint over old child positions while scrolling, so
+        # widgets ghost/smear. "surface" is what sits behind it anyway, so the
+        # look is unchanged — just solid enough to clear cleanly on scroll.
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color=self._t("surface"))
 
         # Description
         ctk.CTkLabel(frame, text=_at("mastery_description", self._lang),
@@ -773,7 +781,11 @@ class MainWindow(ctk.CTk):
             slider.pack(side="left", fill="x", expand=True, padx=4)
 
     def _build_buy_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+        # Solid bg (not transparent): a transparent CTkScrollableFrame canvas
+        # has nothing to repaint over old child positions while scrolling, so
+        # widgets ghost/smear. "surface" is what sits behind it anyway, so the
+        # look is unchanged — just solid enough to clear cleanly on scroll.
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color=self._t("surface"))
 
         # Description
         desc = ctk.CTkFrame(frame, fg_color="transparent")
@@ -847,7 +859,11 @@ class MainWindow(ctk.CTk):
         return frame
 
     def _build_spin_tab(self) -> ctk.CTkFrame:
-        frame = ctk.CTkScrollableFrame(self._main_content, fg_color="transparent")
+        # Solid bg (not transparent): a transparent CTkScrollableFrame canvas
+        # has nothing to repaint over old child positions while scrolling, so
+        # widgets ghost/smear. "surface" is what sits behind it anyway, so the
+        # look is unchanged — just solid enough to clear cleanly on scroll.
+        frame = ctk.CTkScrollableFrame(self._main_content, fg_color=self._t("surface"))
 
         # Description — includes the explicit unattended-Sell warning.
         ctk.CTkLabel(frame, text=_at("spin_description", self._lang),
@@ -1985,7 +2001,7 @@ class MainWindow(ctk.CTk):
             border_color=self._t("border"), text_color=self._t("text"),
             hover_color=self._t("surface_alt")).pack(side="left")
 
-        body = ctk.CTkScrollableFrame(self._support_frame, fg_color="transparent")
+        body = ctk.CTkScrollableFrame(self._support_frame, fg_color=self._t("surface"))
         body.pack(fill="both", expand=True, padx=12, pady=8)
 
         ctk.CTkLabel(body, text=_at("support_btn", self._lang),
@@ -2058,7 +2074,7 @@ class MainWindow(ctk.CTk):
             border_color=self._t("border"), text_color=self._t("text"),
             hover_color=self._t("surface_alt")).pack(side="left")
 
-        body = ctk.CTkScrollableFrame(self._report_help_frame, fg_color="transparent")
+        body = ctk.CTkScrollableFrame(self._report_help_frame, fg_color=self._t("surface"))
         body.pack(fill="both", expand=True, padx=16, pady=8)
 
         ctk.CTkLabel(body, text=_at("report_help_title", self._lang),
@@ -2121,7 +2137,7 @@ class MainWindow(ctk.CTk):
             font=('Segoe UI', 14, 'bold')
         ).pack(side='left', padx=12)
 
-        scroll = ctk.CTkScrollableFrame(self._settings_frame, fg_color='transparent')
+        scroll = ctk.CTkScrollableFrame(self._settings_frame, fg_color=self._t("surface"))
         scroll.pack(fill='both', expand=True, padx=12, pady=8)
 
         def section(label_key):
@@ -2276,9 +2292,13 @@ class MainWindow(ctk.CTk):
         except Exception:
             self._cfg['monitor_index'] = 1
         save(self._cfg)
-        for panel in [getattr(self, '_race_setup', None),
-                      getattr(self, '_mastery_setup', None)]:
-            if panel:
+        # Push the new monitor index to EVERY setup panel so template captures
+        # use the freshly-selected monitor without a relaunch — not just
+        # race/mastery (buy and spin were being left stale).
+        for attr in ('_race_setup', '_mastery_setup', '_buy_setup',
+                     '_spin_setup'):
+            panel = getattr(self, attr, None)
+            if panel is not None and hasattr(panel, '_monitor_index'):
                 panel._monitor_index = self._cfg['monitor_index']
 
     def _on_setting_change(self, key: str, var):

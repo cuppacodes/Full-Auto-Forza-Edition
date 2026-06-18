@@ -16,6 +16,21 @@ import time
 import cv2
 import numpy as np
 
+# Cap OpenCV's internal parallelism.  By default cv2.matchTemplate fans out
+# across EVERY logical core, so each detection briefly saturates the whole CPU.
+# That's not just high average load — it momentarily steals the very cores the
+# game's render thread needs, which is what causes the in-game stutter users see
+# while a script polls. ROI-only matching is only a few ms, so a 1–2 thread cap
+# costs no real latency while leaving the rest of the cores free for the game.
+# Configurable per run via `detector_cv_threads` (0 = OpenCV default / all
+# cores).  Set a safe default at import; ScreenDetector re-applies the config
+# value when constructed.
+_DEFAULT_CV_THREADS = 2
+try:
+    cv2.setNumThreads(_DEFAULT_CV_THREADS)
+except Exception:
+    pass
+
 
 Rect = tuple[float, float, float, float]
 Point = tuple[int, int]
@@ -316,6 +331,14 @@ class ScreenDetector:
     def __init__(self, cfg: dict | None = None, debug_dir: str | None = None):
         self.cfg = cfg or {}
         self.debug_dir = debug_dir
+        # Re-assert the OpenCV thread cap from config (0 = let OpenCV use all
+        # cores).  Keeps detection from flooding every core and starving the
+        # game — see _DEFAULT_CV_THREADS above.
+        try:
+            cv2.setNumThreads(int(self.cfg.get("detector_cv_threads",
+                                               _DEFAULT_CV_THREADS)))
+        except Exception:
+            pass
         self._ocr = OptionalOCR()
         self._history: dict[str, list[float]] = {}
         self.scales = self.cfg.get(
