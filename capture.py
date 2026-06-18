@@ -822,6 +822,31 @@ def save_template(folder: str, key: str, crop: np.ndarray,
         json.dump(meta, f)
 
 
+def save_roi(folder: str, key: str, box, screen_w: int, screen_h: int):
+    """Save a custom detection ROI for a template (overrides the geometry box at
+    detect time — see ScreenDetector.set_template_roi). Stored as fractions
+    [x, y, w, h] of the capture frame, MERGED into the template's JSON sidecar so
+    the template image and geometry box are preserved. box = (x,y,w,h) in
+    capture-frame px."""
+    os.makedirs(folder, exist_ok=True)
+    meta_path = os.path.join(folder, f"{key}.json")
+    meta = {}
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+    meta.setdefault("screen_width", int(screen_w))
+    meta.setdefault("screen_height", int(screen_h))
+    x, y, w, h = box
+    sw, sh = max(1, int(screen_w)), max(1, int(screen_h))
+    meta["roi"] = [round(x / sw, 5), round(y / sh, 5),
+                   round(w / sw, 5), round(h / sh, 5)]
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+
+
 def load_template(folder: str, key: str,
                   current_w: int, current_h: int,
                   grayscale: bool = True,
