@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" data-page-lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>document.documentElement.classList.add('lang-loading');</script>
+<title>FAFE – Forza Horizon 6 Automation Tool for Windows</title>
+<meta name="description" content="FAFE is a Windows automation tool for Forza Horizon 6 with race grinding, mastery unlocks, automatic car buying, Wheelspins, and garage cleanup.">
+<link rel="canonical" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/">
+<link rel="alternate" hreflang="en" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/">
+<link rel="alternate" hreflang="zh-Hant" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/">
+<link rel="alternate" hreflang="x-default" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/">
+<link rel="icon" type="image/png" href="../assets/site/fafe-icon.png">
+
+<meta property="og:title" content="FAFE – Forza Horizon 6 Automation Tool">
+<meta property="og:description" content="Automate race grinding, mastery unlocks, car buying, Wheelspins, and garage cleanup on Windows.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/">
+<meta property="og:image" content="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/assets/site/social-preview.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1111">
+<meta property="og:image:height" content="837">
+<meta property="og:image:alt" content="FAFE automation tool interface">
+<meta property="og:site_name" content="Full Auto Forza Edition">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_TW">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FAFE – Forza Horizon 6 Automation Tool">
+<meta name="twitter:description" content="Automate race grinding, mastery unlocks, car buying, Wheelspins, and garage cleanup on Windows.">
+<meta name="twitter:image" content="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/assets/site/social-preview.jpg">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Full Auto Forza Edition",
+  "alternateName": "FAFE",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Windows",
+  "softwareVersion": "1.8.0",
+  "description": "A Windows automation tool for Forza Horizon 6 with race grinding, mastery unlocks, automatic car buying, Wheelspins, and garage cleanup.",
+  "url": "https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/",
+  "downloadUrl": "https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition/releases/latest",
+  "image": "https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/assets/site/overview-en.png",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .lang-loading [data-lang],
+  .lang-loading .lang-select { visibility: hidden; }
+  body {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    line-height: 1.7;
+  }
+
+  /* Language switcher */
+  .lang-bar {
+    background: #070a0f;
+    padding: 8px 24px;
+    display: flex;
+    justify-content: flex-end;
+    border-bottom: 1px solid #111;
+  }
+  .lang-select {
+    background: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+  }
+  .lang-select:hover { border-color: #3b82f6; color: #e0e0e0; }
+
+  .hero {
+    background: linear-gradient(135deg, #0d1b2a 0%, #1a1a2e 60%, #16213e 100%);
+    padding: 64px 24px 48px;
+    text-align: center;
+    border-bottom: 1px solid #1e3a5f;
+  }
+  .hero h1 { font-size: 3rem; font-weight: 700; color: #fff; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .hero h1 span { color: #3b82f6; }
+  .hero .subtitle { font-size: 1.1rem; color: #94a3b8; margin-bottom: 24px; }
+  .hero .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .badge { background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb44; border-radius: 999px; padding: 6px 16px; font-size: 0.85rem; font-weight: 500; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  .section { padding: 56px 0; border-bottom: 1px solid #1f1f1f; }
+  .section:last-child { border-bottom: none; }
+  .section-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #3b82f6; margin-bottom: 12px; }
+  .section h2 { font-size: 1.75rem; font-weight: 700; color: #f1f5f9; margin-bottom: 16px; }
+  .section p { color: #94a3b8; font-size: 1rem; margin-bottom: 16px; max-width: 680px; }
+
+  .screenshot { margin: 28px 0; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .screenshot img { width: 100%; height: auto; display: block; }
+  .screenshot .caption { background: #111827; padding: 10px 16px; font-size: 0.8rem; color: #64748b; text-align: center; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 32px; }
+  .feature-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; }
+  .feature-card .icon { font-size: 1.75rem; margin-bottom: 12px; }
+  .feature-card h3 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 8px; }
+  .feature-card p { font-size: 0.875rem; color: #64748b; margin: 0; }
+  .guide-link { display: block; color: inherit; text-decoration: none; transition: border-color .2s, transform .2s; }
+  .guide-link:hover { border-color: #3b82f6; transform: translateY(-2px); }
+
+  .steps { display: flex; flex-direction: column; gap: 20px; margin-top: 28px; }
+  .step { display: flex; gap: 20px; align-items: flex-start; }
+  .step-num { background: #1e3a5f; color: #60a5fa; border-radius: 999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; margin-top: 2px; }
+  .step-content h3 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+  .step-content p { font-size: 0.875rem; color: #64748b; margin: 0; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } .hero h1 { font-size: 2rem; } }
+
+  .tag { display: inline-block; background: #0f2027; color: #38bdf8; border: 1px solid #0369a144; border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; font-weight: 600; margin-right: 6px; margin-bottom: 6px; }
+
+  .footer-support {
+    display: inline-flex; align-items: center; gap: 6px;
+    position: absolute; right: 24px;
+    background: #0070ba; color: #fff !important;
+    padding: 7px 16px; border-radius: 999px;
+    text-decoration: none; font-size: 0.82rem; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .footer-support:hover { background: #005ea6; }
+
+  .footer {
+    background: #070a0f; padding: 20px 160px 20px 24px;
+    text-align: center; color: #334155; font-size: 0.85rem;
+    border-top: 1px solid #111;
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .footer a { color: #475569; text-decoration: none; transition: color 0.15s; }
+  .footer a:hover { color: #94a3b8; }
+
+  /* Grid diagram */
+  .grid-diagram { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:28px; overflow-x:auto; }
+  .grid-cells { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; max-width:560px; margin:0 auto 24px; }
+  .cell { background:#1a2744; border:1px solid #1e3a5f; border-radius:8px; padding:14px 8px; text-align:center; position:relative; }
+  .cell.start { background:#1e3a5f; border:2px solid #3b82f6; }
+  .cell-num { font-size:1.4rem; font-weight:700; color:#475569; }
+  .cell.start .cell-num { color:#60a5fa; }
+  .cell-label { font-size:0.7rem; color:#93c5fd; margin-top:2px; }
+  .start-badge { position:absolute; top:6px; right:6px; background:#3b82f6; color:#fff; border-radius:4px; font-size:0.6rem; padding:2px 5px; font-weight:700; }
+  .grid-legend { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; font-size:0.8rem; color:#64748b; }
+  .grid-path { margin-top:20px; background:#0d1117; border-radius:8px; padding:16px; font-size:0.82rem; color:#64748b; line-height:1.8; }
+  .tip-box { background:#1a0f00; border:1px solid #78350f44; border-radius:8px; padding:16px; margin-top:16px; display:flex; gap:12px; align-items:flex-start; }
+  .tip-box-text { font-size:0.875rem; color:#fbbf24; }
+
+  [data-lang] { display: none; }
+  [data-lang].active { display: block; }
+  .features[data-lang], .steps[data-lang], .badges[data-lang] { display: none; }
+  .features[data-lang].active { display: grid; }
+  .steps[data-lang].active { display: flex; }
+  .badges[data-lang].active { display: flex; }
+
+  .download-wrap { text-align: center; margin-top: 28px; }
+  .download-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 32px; background: #2563eb; color: #fff;
+    border-radius: 10px; text-decoration: none;
+    font-size: 1.05rem; font-weight: 700; letter-spacing: 0.02em;
+    box-shadow: 0 4px 24px rgba(37,99,235,0.35);
+    transition: background 0.15s, transform 0.1s;
+  }
+  .download-btn:hover { background: #1d4ed8; transform: translateY(-2px); }
+  .download-version { font-size: 0.78rem; font-weight: 400; opacity: 0.75; margin-left: 4px; }
+
+  /* ── Collapsible tutorial ───────────────────────────── */
+  .tut-part { border: 1px solid #1e293b; border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+  .tut-part-header {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    background: #111827; border: none; color: #f1f5f9;
+    padding: 16px 22px; cursor: pointer; font-size: 1rem; font-weight: 600;
+    text-align: left; transition: background 0.15s;
+  }
+  .tut-part-header:hover { background: #1e293b; }
+  .tut-chevron { color: #60a5fa; font-size: 0.8rem; transition: transform 0.2s; flex-shrink: 0; margin-left: 12px; }
+  .tut-part-header.open .tut-chevron { transform: rotate(180deg); }
+  .tut-part-body { padding: 0 22px; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s; }
+  .tut-part-body.open { max-height: 3000px; padding: 20px 22px 28px; }
+
+  .tut-notice {
+    background: #451a03; border: 1px solid #c2410c;
+    border-left: 4px solid #f97316;
+    border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;
+    font-size: 0.9rem; line-height: 1.6;
+  }
+  .tut-notice .notice-title { font-weight: 700; color: #fb923c; margin-bottom: 4px; font-size: 0.95rem; }
+  .tut-notice p { color: #fed7aa; margin: 0; }
+
+  /* ── Sidebar nav ────────────────────────────────────── */
+  .sidebar {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 8px;
+    width: 140px;
+    z-index: 100;
+  }
+  .sidebar-title {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #475569; margin-bottom: 12px;
+    padding-left: 10px;
+  }
+  .sidebar a {
+    display: block; padding: 6px 10px; margin-bottom: 2px;
+    color: #64748b; text-decoration: none; font-size: 0.82rem;
+    border-radius: 6px; border-left: 2px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar a:hover { color: #f1f5f9; background: #1e293b; }
+  .sidebar a.active { color: #60a5fa; border-left-color: #3b82f6; background: #1e3a5f22; font-weight: 600; }
+  .sidebar-divider { border: none; border-top: 1px solid #1e293b; margin: 6px 10px; }
+
+  /* Only show when viewport is wide enough that sidebar won't overlap content */
+  @media (max-width: 1200px) {
+    .sidebar { display: none; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- Language bar -->
+<div class="lang-bar">
+  <select class="lang-select" onchange="changeLanguage(this.value)">
+    <option value="zh-tw">繁體中文</option>
+    <option value="en">English</option>
+  </select>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <img src="../assets/site/fafe-icon.png" alt="FAFE" width="512" height="512" style="width:84px;height:84px;margin-bottom:16px;border-radius:18px;box-shadow:0 8px 28px rgba(0,0,0,.5);">
+  <h1>Full Auto <span>Forza Edition</span></h1>
+
+
+
+  <div>
+    <p class="subtitle">Forza Horizon 6 automation tool · Race grind, 22B mastery unlock, auto buy, auto spin wheel, and garage cleanup — five modes, fully hands-free</p>
+    <div class="badges active">
+      <span class="badge">🏁 Race Auto-Grind</span>
+      <span class="badge">⭐ Auto Unlock 22B Wheels</span>
+      <span class="badge">🛒 Auto Buy 22B-STi</span>
+      <span class="badge">🎡 Auto Spin Wheel</span>
+      <span class="badge">🗑️ Delete Used Cars</span>
+      <span class="badge">🌏 Traditional Chinese / English</span>
+      <span class="badge">🖥️ Multi-monitor Support</span>
+    </div>
+  </div>
+</div>
+
+<div class="download-wrap">
+<a class="download-btn" href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition/releases/latest/download/FAFE.zip">
+  ⬇️
+
+
+  <span>Download FAFE<span class="download-version">Latest · Windows</span></span>
+</a>
+</div>
+
+<div class="container"><div class="sidebar">
+  <div class="sidebar-title">
+    <span>Contents</span>
+  </div>
+  <a href="#about" id="nav-about">
+    <span>About</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#features" id="nav-features">
+    <span>Features</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#guides" id="nav-guides">
+    <span>Guides</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#howto" id="nav-howto">
+    <span>Getting Started</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#settings" id="nav-settings">
+    <span>Settings</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#tutorial" id="nav-tutorial">
+    <span>Tutorial</span>
+  </a>
+  <hr class="sidebar-divider">
+  <a href="#disclaimer" id="nav-disclaimer">
+    <span>Disclaimer</span>
+  </a>
+</div>
+
+  <!-- About -->
+  <div class="section" id="about">
+
+
+    <div class="section-label">About</div>
+
+
+
+    <h2>What is Full Auto Forza Edition?</h2>
+
+
+
+
+
+    <p>Full Auto Forza Edition is an automation tool built for Forza Horizon 6 players. Using screenshot template matching and simulated input, it fully automates five of the most time-consuming repetitive tasks — race grinding for skill points, unlocking 22B mastery, bulk buying 22B-STi, auto-spinning Super or normal Wheelspins (with duplicate-reward handling), and deleting used cars from your garage. It reads the game window directly and sends input via window messages, so it keeps working even when the game is <strong>unfocused, covered by another window, or running in the background</strong>.</p>
+    <p>No game file modification, no code injection. The tool simply simulates keyboard and mouse actions, just like a human player would.</p>
+
+    <div class="screenshot">
+
+
+      <img src="../assets/site/overview-en.png" alt="FAFE English main interface" width="1788" height="1307" loading="lazy" decoding="async" style="width:100%;">
+
+
+      <div class="caption">Full Auto Forza Edition — Dark theme, multi-language support</div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="section" id="features">
+
+
+    <div class="section-label">Features</div>
+
+
+    <h2>Key Features</h2>
+
+
+
+    <div class="features">
+      <div class="feature-card"><div class="icon">🏁</div><h3>Race Auto-Grind</h3><p>Automatically detects race start, finish and restart screens. Holds W throughout, restarts automatically when the race ends.</p></div>
+      <div class="feature-card"><div class="icon">⭐</div><h3>Auto Unlock 22B Wheels</h3><p>Plan which mastery-tree nodes to unlock in a grid, and pick the car range with the garage block; it keyboard-navigates car to car top-to-bottom, opens mastery, unlocks the nodes, then moves to the next — looping indefinitely.</p></div>
+      <div class="feature-card"><div class="icon">🛒</div><h3>Auto Buy 22B-STi</h3><p>Navigates to the 22B-STi in the Journal and automatically presses through the purchase sequence, looping indefinitely until stopped.</p></div>
+      <div class="feature-card"><div class="icon">🎡</div><h3>Auto Spin Wheel</h3><p>Auto-spins Super or normal Wheelspins from the My Horizon menu — waits for the on-screen prompt, collects the prize (all 3 at once for a Super Wheelspin), and handles duplicate cars (keep or sell) automatically. Loops until stopped.</p></div>
+      <div class="feature-card"><div class="icon">🗑️</div><h3>Delete Used Cars</h3><p>Automatically deletes cars one by one. After each deletion the game auto-selects the next car — no navigation needed. Loops until stopped.</p></div>
+      <div class="feature-card"><div class="icon">📸</div><h3>Template Matching</h3><p>Ships with detection templates that auto-scale to your resolution — Race, Buy and Auto Spin Wheel work out of the box, no capturing needed.</p></div>
+      <div class="feature-card"><div class="icon">🌏</div><h3>Two-language UI</h3><p>Full Traditional Chinese and English support. Language switch auto-restarts the app. All settings save instantly.</p></div>
+      <div class="feature-card"><div class="icon">⌨️</div><h3>Customizable Hotkeys</h3><p>Toggle and capture keys are fully remappable. Default F9 to start/stop, CAPS LOCK to capture. Click a button and press any key to rebind.</p></div>
+      <div class="feature-card"><div class="icon">🖥️</div><h3>Multi-monitor Support</h3><p>Select which monitor your game is on. Supports ultrawide displays. Persists across restarts.</p></div>
+      <div class="feature-card"><div class="icon">🪟</div><h3>Background Mode</h3><p>Reads the game window directly and sends input via window messages, so it runs even when the game is <strong>unfocused, covered, or in the background</strong> — keep using your PC while it grinds. A keep-alive stops the game auto-pausing while unfocused.</p></div>
+    </div>
+  </div>
+
+  <div class="section" id="guides">
+    <div class="section-label">Guides</div>
+    <h2>Detailed FAFE Guides</h2>
+    <p>Learn how each automation mode works, how to prepare the game, and what to check if a run stops.</p>
+    <div class="features">
+      <a class="feature-card guide-link" href="guides/race-auto-grind/"><div class="icon">🏁</div><h3>Race Auto-Grind</h3><p>Set up unattended race loops, background input, and reliable screen detection.</p></a>
+      <a class="feature-card guide-link" href="guides/auto-wheelspin/"><div class="icon">🎡</div><h3>Auto Wheelspin</h3><p>Run normal or Super Wheelspins and handle duplicate-car prompts.</p></a>
+      <a class="feature-card guide-link" href="guides/22b-mastery-unlock/"><div class="icon">⭐</div><h3>22B Mastery Unlock</h3><p>Configure the unlock-path grid and select a safe contiguous garage block.</p></a>
+      <a class="feature-card guide-link" href="guides/troubleshooting/"><div class="icon">🛠️</div><h3>Troubleshooting</h3><p>Fix missed input, detection stalls, black captures, and performance issues.</p></a>
+    </div>
+  </div>
+
+  <!-- How to use -->
+  <div class="section" id="howto">
+
+
+    <div class="section-label">Getting Started</div>
+
+
+    <h2>Three Steps to Start</h2>
+
+
+
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-content"><h3>Pick your game monitor</h3><p>Select the monitor your game is on from the Game Monitor picker (top-right). Detection templates ship built in and auto-scale to your resolution — Race, Buy and Auto Spin Wheel need <strong>no capturing</strong>.</p></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-content"><h3>Switch to Game, Press Start</h3><p>Switch to Forza Horizon 6 and get to the correct screen. Return to Full Auto Forza Edition and click "▶ Start" or press <strong>F9</strong>. The tool counts down 5 seconds so you can switch back to the game.</p></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-content"><h3>Let It Run</h3><p>The tool runs fully automatically. A live log shows every action in real time. To stop at any time, press <strong>F9</strong> or click "■ Stop".</p></div></div>
+    </div>
+
+    <div class="screenshot" style="margin-top:32px;">
+
+
+      <img src="../assets/site/running-en.png" alt="FAFE automation running" width="1220" height="502" loading="lazy" decoding="async" style="width:100%;">
+
+
+      <div class="caption">Script running — countdown, game detection and live log all visible</div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="section" id="settings">
+
+
+    <div class="section-label">Advanced Settings</div>
+
+
+    <h2>Tune for Your PC</h2>
+    <div class="two-col">
+      <div>
+
+
+        <p>Open <strong>Settings</strong> from the sidebar (bottom-left) to adjust:</p>
+        <div style="margin:16px 0;">
+
+
+          <span class="tag">UI Scale</span><span class="tag">Detection Interval</span><span class="tag">Key Wait</span><span class="tag">OCR</span><span class="tag">Theme</span><span class="tag">Overlay</span><span class="tag">Hotkey Binding</span>
+        </div>
+
+
+        <p>Every setting has a <strong>?</strong> button — click it for a full explanation. All changes save instantly. If your game misses key presses or clicks, increase the Key Wait or Click Wait values accordingly.</p>
+      </div>
+      <div class="screenshot" style="margin:0;">
+
+
+      <img src="../assets/site/settings-en.png" alt="FAFE settings window" width="1307" height="951" loading="lazy" decoding="async" style="width:100%;">
+
+
+        <div class="caption">⚙ Settings Window</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial -->
+  <div class="section" id="tutorial">
+
+
+    <div class="section-label">Tutorial</div>
+
+
+    <h2>Complete Guide</h2>
+
+
+    <p>Click each section to expand.</p>
+
+  <div class="tut-part">
+    <button class="tut-part-header open" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 1 — First-time Setup</span>
+      <span class="tut-chevron">▲</span>
+    </button>
+    <div class="tut-part-body open">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Pick your game monitor</h3><p>Select the monitor your game is on from the Game Monitor picker (top-right), and run the game in <strong>Borderless</strong> or <strong>Windowed</strong> mode.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Templates are built in</h3><p>Detection templates for Race, Buy and Auto Spin Wheel ship built in and auto-scale to your resolution — <strong>nothing to capture</strong>, they work out of the box.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Appearance &amp; language</h3><p>In Settings you can switch language (中文/English), theme and UI scale, and rebind hotkeys (default F9 start/stop, F12 report, F10 overlay).</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Only exception: Unlock Spin Wheel grid</h3><p>The one thing you set up is Unlock Spin Wheel: in its panel, use the <strong>unlock-path grid</strong> to mark which mastery-tree nodes to unlock, and the <strong>garage block</strong> to pick the range of cars (first row, middle full columns, last row). No node capture or templates needed — see Part 3.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Ready to go</h3><p>Everything else works without setup. Open the function you want and press ▶ Start or <strong>F9</strong>.</p></div></div>
+</div>
+    </div>
+  </div>
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 2 — Race Auto-Grind</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Open AFK Races</h3><p>Click 🏁 AFK Races in the sidebar. Templates are built in — nothing to capture.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Prepare your car and difficulty settings</h3><p>Use a <strong>fully upgraded</strong> Subaru Impreza 22B-STi. In the game's <strong>Difficulty</strong> settings, confirm: <strong>Steering</strong> = <strong>Auto Steering</strong>, <strong>Traction Control</strong> = <strong>On</strong>, <strong>Stability Control</strong> = <strong>On</strong>, and use an <strong>automatic transmission</strong>. These keep the car completing each race without manual input.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Get to the Start Race screen (or stay on the main menu)</h3><p>Either <strong>stop on the Start Race screen</strong> yourself, or just <strong>stay on the main menu</strong> — FAFE auto-navigates via <strong>Creative Hub → EventLab</strong> to your <strong>last-played event</strong> and into the start screen. Use blueprint share code <strong>362 177 064</strong> (or any course you can finish by holding W). FAFE detects which screen you're on and takes over; just don't let the race begin yet.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Press Start</h3><p>Back in FAFE, click ▶ Start or press <strong>F9</strong>. A 5-second countdown begins — switch to Forza before it ends.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Let it run</h3><p>The tool detects race start, holds W throughout, detects the finish, and restarts automatically — looping forever.</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>Stop</h3><p>Press <strong>F9</strong> or click ■ Stop at any time to stop immediately — <strong>this works mid-race too, while it's holding W</strong>.</p></div></div>
+</div>
+    </div>
+  </div>
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 3 — Auto Unlock 22B Wheels</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Clear the car path (no deleting)</h3><p>The tool walks your <strong>selected range</strong> of cars top-to-bottom, column by column. Just make sure that range is all the 22B-STis you want to unlock — <strong>don't leave other cars in the path</strong>. You don't need to delete other cars from your garage.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Sort by Recently Added</h3><p>In the garage screen press X to open the sort menu and select Recently Added. The tool re-sorts after each car automatically.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Stop at the My Home garage screen</h3><p>Leave the game on the <strong>My Home garage</strong> screen (not the Horizon Festival map menu), with the first car you want to unlock in the top-left (newest) position.</p></div></div>
+<div class="screenshot" style="margin:12px 0 4px;">
+  <img src="../assets/site/garage-ready.webp" width="3240" height="1747" loading="lazy" decoding="async" style="width:100%;display:block;" alt="Garage ready to start">
+
+
+  <div class="caption">My Home garage ready — first car in the top-left position, all cars are 22B-STi</div>
+</div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Set the unlock path &amp; car range</h3><p>In the function panel: use the <strong>unlock-path grid</strong> to tick the mastery-tree nodes to unlock (the tool walks them with WASD+Enter — no node capture), and the <strong>garage block</strong> to pick the contiguous range of cars — first row, middle full columns, last row, matching the top-to-bottom blocks in your garage.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Press Start</h3><p>Open the ⭐ Unlock Spin Wheel function in the sidebar, click ▶ Start or press <strong>F9</strong>, and switch back to Forza during the countdown.</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>Fully automatic from here</h3><p>The tool enters each car top-to-bottom, opens Car Mastery, unlocks the nodes by keyboard, returns to the garage, and moves to the next — through your whole selected range.</p></div></div>
+</div>
+    </div>
+  </div>
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 4 — Auto Buy 22B-STi</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Open Buy Cars</h3><p>Click 🛒 Buy Cars in the sidebar.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Position on the 22B-STi (auto or manual)</h3><p>Just <strong>stay on the main menu</strong> — FAFE walks <strong>Collection Journal → Discover Japan / Master Explorer → Car Collection → Subaru</strong>, opens the 22B-STi, and returns to the main menu when done. Or position manually: <strong>Menu → Collection Journal → Master Explorer → Car Collection</strong> → click the <strong>22B-STi</strong> and leave the game on that screen.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Press Start</h3><p>Back in FAFE, choose how many to buy (<strong>0 = unlimited</strong>), then click ▶ Start or press <strong>F9</strong>. Switch back to Forza during the 5-second countdown.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Fully automatic purchasing</h3><p>The tool presses: <strong>Space → Down → Enter → Enter → Enter</strong> with 0.5s between each input (adjustable in Settings), completing one purchase then repeating.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Stop</h3><p>Press <strong>F9</strong> or click ■ Stop at any time to stop cleanly.</p></div></div>
+<div class="step"><div class="step-num">✦</div><div class="step-content"><h3>Extra — it's just a key macro</h3><p>This feature is fundamentally just a key macro, so it works for <strong>any car you can buy</strong>, not only the 22B-STi.</p></div></div>
+</div>
+    </div>
+  </div>
+
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 5 — Delete Used Cars</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Prepare your garage</h3><p>Make sure the deletion path contains <strong>only cars you want to delete</strong>. The tool starts from the car currently being viewed and deletes <strong>toward newer cars</strong>, one by one — it can't skip specific ones.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Sort, and stop on your starting car</h3><p>Set the garage sort to <strong>Newest first</strong>, then go to the <strong>oldest</strong> car you want to start from. For example, with 12 cars, navigate to the 12th and leave the screen <strong>viewing that car</strong>.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Open Delete Cars &amp; set the range</h3><p>Click 🗑️ Delete Cars in the sidebar and use the <strong>garage block</strong> to pick the contiguous range of cars to delete (first row, middle full columns, last row) — the grid shows the <strong>total count</strong>. Then tick the <strong>"I understand all cars between the first and last car will be deleted"</strong> box to enable Start.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Press Start</h3><p>Back in FAFE, click ▶ Start or press <strong>F9</strong>, and switch to Forza during the 5-second countdown.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Fully automatic</h3><p>The tool presses: <strong>Enter → Down ×4 → Enter → Down ×1 → Enter</strong>. After each deletion the game selects the next car automatically.</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>Stop</h3><p>Press <strong>F9</strong> or click ■ Stop at any time.</p></div></div>
+</div>
+    </div>
+  </div>
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 6 — Auto Spin Wheel</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>Templates are built in</h3><p>Auto Spin Wheel is detection-based, and the templates it needs ship built in — nothing to capture, works out of the box.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Pick the wheel type and go</h3><p>On the tab, choose <strong>Super Wheelspin</strong> (3 prizes at once) or <strong>normal Wheelspin</strong> (1 prize). In-game, open the <strong>My Horizon</strong> menu so the matching tile is visible. If you captured the My Horizon tab template, you can also <strong>start from the main menu</strong> — FAFE clicks the tab for you.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Choose duplicate handling</h3><p>On the tab, pick <strong>Add to Garage</strong> (keep) or <strong>Sell</strong>. ⚠ Sell mode sells duplicate cars <strong>automatically and unattended</strong> — use with care.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Set the count and start</h3><p>Set the number of spins (<strong>0 = unlimited</strong>, stop with F9). Open 🎡 Auto Spin Wheel in the sidebar, click ▶ Start or press <strong>F9</strong>, and switch back during the countdown.</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Fully automatic</h3><p>FAFE clicks the chosen Wheelspin tile to start, then <strong>every spin auto-continues</strong>: detect the prompt → (optional) skip → <strong>Enter collects the prize</strong> (all 3 at once for a Super Wheelspin) → handle 0–3 duplicate cars. FAFE never presses to spin itself.</p></div></div>
+<div class="step"><div class="step-num">6</div><div class="step-content"><h3>Stop</h3><p>Press <strong>F9</strong> or click ■ Stop anytime. With a set count, the final spin collects with <strong>Esc</strong> and ends back on the My Horizon menu.</p></div></div>
+</div>
+    </div>
+  </div>
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 7 — Troubleshooting</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">?</div><div class="step-content"><h3>Does the game need to stay focused?</h3><p>No. FAFE <strong>reads the game window directly</strong> and sends input via window messages, so it works even when the game is <strong>unfocused, covered by another window, or in the background</strong> — and a keep-alive stops it auto-pausing. Use your PC for other things while it runs. (Don't <strong>minimise</strong> the game, though — a minimised window stops rendering frames.)</p></div></div>
+<div class="step"><div class="step-num">?</div><div class="step-content"><h3>Tool misses a key press or click</h3><p>Open Settings (⚙) and increase Key Wait or Click Wait. Raise them on slower PCs or when the game loads slowly.</p></div></div>
+<div class="step"><div class="step-num">?</div><div class="step-content"><h3>Does a resolution change break templates?</h3><p>No — built-in templates auto-scale to your resolution, so there's nothing to redo. If detection fails at an unusual aspect ratio, report it with <strong>F12</strong>.</p></div></div>
+<div class="step"><div class="step-num">?</div><div class="step-content"><h3>Can I use other courses?</h3><p>Any course you can <strong>finish just by holding W</strong> works. If the car careens off, crashes or loses control, turn on <strong>assisted braking in the game's difficulty settings</strong> — that usually keeps it on track. It's the game's auto-steering, not a tool problem.</p></div></div>
+<div class="step"><div class="step-num">?</div><div class="step-content"><h3>Can it unlock mastery for other cars?</h3><p>Yes — set up that car's correct unlock path in the <strong>unlock-path grid</strong>. The tool walks the grid path by keyboard, so it isn't tied to any specific car.</p></div></div>
+<div class="step"><div class="step-num">?</div><div class="step-content"><h3>Game ignores key presses or clicks (car won't move)</h3><p>If FAFE is sending input but the game doesn't respond (car won't drive, keys or clicks do nothing), <strong>run FAFE as administrator</strong> (right-click FAFE.exe → "Run as administrator"). Windows blocks a lower-privilege program from sending input to a game that's running with administrator rights.</p></div></div>
+</div>
+    </div>
+  </div>
+
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 8 — Game Overlay</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>What the overlay is</h3><p>A small card that floats over the game showing the current status, the <strong>last 5 log lines</strong>, and the key to stop.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>Turn it on</h3><p>Press <strong>F10</strong>, click the ●/○ indicator in the top bar (right of the monitor picker), or use Settings → Appearance. All three stay in sync.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Move it</h3><p>Drag anywhere on the card to reposition it (it's not click-through, so park it <strong>away from areas the tool needs to detect or click</strong>). Its position is remembered.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Switch function</h3><p>Use the dropdown next to "FAFE" in the overlay header to switch which tab runs — without leaving the game. (Changing the <strong>loop count</strong> still has to be done in the app itself for now.)</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Rebind the hotkey</h3><p>Change the overlay hotkey in Settings (default <strong>F10</strong>).</p></div></div>
+<div class="step"><div class="step-num">✦</div><div class="step-content"><h3>What it's mainly for</h3><p>It mainly lets <strong>single-monitor</strong> users watch where a run goes wrong. For race grinding, if it detects the "restart menu" (the post-race results screen) <em>before</em> the race finishes, that means it's <strong>triggering too early</strong>.</p></div></div>
+</div>
+    </div>
+  </div>
+
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">Part 9 — Reporting Bugs</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">1</div><div class="step-content"><h3>One-press diagnostic bundle</h3><p>Press <strong>F12</strong> to generate a diagnostic bundle — an <strong>annotated detection screenshot</strong> (showing the search region, the match result and where the mouse click landed) and your logs — zipped, and the reports folder opens automatically.</p></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content"><h3>When to press it</h3><p>Let the script run until it fails and <strong>stay on the screen where it failed</strong>, then press <strong>F12</strong> (with the game in focus). This captures the exact screen detection got stuck on. <strong>Don't switch to another screen first</strong> — stay on the failing one so the problem is visible.</p></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content"><h3>Why a hotkey, not a button</h3><p>The 🐞 Report a Bug button only opens this tutorial — clicking a button would foreground FAFE and screenshot the wrong window. The actual capture must happen via the global <strong>F12</strong> hotkey while the game is focused.</p></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content"><h3>Privacy</h3><p>The bundle includes your settings, logs and basic system info (OS, CPU, etc., written into log.txt). Review it before sharing. The system info is only there to check whether a problem is hardware-related (e.g. whether certain CPUs are more prone to it).</p></div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content"><h3>Rebind the hotkey</h3><p>Change the report hotkey in Settings (default <strong>F12</strong>).</p></div></div>
+<div class="step"><div class="step-num">✦</div><div class="step-content"><h3>How to report</h3><p>Once the file is generated, open a <strong>new post in the Discord bug-report channel</strong> below and attach the zip. Please <strong>don't</strong> post it in general or DM me — posting there keeps a record and lets others reference it.</p></div></div>
+</div>
+    </div>
+  </div>
+
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+      <span style="pointer-events:none;">Part 10 — Settings</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">🎨</div><div class="step-content"><h3>Appearance</h3><p><strong>Theme:</strong> overall colour scheme (Default / Midnight Neon); switching restarts the app to apply.<br><br><strong>Language:</strong> UI language (中文/English); switching restarts the app.<br><br><strong>Game menu language:</strong> which template set to use (Auto / 繁中 / English) — match your game's UI language; Auto follows the app language.<br><br><strong>UI scale:</strong> app window size (Auto, or 100%–250%); applies live.<br><br><strong>Game overlay:</strong> show the floating status card over the game (also toggled with F10).</p></div></div>
+<div class="step"><div class="step-num">🖥️</div><div class="step-content"><h3>System</h3><p><strong>Mute game while running:</strong> mutes the <strong>game's</strong> audio during a run (per-app, leaves other apps alone).<br><br><strong>OCR text detection:</strong> use OCR to read on-screen text and confirm matches. <strong>Off by default</strong> (lighter on CPU, fixes stutter); turning it on helps most when the window is small and the pixel match struggles.<br><br><strong>Debug snapshots:</strong> save annotated detection PNGs to the debug/ folder (applies next run) for diagnosing mis-detections.</p></div></div>
+<div class="step"><div class="step-num">⌨️</div><div class="step-content"><h3>Shortcuts</h3><p>Rebindable: <strong>Start/Stop</strong> (default F9), <strong>Capture</strong> (default CAPS LOCK), <strong>Report</strong> (default F12), <strong>Overlay</strong> (default F10). Click a button and press any key to rebind.</p></div></div>
+<div class="step"><div class="step-num">🏁</div><div class="step-content"><h3>Race</h3><p><strong>Detection interval:</strong> how often it scans the game (0.5 = every 0.5s); raise it on a weaker CPU.<br><br><strong>Post-key wait:</strong> how long to wait after each key press; raise on low FPS or slow loads.</p></div></div>
+<div class="step"><div class="step-num">⭐</div><div class="step-content"><h3>Unlock Spin Wheel</h3><p><strong>Cutscene wait:</strong> time to wait for the "Ride This Car" cutscene after entering a car.<br><br><strong>Node unlock interval:</strong> the gap between each unlock (key press) on the mastery tree.<br><br><strong>Menu tap interval:</strong> the gap between consecutive menu key taps.</p></div></div>
+<div class="step"><div class="step-num">🛒</div><div class="step-content"><h3>Buy / Delete / Wheelspin</h3><p><strong>Post-key wait:</strong> the key interval for Buy, Delete Cars and Auto Spin Wheel respectively. Drag left to speed up, but too fast may drop inputs or break.</p></div></div>
+<div class="step"><div class="step-num">ℹ️</div><div class="step-content"><h3>General</h3><p>Every setting has a <strong>?</strong> help button. All settings <strong>save instantly</strong> (Theme and Language need a restart). If a slower PC misses keys or clicks, raise the matching "wait" value.</p></div></div>
+</div>
+    </div>
+  </div>
+
+  <div class="tut-part">
+    <button class="tut-part-header" onclick="togglePart(this)">
+
+
+      <span style="pointer-events:none;">How It Works (Mechanics)</span>
+      <span class="tut-chevron">▼</span>
+    </button>
+    <div class="tut-part-body">
+
+
+      <div class="steps"><div class="step"><div class="step-num">🔍</div><div class="step-content"><h3>Detection system</h3><p>Detection works in a few layers: (1) a fast <strong>text-appearance match</strong> at the pixel level; (2) the <strong>ROI system</strong>, which limits the search to where the template should appear (e.g. the "Start Race" button is centre-left, so it only searches there) — this also makes detection tens of times faster; (3) optional <strong>OCR text hints</strong> — the keywords each screen should contain, which OCR reads off the screen to confirm a match. OCR is CPU-heavy and can stutter the game, so it's <strong>off by default</strong> and can be enabled in Settings (it helps most when the window is small and the pixel match struggles).<br><br>There's a single built-in template set that <strong>auto-scales to your resolution</strong>, so Race, Buy and Auto Spin Wheel work out of the box. Advanced users can <strong>capture their own templates</strong> and <strong>draw a custom Detection area (ROI)</strong> for a different game language or custom screen.</p></div></div>
+<div class="step"><div class="step-num">📊</div><div class="step-content"><h3>Match value (threshold)</h3><p>Imagine being shown two images and asked how similar they are, as a %. That's the match value — except the system compares at the <strong>pixel level</strong>, so even if they look identical to your eye, the system might see only 50% similarity. The slider in Settings decides what % similarity counts as a pass. Built-in templates <strong>auto-scale to your resolution</strong>, so there's no resolution to choose.</p></div></div>
+<div class="step"><div class="step-num">🎯</div><div class="step-content"><h3>Choosing a template</h3><p>As a rule, pick a screen element that <strong>only appears on that step</strong> — e.g. the timer top-left, or "Restart" on the results screen.<br><br>Other factors: <strong>variability</strong> — avoid a translucent background that changes by location; <strong>size</strong> — a bigger region has more pixels to match (fewer false positives) but is harder to pass and slower to scan, so experiment; <strong>language</strong> — built-in templates cover <strong>Traditional Chinese and English</strong> game UI; for other languages or a custom screen, capture your own templates and draw the Detection area.</p></div></div></div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="section" id="disclaimer">
+
+
+    <div class="section-label">Disclaimer</div>
+
+
+    <h2>Please Read Before Use</h2>
+
+
+    <p>This tool only simulates keyboard and mouse input — no memory modification or game file tampering. That said, using any automation tool carries a risk of account action. Use at your own discretion.</p>
+  </div>
+
+</div>
+
+<div class="footer">
+  <a class="footer-support" href="https://paypal.me/Leonbacon" target="_blank">
+    ☕
+    <span>Support Me</span>
+  </a>
+
+
+  <span>Full Auto Forza Edition &nbsp;·&nbsp; For Forza Horizon 6 &nbsp;·&nbsp; Unofficial tool, not affiliated with Xbox Game Studios &nbsp;·&nbsp; <a href="https://github.com/Leoncrispybacon/Full-Auto-Forza-Edition" target="_blank">GitHub</a> &nbsp;·&nbsp; <a href="https://discord.gg/yfn8Vw8Ypf" target="_blank">Discord</a></span>
+</div>
+
+<script>
+
+function togglePart(btn) {
+  const isOpen = btn.classList.contains('open');
+  btn.classList.toggle('open');
+  btn.querySelector('.tut-chevron').textContent = isOpen ? '▼' : '▲';
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+function setLang(lang) {
+  // Hide all lang elements
+  document.querySelectorAll('[data-lang]').forEach(el => {
+    el.classList.remove('active');
+    // For images, also hide via display
+    if (el.tagName === 'IMG') el.style.display = 'none';
+  });
+  // Show selected lang
+  document.querySelectorAll('[data-lang="' + lang + '"]').forEach(el => {
+    el.classList.add('active');
+    if (el.tagName === 'IMG') el.style.display = 'block';
+  });
+  // Update html lang attribute
+  document.documentElement.lang = lang === 'zh-tw' ? 'zh-TW' : 'en';
+}
+
+function changeLanguage(lang) {
+  try {
+    localStorage.setItem('preferredLanguage', lang);
+  } catch (error) {
+    // Language switching still works when storage is unavailable.
+  }
+  window.location.href = lang === 'zh-tw' ? '../zh-tw/' : '../en/';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const lang = document.documentElement.dataset.pageLang;
+
+    setLang(lang);
+    document.querySelector('.lang-select').value = lang;
+  } finally {
+    document.documentElement.classList.remove('lang-loading');
+  }
+});
+
+(function() {
+  var sections = ['about','features','guides','howto','settings','tutorial','disclaimer'];
+  function onScroll() {
+    var scrollY = window.scrollY + 120;
+    var current = sections[0];
+    sections.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.offsetTop <= scrollY) current = id;
+    });
+    sections.forEach(function(id) {
+      var nav = document.getElementById('nav-' + id);
+      if (nav) nav.classList.toggle('active', id === current);
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
+</script>
+
+</body>
+</html>

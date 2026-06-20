@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/" />
+  </url>
+  <url>
+    <loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/" />
+  </url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/guides/race-auto-grind/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/guides/race-auto-grind/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/guides/auto-wheelspin/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/guides/auto-wheelspin/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/guides/22b-mastery-unlock/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/guides/22b-mastery-unlock/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/en/guides/troubleshooting/</loc></url>
+  <url><loc>https://leoncrispybacon.github.io/Full-Auto-Forza-Edition/zh-tw/guides/troubleshooting/</loc></url>
+</urlset>
